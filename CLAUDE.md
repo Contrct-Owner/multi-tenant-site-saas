@@ -53,6 +53,9 @@ don't restate them here.
   (ADR 20). Capability keys come from codegen, never hand-typed strings (ADR 16).
 - **Guests are principals.** No anonymous code paths — the principal pipeline
   builds a tenant-scoped Guest from the request host before authn (ADR 07).
+- **One Wolverine handler class per message type**, named `<Message>Handler`.
+  A single class with multiple `Handle` overloads is silently NOT discovered —
+  messages publish into the void with no error and no dead letter.
 - **Wolverine codegen rules** (fail at first request, not at build): register
   services by TYPE (`AddScoped<IFoo, Foo>()`), never via lambda factories —
   opaque factories force service location and Wolverine refuses them. Any

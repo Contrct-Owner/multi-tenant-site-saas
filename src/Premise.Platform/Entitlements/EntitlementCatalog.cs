@@ -49,8 +49,11 @@ public static class EntitlementCatalog
     /// <summary>Per-org API requests per minute (ADR 30's org quota).</summary>
     public const string ApiRequestsPerMinute = "api.requests_per_minute";
 
-    /// <summary>Audit retention in days (tiered; consumed in step 5).</summary>
+    /// <summary>Audit retention in days (tiered) - drives the purge job.</summary>
     public const string AuditRetentionDays = "audit.retention_days";
+
+    /// <summary>Whether the plan includes read/access logging at all (the entitlement half of the audit policy).</summary>
+    public const string AuditReadLogging = "audit.read_logging";
 
     public static readonly IReadOnlyDictionary<string, EntitlementDescriptor> Definitions =
         new Dictionary<string, EntitlementDescriptor>
@@ -80,6 +83,12 @@ public static class EntitlementCatalog
                 EntitlementShape.Tiered,
                 LimitPolicy.WarnOnly,
                 "90"
+            ),
+            [AuditReadLogging] = new(
+                AuditReadLogging,
+                EntitlementShape.Boolean,
+                LimitPolicy.Block,
+                "true"
             ),
         };
 

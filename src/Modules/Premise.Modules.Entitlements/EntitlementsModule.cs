@@ -26,7 +26,10 @@ public static class EntitlementsModule
                         npgsql =>
                             npgsql.MigrationsHistoryTable("__ef_migrations_history", "entitlements")
                     )
-                    .AddInterceptors(TenantSessionInterceptor.Instance);
+                    .AddInterceptors(
+                        TenantSessionInterceptor.Instance,
+                        sp.GetRequiredService<Premise.Platform.Audit.AuditSaveChangesInterceptor>()
+                    );
             }
         );
         // both by TYPE: Wolverine codegen inlines type registrations (no service location)

@@ -3,10 +3,12 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Premise.Api;
 using Premise.Integrations.WorkOS;
+using Premise.Modules.Audit;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Tenancy;
+using Premise.Platform.Audit;
 using Premise.Platform.Auth;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
@@ -31,8 +33,12 @@ builder.Services.AddScoped<TenantContext>(); // envelope-tenant holder (ADR 24)
 builder.Services.AddScoped<ITenantContext, PrincipalTenantContext>();
 builder.Services.AddSingleton(TimeProvider.System);
 
-// Gates 2+3: roles compile to grants; scope evaluated per request (ADR 6).
-builder.Services.AddScoped<IScopeResolver, Premise.Modules.Identity.Access.GrantScopeResolver>();
+// Gates 2+3: roles compile to grants; scope evaluated per request (ADR 6),
+// decorated with authz-decision audit (ADR 12: denials always).
+builder.Services.AddScoped<Premise.Modules.Identity.Access.GrantScopeResolver>();
+builder.Services.AddScoped<IScopeResolver, AuditedScopeResolver>();
+builder.Services.AddSingleton<AuditPolicyCache>();
+builder.Services.AddScoped<AuditSaveChangesInterceptor>();
 
 // Auth seam (ADR 14): provider selected by config; WorkOS is the built-in
 // full-capability implementation, local is the dev/test base implementation.
@@ -80,6 +86,7 @@ builder
 builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
 builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
+builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddWolverineHttp();
 
 // Notifications (ADR 32): local catcher unless a fork wires a real transport.
@@ -153,6 +160,7 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(AuditModule).Assembly);
 });
 
 var app = builder.Build();
@@ -163,6 +171,7 @@ if (role == "api")
     app.UseMiddleware<GuestSessionMiddleware>();
     app.UseMiddleware<GuestOrgMiddleware>();
     app.UseRateLimiter();
+    app.UseMiddleware<AccessLogMiddleware>();
 
     app.MapIdentityEndpoints();
     app.MapContactLinkEndpoints();

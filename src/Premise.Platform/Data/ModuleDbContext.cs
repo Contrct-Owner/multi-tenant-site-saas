@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Premise.Platform.Audit;
 using Premise.Platform.Kernel;
 
 namespace Premise.Platform.Data;
@@ -29,6 +30,12 @@ public abstract class ModuleDbContext(DbContextOptions options, ITenantContext t
     /// <summary>The module's Postgres schema, e.g. "tenancy".</summary>
     public abstract string ModuleSchema { get; }
 
+    /// <summary>
+    /// The audit module's own context turns this off: it maps the real table
+    /// and must not diff its own sink writes (recursion).
+    /// </summary>
+    public virtual bool AuditsOwnChanges => true;
+
     public ITenantContext Tenant { get; } = tenant;
 
     /// <summary>
@@ -40,6 +47,29 @@ public abstract class ModuleDbContext(DbContextOptions options, ITenantContext t
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(ModuleSchema);
+
+        if (AuditsOwnChanges)
+        {
+            // Shared audit sink (ADR 12/13): every module appends to the audit
+            // schema's table inside its own transaction. The audit module owns
+            // the table; excluded from this module's migrations.
+            modelBuilder.Entity<AuditChangeLog>(b =>
+            {
+                b.ToTable("change_log", "audit", t => t.ExcludeFromMigrations());
+                b.HasKey(a => a.Id);
+                b.Property(a => a.Id).HasColumnName("id").ValueGeneratedNever();
+                b.Property(a => a.OrgId).HasColumnName("org_id");
+                b.Property(a => a.ActorTier).HasColumnName("actor_tier").HasMaxLength(20);
+                b.Property(a => a.ActorId).HasColumnName("actor_id");
+                b.Property(a => a.ActorLabel).HasColumnName("actor_label").HasMaxLength(320);
+                b.Property(a => a.SchemaName).HasColumnName("schema_name").HasMaxLength(63);
+                b.Property(a => a.TableName).HasColumnName("table_name").HasMaxLength(63);
+                b.Property(a => a.RowId).HasColumnName("row_id").HasMaxLength(300);
+                b.Property(a => a.Operation).HasColumnName("operation").HasMaxLength(10);
+                b.Property(a => a.Diff).HasColumnName("diff").HasColumnType("jsonb");
+                b.Property(a => a.OccurredAt).HasColumnName("occurred_at");
+            });
+        }
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Premise.Modules.Audit.Data;
 using Premise.Modules.Entitlements.Data;
 using Premise.Modules.Identity.Access;
 using Premise.Modules.Identity.Data;
@@ -48,16 +49,19 @@ public class ApiFixture : IAsyncLifetime
             await identity.Database.MigrateAsync();
         await using (var ents = CreateEntitlementsContext(adminCs))
             await ents.Database.MigrateAsync();
+        await using (var audit = CreateAuditContext(adminCs))
+            await audit.Database.MigrateAsync();
 
         await _postgres.ExecScriptAsync(
             """
             CREATE ROLE app_user LOGIN PASSWORD 'app_user' NOSUPERUSER;
             -- Wolverine owns its envelope schema; the app creates it at startup
             GRANT CREATE ON DATABASE postgres TO app_user;
-            GRANT USAGE ON SCHEMA tenancy, identity, entitlements TO app_user;
+            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA entitlements TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA audit TO app_user;
             """
         );
         var appCs = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
@@ -144,6 +148,7 @@ public class ApiFixture : IAsyncLifetime
         {
             builder.UseSetting("ConnectionStrings:premise", appCs);
             builder.UseSetting("Auth:Provider", "local");
+            builder.UseSetting("Audit:PolicyCacheTtlSeconds", "1");
             builder.UseEnvironment("Testing");
             ConfigureHost(builder);
         });
@@ -228,8 +233,10 @@ public class ApiFixture : IAsyncLifetime
                 """
                 SELECT (SELECT count(*) FROM wolverine.wolverine_dead_letters),
                        (SELECT min(exception_type || ': ' || exception_message) FROM wolverine.wolverine_dead_letters),
-                       (SELECT min(status || '/' || owner_id || '/' || message_type || '/' || coalesce(execution_time::text,'now')) FROM wolverine.wolverine_incoming_envelopes),
-                       (SELECT count(*) FROM wolverine.wolverine_outgoing_envelopes)
+                       (SELECT string_agg(message_type || '=' || cnt, ',') FROM (
+                           SELECT message_type, count(*)::text AS cnt
+                           FROM wolverine.wolverine_incoming_envelopes GROUP BY message_type) t),
+                       (SELECT count(*) FROM audit.authz_log)
                 """,
                 conn
             );
@@ -292,6 +299,42 @@ public class ApiFixture : IAsyncLifetime
         new(
             new DbContextOptionsBuilder<TenancyDbContext>()
                 .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "tenancy"))
+                .Options,
+            new TenantContext()
+        );
+
+    public async Task SeedAuditChange(OrgId org, Guid id, DateTimeOffset occurredAt)
+    {
+        await using var db = CreateAuditContext(_postgres.GetConnectionString());
+        db.Changes.Add(
+            new Premise.Platform.Audit.AuditChangeLog
+            {
+                Id = id,
+                OrgId = org.Value,
+                ActorTier = "system",
+                ActorId = null,
+                ActorLabel = null,
+                SchemaName = "tenancy",
+                TableName = "seeded",
+                RowId = id.ToString(),
+                Operation = "added",
+                Diff = "{}",
+                OccurredAt = occurredAt,
+            }
+        );
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<List<T>> QueryAudit<T>(Func<AuditDbContext, IQueryable<T>> query)
+    {
+        await using var db = CreateAuditContext(_postgres.GetConnectionString());
+        return await query(db).ToListAsync();
+    }
+
+    private static AuditDbContext CreateAuditContext(string cs) =>
+        new(
+            new DbContextOptionsBuilder<AuditDbContext>()
+                .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "audit"))
                 .Options,
             new TenantContext()
         );

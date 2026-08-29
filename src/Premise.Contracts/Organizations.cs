@@ -49,3 +49,12 @@ public sealed record OrganizationUpserted(
     RegionId Region,
     string? ExternalId
 );
+
+/// <summary>Intent-level audit (ADR 12): modules publish these deliberately, in business language.</summary>
+public sealed record RecordDomainAudit(string EventName, string PayloadJson);
+
+/// <summary>Authorization decision audit: denials always (floor), grants per policy.</summary>
+public sealed record RecordAuthzAudit(string Action, string Outcome, string ScopeSummary);
+
+/// <summary>Read/access audit: high-volume, async path (ADR 13).</summary>
+public sealed record RecordAccessAudit(string Method, string Path, int StatusCode);

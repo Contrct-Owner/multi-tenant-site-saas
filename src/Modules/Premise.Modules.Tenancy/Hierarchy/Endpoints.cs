@@ -131,6 +131,7 @@ public static class HierarchyEndpoints
         TenancyDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        Wolverine.IMessageBus bus,
         CancellationToken ct
     )
     {
@@ -182,6 +183,32 @@ public static class HierarchyEndpoints
             WHERE path <@ {oldPrefix}::ltree
             """,
             ct
+        );
+        // Intent-level audit (ADR 12): a reorg is a business event, not just
+        // row diffs - record WHAT happened in business language.
+        var actor = accessor.Current as Principal.User;
+        await bus.PublishAsync(
+            new Premise.Contracts.RecordDomainAudit(
+                "hierarchy.node_moved",
+                System.Text.Json.JsonSerializer.Serialize(
+                    new
+                    {
+                        nodeId = node.Id,
+                        nodeName = node.Name,
+                        from = oldPrefix,
+                        to = newPrefix,
+                    }
+                )
+            ),
+            new Wolverine.DeliveryOptions
+            {
+                TenantId = node.OrgId.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = actor?.UserId.ToString() ?? "",
+                },
+            }
         );
         return Results.NoContent();
     }

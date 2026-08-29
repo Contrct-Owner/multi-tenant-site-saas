@@ -22,7 +22,10 @@ public static class IdentityModule
                         npgsql =>
                             npgsql.MigrationsHistoryTable("__ef_migrations_history", "identity")
                     )
-                    .AddInterceptors(TenantSessionInterceptor.Instance);
+                    .AddInterceptors(
+                        TenantSessionInterceptor.Instance,
+                        sp.GetRequiredService<Premise.Platform.Audit.AuditSaveChangesInterceptor>()
+                    );
             }
         );
         return services;

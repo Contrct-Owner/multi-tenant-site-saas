@@ -1,3 +1,4 @@
+using Premise.Platform.Audit;
 using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Tenancy.Organizations;
@@ -13,6 +14,8 @@ public sealed class OrganizationSetting : IOrgScoped, ISoftDeletable
     public required Guid Id { get; init; }
     public required OrgId OrgId { get; init; }
     public required string Key { get; init; }
+
+    [AuditRedacted]
     public required string Value { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
 

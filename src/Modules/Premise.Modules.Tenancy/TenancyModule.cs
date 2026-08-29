@@ -35,7 +35,10 @@ public static class TenancyModule
                         npgsql =>
                             npgsql.MigrationsHistoryTable("__ef_migrations_history", "tenancy")
                     )
-                    .AddInterceptors(TenantSessionInterceptor.Instance);
+                    .AddInterceptors(
+                        TenantSessionInterceptor.Instance,
+                        sp.GetRequiredService<Premise.Platform.Audit.AuditSaveChangesInterceptor>()
+                    );
             }
         );
         services.AddScoped<IOrganizationLookup, OrganizationLookup>();
