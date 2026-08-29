@@ -71,7 +71,7 @@ public static class SiteEndpoints
             return Results.NotFound();
 
         // Gates 2+3 on the write side: the grant must COVER the target node.
-        var writeScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        var writeScope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesManage, ct);
         if (!writeScope.Covers(node.Path.ToString()))
             return Results.Forbid();
 
@@ -127,7 +127,7 @@ public static class SiteEndpoints
         CancellationToken ct
     )
     {
-        var scope = await scopes.ScopeForAsync(accessor.Current, "sites:read", ct);
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
         var query = db.Sites.InScope(scope);
         if (under is { } nodeId)
         {
@@ -151,7 +151,7 @@ public static class SiteEndpoints
         CancellationToken ct
     )
     {
-        var scope = await scopes.ScopeForAsync(accessor.Current, "sites:read", ct);
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
         var now = time.GetUtcNow();
         // The projection (ADR 28) makes this an indexed range query, not an
         // in-process RRULE expansion over every site.
@@ -194,7 +194,11 @@ public static class SiteEndpoints
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
         if (site is null)
             return Results.NotFound();
-        var updateScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        var updateScope = await scopes.ScopeForAsync(
+            accessor.Current,
+            Capabilities.SitesManage,
+            ct
+        );
         if (!updateScope.Covers(site.Path.ToString()))
             return Results.Forbid();
 
@@ -235,7 +239,11 @@ public static class SiteEndpoints
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
         if (site is null)
             return Results.NotFound();
-        var scheduleScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        var scheduleScope = await scopes.ScopeForAsync(
+            accessor.Current,
+            Capabilities.SitesManage,
+            ct
+        );
         if (!scheduleScope.Covers(site.Path.ToString()))
             return Results.Forbid();
         if (!Premise.Platform.Scheduling.RecurrenceExpander.IsValidRule(request.RRule))

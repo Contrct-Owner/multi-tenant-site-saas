@@ -91,7 +91,14 @@ don't restate them here.
 - Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + WorkOS emulator + api + worker + dashboard). Dev login: alice@acme.test / test123 (seeded in `workos-emulate.config.yaml`)
 - Migrations: `dotnet ef migrations add <Name> --project src/Modules/<Module> --startup-project src/Modules/<Module>` (see new-migration skill)
 - Format: `dotnet csharpier format .`
-- Frontend: `pnpm install && pnpm dev` (workspace arrives in later steps)
+- Frontend (web/): `pnpm install`, `pnpm typecheck`, `pnpm build`,
+  `pnpm dev:console` (SPA, proxies to the API), `pnpm dev:public` (Start/SSR)
+- Contract codegen (ADR 16): run the integration tests (snapshots
+  `web/packages/api/openapi.json`), then `pnpm codegen:api` (types) and
+  `pnpm codegen:keys` (capability/entitlement unions). A dirty openapi.json
+  after tests means the contract changed - review it like code.
+- New module: `python3 tools/new-module.py <Name>` (prints the wiring list)
+- Fork init: `python3 tools/init.py <ProductName>` (one-way rename)
 
 ## For forks
 

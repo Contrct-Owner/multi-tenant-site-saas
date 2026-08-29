@@ -31,7 +31,7 @@ public static class FileEndpoints
         if (
             accessor.Current
                 is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
-            || !await scopes.CanAsync(principal, "files:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.FilesManage, ct)
         )
             return Results.Unauthorized();
         if (request.SizeBytes is <= 0 or > MaxUploadBytes)
@@ -75,7 +75,7 @@ public static class FileEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "files:manage", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return Results.Unauthorized();
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null)
@@ -103,7 +103,7 @@ public static class FileEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "files:read", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesRead, ct))
             return Results.Unauthorized();
         var files = await db
             .Files.Where(f => f.Status != FileStatus.Erased)
@@ -135,7 +135,7 @@ public static class FileEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "files:read", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesRead, ct))
             return Results.Unauthorized();
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         // quarantined/pending/erased are all 404: never confirm undownloadable bytes
@@ -157,7 +157,7 @@ public static class FileEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "files:manage", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return Results.Unauthorized();
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null)
@@ -190,7 +190,7 @@ public static class FileEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "files:manage", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return Results.Unauthorized();
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null || file.Status == FileStatus.Erased)

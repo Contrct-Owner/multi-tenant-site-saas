@@ -27,7 +27,7 @@ public static class AuditEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "audit:read", ct)
+            || !await scopes.CanAsync(principal, Capabilities.AuditRead, ct)
         )
             return Results.Unauthorized();
         var take = Math.Clamp(limit ?? 50, 1, 500);
@@ -109,7 +109,7 @@ public static class AuditEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "audit:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.AuditManage, ct)
         )
             return Results.Unauthorized();
         var config = await db.Configs.FirstOrDefaultAsync(ct);
@@ -143,7 +143,7 @@ public static class AuditEndpoints
         if (
             accessor.Current
                 is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
-            || !await scopes.CanAsync(principal, "audit:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.AuditManage, ct)
         )
             return Results.Unauthorized();
 

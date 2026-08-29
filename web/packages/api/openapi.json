@@ -1,0 +1,2093 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Premise.Api | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost/"
+    }
+  ],
+  "paths": {
+    "/api/sites": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites",
+        "description": "POST_api_sites",
+        "operationId": "POST_api_sites",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "GET_api_sites",
+        "description": "GET_api_sites",
+        "operationId": "GET_api_sites",
+        "parameters": [
+          {
+            "name": "under",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SiteResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/open-now": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "GET_api_sites_open_now",
+        "description": "GET_api_sites_open_now",
+        "operationId": "GET_api_sites_open_now",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SiteResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "GET_api_sites_id",
+        "description": "GET_api_sites_id",
+        "operationId": "GET_api_sites_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites_id",
+        "description": "POST_api_sites_id",
+        "operationId": "POST_api_sites_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}/schedules": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites_id_schedules",
+        "description": "POST_api_sites_id_schedules",
+        "operationId": "POST_api_sites_id_schedules",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+        ],
+        "summary": "GET_api_settings",
+        "description": "GET_api_settings",
+        "operationId": "GET_api_settings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SettingResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+        ],
+        "summary": "GET_api_settings_id",
+        "description": "GET_api_settings_id",
+        "operationId": "GET_api_settings_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{key}": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+        ],
+        "summary": "PUT_api_settings_key",
+        "description": "PUT_api_settings_key",
+        "operationId": "PUT_api_settings_key",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutSettingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hierarchy": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "POST_api_hierarchy",
+        "description": "POST_api_hierarchy",
+        "operationId": "POST_api_hierarchy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHierarchyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "GET_api_hierarchy",
+        "description": "GET_api_hierarchy",
+        "operationId": "GET_api_hierarchy",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hierarchy/nodes": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "POST_api_hierarchy_nodes",
+        "description": "POST_api_hierarchy_nodes",
+        "operationId": "POST_api_hierarchy_nodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hierarchy/nodes/{id}/move": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "POST_api_hierarchy_nodes_id_move",
+        "description": "POST_api_hierarchy_nodes_id_move",
+        "operationId": "POST_api_hierarchy_nodes_id_move",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveNodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.AccessEndpoints"
+        ],
+        "summary": "POST_api_roles",
+        "description": "POST_api_roles",
+        "operationId": "POST_api_roles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/assign": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.AccessEndpoints"
+        ],
+        "summary": "POST_api_roles_id_assign",
+        "description": "POST_api_roles_id_assign",
+        "operationId": "POST_api_roles_id_assign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/grant-exceptions": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.AccessEndpoints"
+        ],
+        "summary": "POST_api_grant_exceptions",
+        "description": "POST_api_grant_exceptions",
+        "operationId": "POST_api_grant_exceptions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGrantExceptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/entitlements": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Entitlements.EntitlementEndpoints"
+        ],
+        "summary": "GET_api_entitlements",
+        "description": "GET_api_entitlements",
+        "operationId": "GET_api_entitlements",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/entitlements/{code}": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Entitlements.EntitlementEndpoints"
+        ],
+        "summary": "PUT_api_admin_entitlements_code",
+        "description": "PUT_api_admin_entitlements_code",
+        "operationId": "PUT_api_admin_entitlements_code",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetEntitlementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/entitlements/{code}/exceptions": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Entitlements.EntitlementEndpoints"
+        ],
+        "summary": "POST_api_admin_entitlements_code_exceptions",
+        "description": "POST_api_admin_entitlements_code_exceptions",
+        "operationId": "POST_api_admin_entitlements_code_exceptions",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddExceptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit/{kind}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Audit.AuditEndpoints"
+        ],
+        "summary": "GET_api_audit_kind",
+        "description": "GET_api_audit_kind",
+        "operationId": "GET_api_audit_kind",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/audit-config": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Audit.AuditEndpoints"
+        ],
+        "summary": "GET_api_admin_audit_config",
+        "description": "GET_api_admin_audit_config",
+        "operationId": "GET_api_admin_audit_config",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Premise.Modules.Audit.AuditEndpoints"
+        ],
+        "summary": "PUT_api_admin_audit_config",
+        "description": "PUT_api_admin_audit_config",
+        "operationId": "PUT_api_admin_audit_config",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAuditConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "POST_api_files",
+        "description": "POST_api_files",
+        "operationId": "POST_api_files",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "GET_api_files",
+        "description": "GET_api_files",
+        "operationId": "GET_api_files",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}/complete": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "POST_api_files_id_complete",
+        "description": "POST_api_files_id_complete",
+        "operationId": "POST_api_files_id_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}/download": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "GET_api_files_id_download",
+        "description": "GET_api_files_id_download",
+        "operationId": "GET_api_files_id_download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}/hold": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "POST_api_files_id_hold",
+        "description": "POST_api_files_id_hold",
+        "operationId": "POST_api_files_id_hold",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetHoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "DELETE_api_files_id",
+        "description": "DELETE_api_files_id",
+        "operationId": "DELETE_api_files_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/uploads": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "POST_api_ingest_uploads",
+        "description": "POST_api_ingest_uploads",
+        "operationId": "POST_api_ingest_uploads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/batches/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "GET_api_ingest_batches_id",
+        "description": "GET_api_ingest_batches_id",
+        "operationId": "GET_api_ingest_batches_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/batches/{id}/commit": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "POST_api_ingest_batches_id_commit",
+        "description": "POST_api_ingest_batches_id_commit",
+        "operationId": "POST_api_ingest_batches_id_commit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "POST_api_connectors",
+        "description": "POST_api_connectors",
+        "operationId": "POST_api_connectors",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateConnectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/{id}/sync": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "POST_api_connectors_id_sync",
+        "description": "POST_api_connectors_id_sync",
+        "operationId": "POST_api_connectors_id_sync",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/objects/upload/{token}": {
+      "put": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/objects/download/{token}": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "returnUrl",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hint",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/switch-org": {
+      "post": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchOrgRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/contact-links": {
+      "post": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueContactLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/contact/redeem": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddExceptionRequest": {
+        "required": [
+          "value",
+          "reason",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AddGrantExceptionRequest": {
+        "required": [
+          "userId",
+          "domain",
+          "action",
+          "reason",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scopePath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AssignRoleRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scopePath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreateConnectorRequest": {
+        "required": [
+          "name",
+          "url",
+          "apiKey"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateFileRequest": {
+        "required": [
+          "name",
+          "contentType",
+          "sizeBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "CreateHierarchyRequest": {
+        "required": [
+          "name",
+          "levels"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateNodeRequest": {
+        "required": [
+          "parentId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateRoleRequest": {
+        "required": [
+          "name",
+          "grants"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrantSpec"
+            }
+          }
+        }
+      },
+      "CreateScheduleRequest": {
+        "required": [
+          "name",
+          "rRule",
+          "anchorDate",
+          "opens",
+          "closes"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "rRule": {
+            "type": "string"
+          },
+          "anchorDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "opens": {
+            "type": "string",
+            "format": "time"
+          },
+          "closes": {
+            "type": "string",
+            "format": "time"
+          },
+          "exDates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        }
+      },
+      "CreateSiteRequest": {
+        "required": [
+          "nodeId",
+          "name",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "latitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "GrantSpec": {
+        "required": [
+          "domain",
+          "action"
+        ],
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          }
+        }
+      },
+      "IResult": {
+        "type": "object"
+      },
+      "IssueContactLinkRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "MoveNodeRequest": {
+        "required": [
+          "newParentId"
+        ],
+        "type": "object",
+        "properties": {
+          "newParentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PutSettingRequest": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "SetAuditConfigRequest": {
+        "required": [
+          "logGrants",
+          "logReads"
+        ],
+        "type": "object",
+        "properties": {
+          "logGrants": {
+            "type": "boolean"
+          },
+          "logReads": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetEntitlementRequest": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "SetHoldRequest": {
+        "required": [
+          "hold"
+        ],
+        "type": "object",
+        "properties": {
+          "hold": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SettingResponse": {
+        "required": [
+          "id",
+          "key",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "SiteResponse": {
+        "required": [
+          "id",
+          "nodeId",
+          "name",
+          "timeZone",
+          "status",
+          "path"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "SiteStatus": {
+        "type": "integer"
+      },
+      "StageUploadRequest": {
+        "required": [
+          "fileId"
+        ],
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SwitchOrgRequest": {
+        "required": [
+          "orgId"
+        ],
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "UpdateSiteRequest": {
+        "required": [
+          "name",
+          "timeZone",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SiteStatus"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Access.AccessEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Entitlements.EntitlementEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Audit.AuditEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Storage.FileEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Ingest.IngestEndpoints"
+    },
+    {
+      "name": "Premise.Api"
+    }
+  ]
+}

@@ -201,7 +201,12 @@ public static class AuthEndpoints
 
         app.MapGet(
             "/me",
-            async (IPrincipalAccessor accessor, IdentityDbContext db, CancellationToken ct) =>
+            async (
+                IPrincipalAccessor accessor,
+                IdentityDbContext db,
+                IScopeResolver scopes,
+                CancellationToken ct
+            ) =>
             {
                 switch (accessor.Current)
                 {
@@ -221,6 +226,12 @@ public static class AuthEndpoints
                                 slug = d.Slug,
                             })
                             .ToListAsync(ct);
+                        // resolved capabilities: the UI hides/disables instead
+                        // of letting users discover 403s (the /me bootstrap)
+                        var capabilities = new List<string>();
+                        foreach (var capability in Capabilities.All)
+                            if (await scopes.CanAsync(u, capability, ct))
+                                capabilities.Add(capability);
                         return Results.Ok(
                             new
                             {
@@ -230,6 +241,7 @@ public static class AuthEndpoints
                                 name = u.Name,
                                 activeOrg = u.ActiveOrg?.Value,
                                 organizations = summaries,
+                                capabilities,
                             }
                         );
                     }

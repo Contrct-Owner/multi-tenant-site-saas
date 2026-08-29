@@ -130,6 +130,7 @@ if (builder.Configuration["Secrets:LocalMasterKey"] is { } localKey)
     );
 }
 builder.Services.AddWolverineHttp();
+builder.Services.AddOpenApi(); // ADR 16: the spec is the contract; TS client + keys generate from it
 
 // Notifications (ADR 32): local catcher unless a fork wires a real transport.
 builder.Services.AddSingleton<INotificationTransport, LocalMailCatcher>();
@@ -219,6 +220,7 @@ if (role == "api")
     app.UseMiddleware<AccessLogMiddleware>();
     app.MapLocalObjectStore();
 
+    app.MapOpenApi();
     app.MapIdentityEndpoints();
     app.MapContactLinkEndpoints();
     app.MapWolverineEndpoints();

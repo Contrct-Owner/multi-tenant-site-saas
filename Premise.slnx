@@ -21,4 +21,7 @@
     <Project Path="tests/Premise.ArchitectureTests/Premise.ArchitectureTests.csproj" />
     <Project Path="tests/Premise.IntegrationTests/Premise.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Premise.Tools.CodegenKeys/Premise.Tools.CodegenKeys.csproj" />
+  </Folder>
 </Solution>

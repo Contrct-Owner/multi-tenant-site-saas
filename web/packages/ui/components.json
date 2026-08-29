@@ -1,0 +1,9 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "tailwind": { "css": "src/tokens.css", "baseColor": "neutral", "cssVariables": true },
+  "aliases": { "components": "@/components", "utils": "@/lib/utils", "ui": "@/components" },
+  "registries": {
+    "@reui": "https://reui.io/r/{name}.json"
+  }
+}

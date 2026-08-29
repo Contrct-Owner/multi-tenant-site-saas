@@ -5,6 +5,7 @@ obj/
 .vs/
 
 # Node
+routeTree.gen.ts
 node_modules/
 dist/
 .tanstack/

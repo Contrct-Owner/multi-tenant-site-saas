@@ -9,15 +9,16 @@ Every module is a vertical slice owning its own Postgres schema and DbContext
 (ADR 17). Never hand-roll one - missing a step here is the main way module
 boundaries erode.
 
-## If the module generator exists
-
-Run it and stop - it performs the checklist below:
+## Run the generator first
 
 ```bash
-dotnet run --project tools/ModuleGenerator -- --name <Name>
+python3 tools/new-module.py <Name>
 ```
 
-## Until the generator exists, perform every step
+It scaffolds the project (csproj, ModuleDbContext, design-time factory,
+registration extension with both interceptors) and prints the 7-line wiring
+checklist. The steps below are what the generator + checklist cover - verify
+rather than re-do
 
 1. **Project layout**: `src/Modules/Premise.Modules.<Name>/` with feature folders (one folder
    per use case), not layer folders. Handlers are Wolverine handlers.

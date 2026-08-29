@@ -55,7 +55,7 @@ public static class EntitlementEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "entitlements:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.EntitlementsManage, ct)
         )
             return Results.Unauthorized();
         if (!EntitlementCatalog.Definitions.TryGetValue(code, out var descriptor))
@@ -122,7 +122,7 @@ public static class EntitlementEndpoints
         if (
             accessor.Current
                 is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
-            || !await scopes.CanAsync(principal, "entitlements:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.EntitlementsManage, ct)
         )
             return Results.Unauthorized();
         if (!EntitlementCatalog.Definitions.ContainsKey(code))

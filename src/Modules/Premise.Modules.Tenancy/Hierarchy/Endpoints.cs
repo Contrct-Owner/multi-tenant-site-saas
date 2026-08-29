@@ -31,7 +31,7 @@ public static class HierarchyEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org }
-            || !await scopes.CanAsync(accessor.Current, "hierarchy:manage", ct)
+            || !await scopes.CanAsync(accessor.Current, Capabilities.HierarchyManage, ct)
         )
             return Results.Unauthorized();
         if (request.Levels.Length == 0)
@@ -97,7 +97,7 @@ public static class HierarchyEndpoints
         var parent = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == request.ParentId, ct);
         if (parent is null)
             return Results.NotFound();
-        var scope = await scopes.ScopeForAsync(accessor.Current, "hierarchy:manage", ct);
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.HierarchyManage, ct);
         if (!scope.Covers(parent.Path.ToString()))
             return Results.Forbid();
         var hierarchy = await db.Hierarchies.FirstAsync(h => h.Id == parent.HierarchyId, ct);
@@ -135,7 +135,11 @@ public static class HierarchyEndpoints
         CancellationToken ct
     )
     {
-        var moveScope = await scopes.ScopeForAsync(accessor.Current, "hierarchy:manage", ct);
+        var moveScope = await scopes.ScopeForAsync(
+            accessor.Current,
+            Capabilities.HierarchyManage,
+            ct
+        );
         var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == id, ct);
         var newParent = await db.HierarchyNodes.FirstOrDefaultAsync(
             n => n.Id == request.NewParentId,

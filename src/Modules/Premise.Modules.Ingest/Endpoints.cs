@@ -35,7 +35,7 @@ public static class IngestEndpoints
         if (
             accessor.Current
                 is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
-            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
         )
             return Results.Unauthorized();
 
@@ -73,7 +73,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, "ingest:manage", ct))
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
             return Results.Unauthorized();
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
         if (batch is null)
@@ -120,7 +120,7 @@ public static class IngestEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
         )
             return Results.Unauthorized();
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
@@ -174,7 +174,7 @@ public static class IngestEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
         )
             return Results.Unauthorized();
 
@@ -206,7 +206,7 @@ public static class IngestEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
         )
             return Results.Unauthorized();
         if (!await db.Connectors.AnyAsync(c => c.Id == id, ct))

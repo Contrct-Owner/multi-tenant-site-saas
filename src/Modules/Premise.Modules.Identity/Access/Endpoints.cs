@@ -34,7 +34,7 @@ public static class AccessEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "roles:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
         )
             return Results.Unauthorized();
 
@@ -67,7 +67,7 @@ public static class AccessEndpoints
     {
         if (
             accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, "roles:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
         )
             return Results.Unauthorized();
 
@@ -105,7 +105,7 @@ public static class AccessEndpoints
         if (
             accessor.Current
                 is not Principal.User { ActiveOrg: { } org, UserId: var grantor } principal
-            || !await scopes.CanAsync(principal, "roles:manage", ct)
+            || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
         )
             return Results.Unauthorized();
         if (request.ExpiresAt <= DateTimeOffset.UtcNow)
