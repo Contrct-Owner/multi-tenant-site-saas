@@ -44,3 +44,14 @@ public sealed class MembershipScopeResolver : IScopeResolver
             }
         );
 }
+
+/// <summary>
+/// The operator boundary (gate 2's platform edition): true only when the
+/// principal's ACTIVE org is the flagged platform org AND they hold
+/// platform:operate there. An ordinary org Owner's *:* wildcard never crosses
+/// this line - the org flag is the wall, the capability refines within it.
+/// </summary>
+public interface IOperatorContext
+{
+    ValueTask<bool> IsOperatorAsync(Principal principal, CancellationToken ct = default);
+}

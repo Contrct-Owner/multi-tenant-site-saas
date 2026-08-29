@@ -15,5 +15,7 @@ public sealed class OrgDirectoryEntry
     public required string Slug { get; set; }
     public required RegionId Region { get; set; }
     public string? ExternalId { get; set; }
+    public string Status { get; set; } = "Active";
+    public bool IsPlatform { get; set; }
     public DateTimeOffset SyncedAt { get; set; } = DateTimeOffset.UtcNow;
 }

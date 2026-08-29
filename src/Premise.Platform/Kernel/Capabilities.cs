@@ -19,6 +19,9 @@ public static class Capabilities
     public const string EntitlementsManage = "entitlements:manage";
     public const string RolesManage = "roles:manage";
 
+    /// <summary>Platform-operator reach: held only inside the flagged platform org.</summary>
+    public const string PlatformOperate = "platform:operate";
+
     public static readonly IReadOnlyList<string> All =
     [
         SitesRead,
@@ -31,5 +34,6 @@ public static class Capabilities
         AuditManage,
         EntitlementsManage,
         RolesManage,
+        PlatformOperate,
     ];
 }

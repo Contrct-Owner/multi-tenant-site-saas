@@ -1,0 +1,136 @@
+import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@premise/ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { StatusBadge } from '../shell';
+
+type OperatedOrg = {
+  id: string; name: string; slug: string; status: string;
+  isPlatform: boolean; createdAt: string;
+};
+type Effective = Record<string, { value: string; shape: string; policy: string }>;
+
+/** Entitlement custody + lifecycle: operator-set, tenant-read. */
+export function OperatorPage() {
+  const queryClient = useQueryClient();
+  const { data: orgs } = useQuery({
+    queryKey: ['operator-orgs'],
+    queryFn: () => api.get<OperatedOrg[]>('/api/operator/orgs'),
+  });
+  const [selected, setSelected] = useState<OperatedOrg | null>(null);
+
+  const transition = useMutation({
+    mutationFn: (input: { orgId: string; action: 'suspend' | 'reactivate' }) =>
+      api.post(`/api/operator/orgs/${input.orgId}/${input.action}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operator-orgs'] }),
+  });
+
+  return (
+    <div className="max-w-4xl space-y-6">
+      <h1 className="text-2xl font-semibold">Operator</h1>
+      <div className="grid grid-cols-[280px_1fr] gap-6">
+        <Card>
+          <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
+          <CardContent className="space-y-1">
+            {orgs?.map((org) => (
+              <button
+                key={org.id}
+                type="button"
+                onClick={() => setSelected(org)}
+                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent ${
+                  selected?.id === org.id ? 'bg-accent' : ''
+                }`}
+              >
+                <span>
+                  {org.name}
+                  {org.isPlatform && <span className="ml-1 text-xs text-muted-foreground">(platform)</span>}
+                </span>
+                <StatusBadge status={org.status} />
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+        {selected && !selected.isPlatform && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  {selected.name}
+                  {selected.status === 'Active' ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={transition.isPending}
+                      onClick={() => transition.mutate({ orgId: selected.id, action: 'suspend' })}
+                    >
+                      Suspend
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled={transition.isPending}
+                      onClick={() => transition.mutate({ orgId: selected.id, action: 'reactivate' })}
+                    >
+                      Reactivate
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OrgEntitlements orgId={selected.id} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OrgEntitlements({ orgId }: { orgId: string }) {
+  const queryClient = useQueryClient();
+  const { data: effective } = useQuery({
+    queryKey: ['operator-entitlements', orgId],
+    queryFn: () => api.get<Effective>(`/api/operator/orgs/${orgId}/entitlements`),
+  });
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const set = useMutation({
+    mutationFn: (input: { code: string; value: string }) =>
+      api.put(`/api/operator/orgs/${orgId}/entitlements/${input.code}`, { value: input.value }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ['operator-entitlements', orgId] });
+    },
+    onError: (e) =>
+      setError(String((e as { body?: { error?: string } }).body?.error ?? 'update failed')),
+  });
+
+  return (
+    <div className="space-y-2">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {effective &&
+        (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
+          const draft = drafts[code] ?? effective[code]?.value ?? '';
+          const dirty = draft !== effective[code]?.value;
+          return (
+            <div key={code} className="flex items-center gap-2 text-sm">
+              <span className="w-56 text-muted-foreground">{code}</span>
+              <Input
+                className="h-8 w-32"
+                value={draft}
+                onChange={(e) => setDrafts({ ...drafts, [code]: e.target.value })}
+              />
+              {dirty && (
+                <Button size="sm" disabled={set.isPending}
+                  onClick={() => set.mutate({ code, value: draft })}>
+                  Save
+                </Button>
+              )}
+            </div>
+          );
+        })}
+    </div>
+  );
+}

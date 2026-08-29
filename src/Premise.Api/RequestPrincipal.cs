@@ -75,12 +75,15 @@ public sealed class PrincipalTenantContext(
 ) : ITenantContext
 {
     public OrgId? OrgId =>
-        accessor.Current switch
+        // an explicitly-set holder wins: TenantScope.RunAs is a deliberate
+        // elevation (operator acting on a target org, pre-tenant bootstrap)
+        holder.OrgId
+        ?? accessor.Current switch
         {
             Principal.User u => u.ActiveOrg,
             Principal.Contact c => c.Org,
-            Principal.Guest g => g.Org ?? holder.OrgId ?? EnvelopeOrg,
-            _ => holder.OrgId ?? EnvelopeOrg,
+            Principal.Guest g => g.Org ?? EnvelopeOrg,
+            _ => EnvelopeOrg,
         };
 
     private OrgId? EnvelopeOrg =>

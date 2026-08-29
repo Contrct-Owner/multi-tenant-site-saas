@@ -36,6 +36,7 @@ public sealed class TenancyDbContext(
             b.Property(o => o.Slug).HasColumnName("slug").HasMaxLength(80);
             b.Property(o => o.Region).HasColumnName("region").HasMaxLength(40);
             b.Property(o => o.ExternalId).HasColumnName("external_id").HasMaxLength(120);
+            b.Property(o => o.IsPlatform).HasColumnName("is_platform");
             b.Property(o => o.Status)
                 .HasColumnName("status")
                 .HasConversion<string>()

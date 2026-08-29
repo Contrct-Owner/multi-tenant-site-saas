@@ -18,6 +18,13 @@ public sealed class Organization
     /// <summary>Auth-provider org id (e.g. WorkOS org) for SSO mapping (ADR 14).</summary>
     public string? ExternalId { get; set; }
 
+    /// <summary>
+    /// The vendor's own org: its members may hold platform:operate and reach
+    /// across tenants (entitlement custody, suspension). Never settable via
+    /// API - seeded/ops-configured only.
+    /// </summary>
+    public bool IsPlatform { get; init; }
+
     public OrganizationStatus Status { get; set; } = OrganizationStatus.Active;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

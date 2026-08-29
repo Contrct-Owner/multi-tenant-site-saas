@@ -61,6 +61,8 @@ public sealed class IdentityDbContext(
             b.Property(d => d.Slug).HasColumnName("slug").HasMaxLength(80);
             b.Property(d => d.Region).HasColumnName("region").HasMaxLength(40);
             b.Property(d => d.ExternalId).HasColumnName("external_id").HasMaxLength(120);
+            b.Property(d => d.Status).HasColumnName("status").HasMaxLength(20);
+            b.Property(d => d.IsPlatform).HasColumnName("is_platform");
             b.Property(d => d.SyncedAt).HasColumnName("synced_at");
             b.HasIndex(d => d.Slug);
             b.HasIndex(d => d.ExternalId);

@@ -19,6 +19,7 @@ public sealed class DevBootstrap(
 {
     public const string EmulatorUserId = "user_01DEVALICE00000000000000";
     public const string EmulatorOrgId = "org_01DEVACME000000000000000";
+    public const string EmulatorOperatorId = "user_01DEVOPERATOR0000000000";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -113,10 +114,81 @@ public sealed class DevBootstrap(
             await identity.SaveChangesAsync(ct);
         }
 
-        // what every org-writing flow does: publish the event (org_directory)
-        await sp.GetRequiredService<IMessageBus>()
-            .PublishAsync(
-                new OrganizationUpserted(org.Id, org.Name, org.Slug, org.Region, org.ExternalId)
+        // the vendor's own org: operators live here (platform:operate)
+        var platformOrg = await tenancy.Organizations.FirstOrDefaultAsync(
+            o => o.Slug == "premise-ops",
+            ct
+        );
+        if (platformOrg is null)
+        {
+            platformOrg = new Premise.Modules.Tenancy.Organizations.Organization
+            {
+                Id = OrgId.New(),
+                Name = "Premise Operations",
+                Slug = "premise-ops",
+                Region = RegionId.Default,
+                IsPlatform = true,
+            };
+            tenancy.Organizations.Add(platformOrg);
+            await tenancy.SaveChangesAsync(ct);
+        }
+        if (!await identity.Users.AnyAsync(u => u.Subject == EmulatorOperatorId, ct))
+        {
+            var operatorUser = Premise.Modules.Identity.Users.AppUser.Create(
+                "workos",
+                EmulatorOperatorId,
+                "operator@premise.local",
+                "Premise Operator"
             );
+            var operatorMembership = Premise.Modules.Identity.Users.Membership.Create(
+                operatorUser.Id,
+                platformOrg.Id
+            );
+            var operatorRole = Premise.Modules.Identity.Access.Role.Create(
+                platformOrg.Id,
+                "Operator"
+            );
+            identity.Users.Add(operatorUser);
+            identity.Memberships.Add(operatorMembership);
+            identity.Roles.Add(operatorRole);
+            identity.RoleGrants.Add(
+                new Premise.Modules.Identity.Access.RoleGrant
+                {
+                    Id = Guid.CreateVersion7(),
+                    OrgId = platformOrg.Id,
+                    RoleId = operatorRole.Id,
+                    Domain = "*",
+                    Action = "*",
+                }
+            );
+            identity.MembershipRoles.Add(
+                new Premise.Modules.Identity.Access.MembershipRole
+                {
+                    Id = Guid.CreateVersion7(),
+                    OrgId = platformOrg.Id,
+                    MembershipId = operatorMembership.Id,
+                    RoleId = operatorRole.Id,
+                    ScopePath = null,
+                }
+            );
+            await identity.SaveChangesAsync(ct);
+        }
+
+        // what every org-writing flow does: publish the event (org_directory)
+        var bus = sp.GetRequiredService<IMessageBus>();
+        await bus.PublishAsync(
+            new OrganizationUpserted(org.Id, org.Name, org.Slug, org.Region, org.ExternalId)
+        );
+        await bus.PublishAsync(
+            new OrganizationUpserted(
+                platformOrg.Id,
+                platformOrg.Name,
+                platformOrg.Slug,
+                platformOrg.Region,
+                platformOrg.ExternalId,
+                "Active",
+                IsPlatform: true
+            )
+        );
     }
 }

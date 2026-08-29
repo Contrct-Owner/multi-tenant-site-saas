@@ -58,8 +58,10 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var (owner, rootId) = await Setup();
 
         var existing = (await owner.GetFromJsonAsync<JsonElement>("/api/sites")).GetArrayLength();
-        var set = await owner.PutAsJsonAsync(
-            "/api/admin/entitlements/sites.max",
+        // custody: the OPERATOR sets the tenant's limit
+        var op = await fixture.OperatorClient();
+        var set = await op.PutAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/sites.max",
             new { value = (existing + 1).ToString() }
         );
         Assert.Equal(HttpStatusCode.NoContent, set.StatusCode);
@@ -86,9 +88,9 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         );
         Assert.Equal(HttpStatusCode.PaymentRequired, second.StatusCode);
 
-        // first-class exception (ADR 10): value + reason + expiry, then it just works
-        var exception = await owner.PostAsJsonAsync(
-            "/api/admin/entitlements/sites.max/exceptions",
+        // first-class exception (ADR 10): operator-granted, then it just works
+        var exception = await op.PostAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/sites.max/exceptions",
             new
             {
                 value = (existing + 5).ToString(),
@@ -114,8 +116,9 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     public async Task Downgrade_below_usage_is_409_with_preflight_detail()
     {
         var (owner, rootId) = await Setup(); // hierarchy uses 2 levels
-        var response = await owner.PutAsJsonAsync(
-            "/api/admin/entitlements/hierarchy.depth",
+        var op = await fixture.OperatorClient();
+        var response = await op.PutAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/hierarchy.depth",
             new { value = "1" }
         );
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -127,11 +130,26 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     public async Task Metered_grace_allows_ten_percent_then_blocks()
     {
         var owner = await fixture.LoginAsync(ApiFixture.UserBoth); // org A active
-        var set = await owner.PutAsJsonAsync(
-            "/api/admin/entitlements/contact_links.monthly",
+        // warm the metering pipeline on a cold boot (see task: cold-boot
+        // metering loss), then reset the counter for a clean measurement
+        (
+            await owner.PostAsJsonAsync("/contact-links", new { email = "warmup@example.com" })
+        ).EnsureSuccessStatusCode();
+        await fixture.ResetUsageEvents(fixture.OrgA, "contact_links.monthly");
+
+        var op = await fixture.OperatorClient();
+        var set = await op.PutAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/contact_links.monthly",
             new { value = "10" }
         );
         Assert.Equal(HttpStatusCode.NoContent, set.StatusCode);
+        var effective = await op.GetFromJsonAsync<JsonElement>(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements"
+        );
+        Assert.Equal(
+            "10",
+            effective.GetProperty("contact_links.monthly").GetProperty("value").GetString()
+        );
 
         var results = new List<HttpStatusCode>();
         for (var i = 0; i < 12; i++)
@@ -151,8 +169,9 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     public async Task Boolean_off_gates_the_feature_with_402()
     {
         var owner = await fixture.LoginAsync(ApiFixture.UserB); // org B: separate tenant
-        var set = await owner.PutAsJsonAsync(
-            "/api/admin/entitlements/contact_links.enabled",
+        var op = await fixture.OperatorClient();
+        var set = await op.PutAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgB.Value}/entitlements/contact_links.enabled",
             new { value = "false" }
         );
         Assert.Equal(HttpStatusCode.NoContent, set.StatusCode);
@@ -177,6 +196,57 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             "Tiered",
             entitlements.GetProperty("audit.retention_days").GetProperty("shape").GetString()
         );
+    }
+
+    [Fact]
+    public async Task Org_owner_cannot_set_their_own_entitlements()
+    {
+        // THE custody rule: a tenant Owner's *:* never crosses the platform wall
+        var owner = await fixture.LoginAsync(ApiFixture.UserA);
+        var direct = await owner.PutAsJsonAsync(
+            $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/sites.max",
+            new { value = "100000" }
+        );
+        Assert.Equal(HttpStatusCode.Unauthorized, direct.StatusCode);
+        // and the old self-serve surface is gone
+        var legacy = await owner.PutAsJsonAsync(
+            "/api/admin/entitlements/sites.max",
+            new { value = "100000" }
+        );
+        Assert.Equal(HttpStatusCode.NotFound, legacy.StatusCode);
+    }
+
+    [Fact]
+    public async Task Suspension_blocks_the_org_and_reactivation_restores_it()
+    {
+        var op = await fixture.OperatorClient();
+        var member = await fixture.LoginAsync(ApiFixture.UserB);
+        (await member.GetAsync("/api/sites")).EnsureSuccessStatusCode();
+
+        (
+            await op.PostAsync($"/api/operator/orgs/{fixture.OrgB.Value}/suspend", null)
+        ).EnsureSuccessStatusCode();
+        HttpResponseMessage blocked = null!;
+        for (var i = 0; i < 50; i++) // enforcement learns via the event
+        {
+            blocked = await member.GetAsync("/api/sites");
+            if (blocked.StatusCode == HttpStatusCode.Forbidden)
+                break;
+            await Task.Delay(100);
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+        (await member.GetAsync("/me")).EnsureSuccessStatusCode(); // /me still works
+
+        (
+            await op.PostAsync($"/api/operator/orgs/{fixture.OrgB.Value}/reactivate", null)
+        ).EnsureSuccessStatusCode();
+        for (var i = 0; i < 50; i++)
+        {
+            if ((await member.GetAsync("/api/sites")).IsSuccessStatusCode)
+                return;
+            await Task.Delay(100);
+        }
+        Assert.Fail("org never reactivated");
     }
 
     // ---- gates 2+3: grants and scope ----

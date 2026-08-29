@@ -229,6 +229,7 @@ if (role == "api")
     app.UseMiddleware<GuestSessionMiddleware>();
     app.UseMiddleware<GuestOrgMiddleware>();
     app.UseRateLimiter();
+    app.UseMiddleware<SuspensionMiddleware>();
     app.UseMiddleware<IdempotencyMiddleware>();
     app.UseMiddleware<AccessLogMiddleware>();
     app.MapLocalObjectStore();

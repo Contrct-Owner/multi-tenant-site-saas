@@ -24,6 +24,8 @@ public static class OrganizationUpsertedHandler
                     Slug = evt.Slug,
                     Region = evt.Region,
                     ExternalId = evt.ExternalId,
+                    Status = evt.Status,
+                    IsPlatform = evt.IsPlatform,
                 }
             );
         }
@@ -33,6 +35,8 @@ public static class OrganizationUpsertedHandler
             entry.Slug = evt.Slug;
             entry.Region = evt.Region;
             entry.ExternalId = evt.ExternalId;
+            entry.Status = evt.Status;
+            entry.IsPlatform = evt.IsPlatform;
             entry.SyncedAt = DateTimeOffset.UtcNow;
         }
         await db.SaveChangesAsync(ct);

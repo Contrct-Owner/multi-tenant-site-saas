@@ -31,6 +31,7 @@ public static class IdentityModule
                     );
             }
         );
+        services.AddScoped<IOperatorContext, Premise.Modules.Identity.Access.OperatorContext>();
         return services;
     }
 }

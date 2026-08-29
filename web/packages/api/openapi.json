@@ -429,6 +429,118 @@
         }
       }
     },
+    "/api/operator/orgs": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
+        ],
+        "summary": "GET_api_operator_orgs",
+        "description": "GET_api_operator_orgs",
+        "operationId": "GET_api_operator_orgs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operator/orgs/{orgId}/suspend": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
+        ],
+        "summary": "POST_api_operator_orgs_orgId_suspend",
+        "description": "POST_api_operator_orgs_orgId_suspend",
+        "operationId": "POST_api_operator_orgs_orgId_suspend",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operator/orgs/{orgId}/reactivate": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
+        ],
+        "summary": "POST_api_operator_orgs_orgId_reactivate",
+        "description": "POST_api_operator_orgs_orgId_reactivate",
+        "operationId": "POST_api_operator_orgs_orgId_reactivate",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/hierarchy": {
       "post": {
         "tags": [
@@ -956,15 +1068,65 @@
         }
       }
     },
-    "/api/admin/entitlements/{code}": {
+    "/api/operator/orgs/{orgId}/entitlements": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Entitlements.OperatorEntitlementEndpoints"
+        ],
+        "summary": "GET_api_operator_orgs_orgId_entitlements",
+        "description": "GET_api_operator_orgs_orgId_entitlements",
+        "operationId": "GET_api_operator_orgs_orgId_entitlements",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operator/orgs/{orgId}/entitlements/{code}": {
       "put": {
         "tags": [
-          "Premise.Modules.Entitlements.EntitlementEndpoints"
+          "Premise.Modules.Entitlements.OperatorEntitlementEndpoints"
         ],
-        "summary": "PUT_api_admin_entitlements_code",
-        "description": "PUT_api_admin_entitlements_code",
-        "operationId": "PUT_api_admin_entitlements_code",
+        "summary": "PUT_api_operator_orgs_orgId_entitlements_code",
+        "description": "PUT_api_operator_orgs_orgId_entitlements_code",
+        "operationId": "PUT_api_operator_orgs_orgId_entitlements_code",
         "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "code",
             "in": "path",
@@ -978,7 +1140,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetEntitlementRequest"
+                "$ref": "#/components/schemas/OperatorSetEntitlementRequest"
               }
             }
           },
@@ -1006,15 +1168,24 @@
         }
       }
     },
-    "/api/admin/entitlements/{code}/exceptions": {
+    "/api/operator/orgs/{orgId}/entitlements/{code}/exceptions": {
       "post": {
         "tags": [
-          "Premise.Modules.Entitlements.EntitlementEndpoints"
+          "Premise.Modules.Entitlements.OperatorEntitlementEndpoints"
         ],
-        "summary": "POST_api_admin_entitlements_code_exceptions",
-        "description": "POST_api_admin_entitlements_code_exceptions",
-        "operationId": "POST_api_admin_entitlements_code_exceptions",
+        "summary": "POST_api_operator_orgs_orgId_entitlements_code_exceptions",
+        "description": "POST_api_operator_orgs_orgId_entitlements_code_exceptions",
+        "operationId": "POST_api_operator_orgs_orgId_entitlements_code_exceptions",
         "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "code",
             "in": "path",
@@ -1028,7 +1199,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddExceptionRequest"
+                "$ref": "#/components/schemas/OperatorAddExceptionRequest"
               }
             }
           },
@@ -1870,26 +2041,6 @@
   },
   "components": {
     "schemas": {
-      "AddExceptionRequest": {
-        "required": [
-          "value",
-          "reason",
-          "expiresAt"
-        ],
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "AddGrantExceptionRequest": {
         "required": [
           "userId",
@@ -2212,6 +2363,37 @@
           }
         }
       },
+      "OperatorAddExceptionRequest": {
+        "required": [
+          "value",
+          "reason",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OperatorSetEntitlementRequest": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "PutSettingRequest": {
         "required": [
           "value"
@@ -2235,17 +2417,6 @@
           },
           "logReads": {
             "type": "boolean"
-          }
-        }
-      },
-      "SetEntitlementRequest": {
-        "required": [
-          "value"
-        ],
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "string"
           }
         }
       },
@@ -2385,6 +2556,9 @@
       "name": "Premise.Modules.Tenancy.Organizations.OnboardingEndpoints"
     },
     {
+      "name": "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
+    },
+    {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
     },
     {
@@ -2395,6 +2569,9 @@
     },
     {
       "name": "Premise.Modules.Entitlements.EntitlementEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Entitlements.OperatorEntitlementEndpoints"
     },
     {
       "name": "Premise.Modules.Audit.AuditEndpoints"

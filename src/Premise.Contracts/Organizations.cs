@@ -47,7 +47,9 @@ public sealed record OrganizationUpserted(
     string Name,
     string Slug,
     RegionId Region,
-    string? ExternalId
+    string? ExternalId,
+    string Status = "Active",
+    bool IsPlatform = false
 );
 
 /// <summary>Intent-level audit (ADR 12): modules publish these deliberately, in business language.</summary>

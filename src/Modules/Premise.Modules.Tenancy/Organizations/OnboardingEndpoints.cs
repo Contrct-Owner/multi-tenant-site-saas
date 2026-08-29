@@ -66,7 +66,15 @@ public static class OnboardingEndpoints
         await db.SaveChangesAsync(ct);
 
         await bus.PublishAsync(
-            new OrganizationUpserted(org.Id, org.Name, org.Slug, org.Region, org.ExternalId)
+            new OrganizationUpserted(
+                org.Id,
+                org.Name,
+                org.Slug,
+                org.Region,
+                org.ExternalId,
+                org.Status.ToString(),
+                org.IsPlatform
+            )
         );
         await bus.PublishAsync(
             new ProvisionFounderMembership(userId, org.Id),

@@ -12,6 +12,7 @@ const NAV = [
   { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
   { to: '/members', label: 'Members', capability: 'roles:manage' },
   { to: '/audit', label: 'Audit', capability: 'audit:read' },
+  { to: '/operator', label: 'Operator', capability: 'platform:operate' },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -30,6 +31,18 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   const activeOrg = me.organizations.find((o) => o.id === me.activeOrg);
+  if (activeOrg && (activeOrg as { status?: string }).status === 'Suspended') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <div className="w-full max-w-sm space-y-3 rounded-lg border bg-card p-8 text-center">
+          <h1 className="text-xl font-semibold">{activeOrg.name} is suspended</h1>
+          <p className="text-sm text-muted-foreground">
+            Contact support to restore access. Your data is retained.
+          </p>
+        </div>
+      </main>
+    );
+  }
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="flex w-56 flex-col border-r bg-card">

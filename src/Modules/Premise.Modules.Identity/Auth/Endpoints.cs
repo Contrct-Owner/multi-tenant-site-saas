@@ -247,14 +247,28 @@ public static class AuthEndpoints
                                 id = d.OrgId.Value,
                                 name = d.Name,
                                 slug = d.Slug,
+                                status = d.Status,
+                                isPlatform = d.IsPlatform,
                             })
                             .ToListAsync(ct);
                         // resolved capabilities: the UI hides/disables instead
                         // of letting users discover 403s (the /me bootstrap)
+                        var activeIsPlatform =
+                            u.ActiveOrg is { } activeOrgId
+                            && await db
+                                .OrgDirectory.Where(d => d.OrgId == activeOrgId)
+                                .Select(d => d.IsPlatform)
+                                .FirstOrDefaultAsync(ct);
                         var capabilities = new List<string>();
                         foreach (var capability in Capabilities.All)
+                        {
+                            // the org flag is the operator wall: never
+                            // advertise platform reach to an ordinary org
+                            if (capability == Capabilities.PlatformOperate && !activeIsPlatform)
+                                continue;
                             if (await scopes.CanAsync(u, capability, ct))
                                 capabilities.Add(capability);
+                        }
                         return Results.Ok(
                             new
                             {

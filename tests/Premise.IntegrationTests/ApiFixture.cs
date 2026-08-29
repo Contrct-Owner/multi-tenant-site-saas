@@ -45,6 +45,8 @@ public class ApiFixture : IAsyncLifetime
     public const string UserB = "user-b@premise.local"; // member: OrgB
     public const string UserBoth = "user-ab@premise.local"; // member: OrgA + OrgB
     public const string ViewerA = "viewer-a@premise.local"; // member: OrgA, NO role
+    public const string Operator = "operator@premise.local"; // member: platform org
+    public OrgId PlatformOrg { get; } = OrgId.New();
 
     public virtual async Task InitializeAsync()
     {
@@ -103,6 +105,14 @@ public class ApiFixture : IAsyncLifetime
                     Name = "Org B",
                     Slug = "org-b",
                     Region = RegionId.Default,
+                },
+                new Organization
+                {
+                    Id = PlatformOrg,
+                    Name = "Platform Ops",
+                    Slug = "platform-ops",
+                    Region = RegionId.Default,
+                    IsPlatform = true,
                 }
             );
             seed.OrganizationSettings.AddRange(
@@ -117,7 +127,8 @@ public class ApiFixture : IAsyncLifetime
             var b = AppUser.Create("local", UserB, UserB, "User B");
             var both = AppUser.Create("local", UserBoth, UserBoth, "User AB");
             var viewer = AppUser.Create("local", ViewerA, ViewerA, "Viewer A");
-            seed.Users.AddRange(a, b, both, viewer);
+            var op = AppUser.Create("local", Operator, Operator, "Operator");
+            seed.Users.AddRange(a, b, both, viewer, op);
             var memberships = new[]
             {
                 (Membership.Create(a.Id, OrgA), true),
@@ -125,6 +136,7 @@ public class ApiFixture : IAsyncLifetime
                 (Membership.Create(both.Id, OrgA), true),
                 (Membership.Create(both.Id, OrgB), true),
                 (Membership.Create(viewer.Id, OrgA), false), // no role: gets nothing
+                (Membership.Create(op.Id, PlatformOrg), true),
             };
             seed.Memberships.AddRange(memberships.Select(m => m.Item1));
             // Owner (*:*) per org, assigned org-wide to the seeded members (ADR 6)
@@ -132,6 +144,7 @@ public class ApiFixture : IAsyncLifetime
             {
                 [OrgA] = Role.Create(OrgA, "Owner"),
                 [OrgB] = Role.Create(OrgB, "Owner"),
+                [PlatformOrg] = Role.Create(PlatformOrg, "Operator"),
             };
             foreach (var (org, ownerRole) in owners)
             {
@@ -196,11 +209,22 @@ public class ApiFixture : IAsyncLifetime
                     null
                 )
             );
+            await bus.PublishAsync(
+                new Premise.Contracts.OrganizationUpserted(
+                    PlatformOrg,
+                    "Platform Ops",
+                    "platform-ops",
+                    RegionId.Default,
+                    null,
+                    "Active",
+                    IsPlatform: true
+                )
+            );
         }
         for (var i = 0; i < 100; i++)
         {
             await using var check = CreateIdentityContext(adminCs);
-            if (await check.OrgDirectory.CountAsync() >= 2)
+            if (await check.OrgDirectory.CountAsync() >= 3)
                 break;
             await Task.Delay(100);
         }
@@ -288,6 +312,20 @@ public class ApiFixture : IAsyncLifetime
         await using var scope = Factory.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
         await Premise.Modules.Tenancy.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
+    }
+
+    public Task<HttpClient> OperatorClient() => LoginAsync(Operator);
+
+    public async Task ResetUsageEvents(OrgId org, string code)
+    {
+        await using var db = CreateModuleContext<EntitlementsDbContext>(
+            _postgres.GetConnectionString(),
+            "entitlements"
+        );
+        await db
+            .UsageEvents.IgnoreQueryFilters()
+            .Where(e => e.OrgId == org && e.Code == code)
+            .ExecuteDeleteAsync();
     }
 
     /// <summary>A user with NO org at all - the day-zero starting state.</summary>

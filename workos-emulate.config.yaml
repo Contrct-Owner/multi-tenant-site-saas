@@ -9,6 +9,13 @@ users:
     password: test123
     email_verified: true
 
+  - id: user_01DEVOPERATOR0000000000
+    email: operator@premise.local
+    first_name: Premise
+    last_name: Operator
+    password: test123
+    email_verified: true
+
 organizations:
   - id: org_01DEVACME000000000000000
     name: Acme Dev
