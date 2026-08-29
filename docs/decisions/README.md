@@ -50,3 +50,7 @@ confirmation on edits under this directory.
 - [0034. Topology](0034-aspire-dev-one-image-role-flag.md)
 - [0035. Data residency](0035-residency-silos-then-routing.md) **(pinned)**
 - [0036. Fork model](0036-template-init-module-generator.md)
+
+## Amendments
+
+- [0037. Contract direction and read models](0037-contract-direction-and-read-models.md)

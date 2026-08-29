@@ -147,6 +147,39 @@ public class ApiFixture : IAsyncLifetime
             builder.UseEnvironment("Testing");
             ConfigureHost(builder);
         });
+
+        // What every org-writing flow does (tenant lifecycle, ingest): publish
+        // the integration event. Identity's org_directory read model feeds
+        // from it - login and /me depend on it, so wait for the sync.
+        await using (var scope = Factory.Services.CreateAsyncScope())
+        {
+            var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
+            await bus.PublishAsync(
+                new Premise.Contracts.OrganizationUpserted(
+                    OrgA,
+                    "Org A",
+                    "org-a",
+                    RegionId.Default,
+                    null
+                )
+            );
+            await bus.PublishAsync(
+                new Premise.Contracts.OrganizationUpserted(
+                    OrgB,
+                    "Org B",
+                    "org-b",
+                    RegionId.Default,
+                    null
+                )
+            );
+        }
+        for (var i = 0; i < 100; i++)
+        {
+            await using var check = CreateIdentityContext(adminCs);
+            if (await check.OrgDirectory.CountAsync() >= 2)
+                break;
+            await Task.Delay(100);
+        }
     }
 
     /// <summary>Subclass hook (e.g. the WorkOS-emulator fixture overrides auth settings).</summary>

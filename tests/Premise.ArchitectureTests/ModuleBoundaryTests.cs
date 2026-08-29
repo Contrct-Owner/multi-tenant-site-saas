@@ -57,6 +57,33 @@ public class ModuleBoundaryTests
         Assert.True(result.IsSuccessful, $"{module.GetName().Name} must not depend on the host.");
     }
 
+    /// <summary>
+    /// The contract-consumption ladder. Modules may implement any contract and
+    /// consume contracts implemented BELOW them; consuming upward creates the
+    /// extraction-blocking cycles the assembly-reference tests cannot see:
+    ///   Tenancy (base: org/site master data - consumes no module's contracts)
+    ///   Identity (above Tenancy - reads org data ONLY via its event-fed
+    ///             org_directory read model, never IOrganizationLookup)
+    ///   Entitlements (top - may consume IOrganizationLookup and the probes)
+    /// Platform ports (IScopeResolver, IEntitlements) are exempt: the host
+    /// wires them, and their hub-shaped runtime coupling is a documented
+    /// decision (ADR 37), not an accident.
+    /// </summary>
+    [Fact]
+    public void Identity_does_not_consume_tenancy_contracts()
+    {
+        var result = Types
+            .InAssembly(typeof(Modules.Identity.IdentityModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("Premise.Contracts.IOrganizationLookup")
+            .GetResult();
+        Assert.True(
+            result.IsSuccessful,
+            "Identity must use its org_directory read model, not Tenancy's lookup: "
+                + string.Join(", ", result.FailingTypeNames ?? [])
+        );
+    }
+
     [Fact]
     public void Integrations_reference_only_platform()
     {

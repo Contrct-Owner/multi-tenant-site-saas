@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Platform.Auth;
@@ -55,7 +54,6 @@ public static class AuthEndpoints
                 IAuthProvider provider,
                 IDataProtectionProvider dp,
                 IdentityDbContext db,
-                IOrganizationLookup orgs,
                 string code,
                 string state,
                 CancellationToken ct
@@ -102,14 +100,51 @@ public static class AuthEndpoints
                 // that org (JIT membership). Otherwise the user keeps existing memberships.
                 if (
                     identity.ExternalOrgId is { } externalOrgId
-                    && await orgs.FindByExternalIdAsync(externalOrgId, ct) is { } mapped
+                    && await db.OrgDirectory.FirstOrDefaultAsync(
+                        d => d.ExternalId == externalOrgId,
+                        ct
+                    )
+                        is { } mapped
                     && !await db.Memberships.AnyAsync(
-                        m => m.UserId == user.Id && m.OrgId == mapped.Id,
+                        m => m.UserId == user.Id && m.OrgId == mapped.OrgId,
                         ct
                     )
                 )
                 {
-                    db.Memberships.Add(Membership.Create(user.Id, mapped.Id));
+                    var membership = Membership.Create(user.Id, mapped.OrgId);
+                    db.Memberships.Add(membership);
+                    // Bootstrap: the FIRST member of an org with no roles
+                    // becomes Owner (*:*, org-wide) - someone must be able to
+                    // assign roles (ADR 6).
+                    if (
+                        !await db
+                            .Roles.IgnoreQueryFilters()
+                            .AnyAsync(r => r.OrgId == mapped.OrgId, ct)
+                    )
+                    {
+                        var owner = Access.Role.Create(mapped.OrgId, "Owner");
+                        db.Roles.Add(owner);
+                        db.RoleGrants.Add(
+                            new Access.RoleGrant
+                            {
+                                Id = Guid.CreateVersion7(),
+                                OrgId = mapped.OrgId,
+                                RoleId = owner.Id,
+                                Domain = "*",
+                                Action = "*",
+                            }
+                        );
+                        db.MembershipRoles.Add(
+                            new Access.MembershipRole
+                            {
+                                Id = Guid.CreateVersion7(),
+                                OrgId = mapped.OrgId,
+                                MembershipId = membership.Id,
+                                RoleId = owner.Id,
+                                ScopePath = null,
+                            }
+                        );
+                    }
                 }
                 await db.SaveChangesAsync(ct);
 
@@ -166,12 +201,7 @@ public static class AuthEndpoints
 
         app.MapGet(
             "/me",
-            async (
-                IPrincipalAccessor accessor,
-                IdentityDbContext db,
-                IOrganizationLookup orgs,
-                CancellationToken ct
-            ) =>
+            async (IPrincipalAccessor accessor, IdentityDbContext db, CancellationToken ct) =>
             {
                 switch (accessor.Current)
                 {
@@ -181,17 +211,16 @@ public static class AuthEndpoints
                             .Memberships.Where(m => m.UserId == u.UserId)
                             .Select(m => m.OrgId)
                             .ToListAsync(ct);
-                        var summaries = new List<object>();
-                        foreach (var id in orgIds)
-                            if (await orgs.GetAsync(id, ct) is { } o)
-                                summaries.Add(
-                                    new
-                                    {
-                                        id = o.Id.Value,
-                                        name = o.Name,
-                                        slug = o.Slug,
-                                    }
-                                );
+                        // local read model (org_directory), never Tenancy's tables
+                        var summaries = await db
+                            .OrgDirectory.Where(d => orgIds.Contains(d.OrgId))
+                            .Select(d => new
+                            {
+                                id = d.OrgId.Value,
+                                name = d.Name,
+                                slug = d.Slug,
+                            })
+                            .ToListAsync(ct);
                         return Results.Ok(
                             new
                             {

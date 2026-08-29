@@ -15,6 +15,7 @@ public sealed class IdentityDbContext(
 
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<Membership> Memberships => Set<Membership>();
+    public DbSet<OrgDirectoryEntry> OrgDirectory => Set<OrgDirectoryEntry>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<MembershipRole> MembershipRoles => Set<MembershipRole>();
@@ -48,6 +49,20 @@ public sealed class IdentityDbContext(
             b.Property(m => m.CreatedAt).HasColumnName("created_at");
             b.HasIndex(m => new { m.UserId, m.OrgId }).IsUnique();
             b.HasIndex(m => m.OrgId);
+        });
+
+        modelBuilder.Entity<OrgDirectoryEntry>(b =>
+        {
+            b.ToTable("org_directory");
+            b.HasKey(d => d.OrgId);
+            b.Property(d => d.OrgId).HasColumnName("org_id").ValueGeneratedNever();
+            b.Property(d => d.Name).HasColumnName("name").HasMaxLength(200);
+            b.Property(d => d.Slug).HasColumnName("slug").HasMaxLength(80);
+            b.Property(d => d.Region).HasColumnName("region").HasMaxLength(40);
+            b.Property(d => d.ExternalId).HasColumnName("external_id").HasMaxLength(120);
+            b.Property(d => d.SyncedAt).HasColumnName("synced_at");
+            b.HasIndex(d => d.Slug);
+            b.HasIndex(d => d.ExternalId);
         });
 
         modelBuilder.Entity<Role>(b =>

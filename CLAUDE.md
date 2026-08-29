@@ -59,6 +59,10 @@ don't restate them here.
   endpoint/handler whose dependency chain touches more than one DbContext
   (injecting `IScopeResolver` is enough — it uses IdentityDbContext) must
   declare its transaction owner: `[Transactional(typeof(TenancyDbContext))]`.
+- **Contract consumption follows the ladder** (ADR 37): Tenancy consumes no
+  module's contracts; Identity reads org data only via its org_directory read
+  model; every org-writing flow publishes `OrganizationUpserted`. Consuming a
+  contract implemented above your module creates an extraction-blocking cycle.
 - **Tenant resolution is read-time, always.** Wolverine's transactional frames
   open the DB connection before middleware or handler bodies run — anything
   the RLS interceptor needs must be answerable lazily from whatever scope asks
