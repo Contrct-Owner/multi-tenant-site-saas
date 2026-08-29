@@ -25,6 +25,14 @@ using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Scope validation ALWAYS (not just Development): singleton captures of
+// scoped services are tenant-leak bugs; fail on them in every environment.
+builder.Host.UseDefaultServiceProvider(o =>
+{
+    o.ValidateScopes = true;
+    o.ValidateOnBuild = false; // Wolverine registers open generics that trip build validation
+});
+
 // Role flag (ADR 34): one image, run as "api" or "worker".
 var role = builder.Configuration["ROLE"] ?? "api";
 
@@ -44,7 +52,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Premise.Modules.Identity.Access.GrantScopeResolver>();
 builder.Services.AddScoped<IScopeResolver, AuditedScopeResolver>();
 builder.Services.AddSingleton<AuditPolicyCache>();
-builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
 
 // Auth seam (ADR 14): provider selected by config; WorkOS is the built-in
 // full-capability implementation, local is the dev/test base implementation.
@@ -100,11 +108,11 @@ builder.Services.AddIngestModule();
 builder.Services.AddDbContext<PlatformDbContext>(
     (sp, options) =>
     {
+        // singleton options: default region only (see module registrations / ADR 35)
         var regions = sp.GetRequiredService<IRegionDataSources>();
-        var tenant = sp.GetRequiredService<ITenantContext>();
         options
             .UseNpgsql(
-                regions.For(tenant.Region),
+                regions.For(RegionId.Default),
                 npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", "platform")
             )
             .AddInterceptors(TenantSessionInterceptor.Instance);
@@ -207,6 +215,9 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(StorageModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IngestModule).Assembly);
 });
+
+if (builder.Environment.IsDevelopment() && role == "api")
+    builder.Services.AddHostedService<DevBootstrap>(); // migrate + seed for `aspire run`
 
 var app = builder.Build();
 

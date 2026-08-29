@@ -220,11 +220,13 @@ public class HierarchyAndTimeTests(ApiFixture fixture) : IClassFixture<ApiFixtur
         {
             await Task.Delay(100);
             after = await PollWindows(siteId, minimum: 0);
-            if (after.Count > 0 && after[0].start != before[0].start)
+            if (after.Count > 0 && after.Any(w => w.start == before[0].start.AddHours(3)))
                 break;
         }
-        // same local 9am is 3 hours later in UTC on the west coast
-        Assert.Equal(before[0].start.AddHours(3), after[0].start);
+        // same local 9am is 3 hours later in UTC on the west coast. Match by
+        // value, not index: expansion-from can include one extra occurrence on
+        // the horizon-start's LOCAL date, and that date differs by zone.
+        Assert.Contains(after, w => w.start == before[0].start.AddHours(3));
     }
 
     [Fact]

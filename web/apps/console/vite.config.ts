@@ -9,6 +9,8 @@ const apiTarget = process.env.PREMISE_API ?? 'http://localhost:5293';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    port: Number(process.env.PORT ?? 5173), // Aspire assigns via PORT
+    strictPort: true,
     proxy: Object.fromEntries(
       ['/api', '/auth', '/me', '/objects', '/openapi', '/contact-links', '/contact'].map((p) => [
         p,

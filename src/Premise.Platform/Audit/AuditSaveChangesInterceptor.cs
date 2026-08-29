@@ -14,7 +14,12 @@ namespace Premise.Platform.Audit;
 /// with the change they describe. Redacted properties log that they changed,
 /// never their values.
 /// </summary>
-public sealed class AuditSaveChangesInterceptor(IPrincipalAccessor accessor, ITenantContext tenant)
+/// <remarks>
+/// SINGLETON by design: DbContext options are singletons, so anything they
+/// capture must be too. Actor comes from the singleton IPrincipalAccessor;
+/// tenant is read at save time from the CONTEXT instance (read-time rule).
+/// </remarks>
+public sealed class AuditSaveChangesInterceptor(IPrincipalAccessor accessor)
     : SaveChangesInterceptor
 {
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
@@ -70,7 +75,8 @@ public sealed class AuditSaveChangesInterceptor(IPrincipalAccessor accessor, ITe
                 new AuditChangeLog
                 {
                     Id = Guid.CreateVersion7(),
-                    OrgId = (entry.Entity as IOrgScoped)?.OrgId.Value ?? tenant.OrgId?.Value,
+                    OrgId =
+                        (entry.Entity as IOrgScoped)?.OrgId.Value ?? context.Tenant.OrgId?.Value,
                     ActorTier = tier,
                     ActorId = actorId,
                     ActorLabel = label,

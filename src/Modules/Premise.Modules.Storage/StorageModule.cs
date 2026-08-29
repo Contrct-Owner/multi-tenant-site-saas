@@ -14,11 +14,14 @@ public static class StorageModule
         services.AddDbContextWithWolverineIntegration<StorageDbContext>(
             (sp, options) =>
             {
+                // Options are SINGLETON: never resolve scoped services here (dev
+                // scope-validation rejects it, and it would freeze the first
+                // request's region). v1 is single-region (ADR 35); multi-region
+                // moves connection selection to a per-scope interceptor.
                 var regions = sp.GetRequiredService<IRegionDataSources>();
-                var tenant = sp.GetRequiredService<ITenantContext>();
                 options
                     .UseNpgsql(
-                        regions.For(tenant.Region),
+                        regions.For(RegionId.Default),
                         npgsql =>
                             npgsql.MigrationsHistoryTable("__ef_migrations_history", "storage")
                     )

@@ -34,6 +34,12 @@ var api = builder
     .WithEnvironment("Auth__WorkOS__ApiBaseUrl", workosEndpoint);
 
 builder
+    .AddNpmApp("console", "../../web/apps/console", "dev")
+    .WithHttpEndpoint(env: "PORT", port: 5173, targetPort: 5173)
+    .WithEnvironment("PREMISE_API", api.GetEndpoint("http"))
+    .WaitFor(api);
+
+builder
     .AddProject<Projects.Premise_Api>("worker")
     .WithReference(postgres)
     .WaitFor(postgres)
