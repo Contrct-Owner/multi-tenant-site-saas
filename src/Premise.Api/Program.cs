@@ -216,7 +216,9 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(IngestModule).Assembly);
 });
 
-if (builder.Environment.IsDevelopment() && role == "api")
+var bootstraps = builder.Environment.IsDevelopment() && role == "api";
+builder.Services.AddSingleton(new ReadinessState(ready: !bootstraps));
+if (bootstraps)
     builder.Services.AddHostedService<DevBootstrap>(); // migrate + seed for `aspire run`
 
 var app = builder.Build();
@@ -235,7 +237,16 @@ if (role == "api")
     app.MapIdentityEndpoints();
     app.MapContactLinkEndpoints();
     app.MapWolverineEndpoints();
-    app.MapGet("/healthz", () => Results.Ok(new { status = "ok", role }));
+    app.MapGet(
+        "/healthz",
+        (ReadinessState readiness) =>
+            readiness.Ready
+                ? Results.Ok(new { status = "ok", role })
+                : Results.Json(
+                    new { status = "starting", role },
+                    statusCode: StatusCodes.Status503ServiceUnavailable
+                )
+    );
 }
 
 app.Run();

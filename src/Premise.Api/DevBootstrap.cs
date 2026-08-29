@@ -11,8 +11,11 @@ namespace Premise.Api;
 /// (workos-emulate.config.yaml), so `aspire run` on a fresh clone gives a
 /// working login. Never registered outside Development.
 /// </summary>
-public sealed class DevBootstrap(IServiceProvider services, ILogger<DevBootstrap> logger)
-    : BackgroundService
+public sealed class DevBootstrap(
+    IServiceProvider services,
+    ReadinessState readiness,
+    ILogger<DevBootstrap> logger
+) : BackgroundService
 {
     public const string EmulatorUserId = "user_01DEVALICE00000000000000";
     public const string EmulatorOrgId = "org_01DEVACME000000000000000";
@@ -24,6 +27,7 @@ public sealed class DevBootstrap(IServiceProvider services, ILogger<DevBootstrap
             try
             {
                 await RunAsync(stoppingToken);
+                readiness.MarkReady();
                 logger.LogInformation("dev bootstrap complete");
                 return;
             }

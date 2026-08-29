@@ -31,7 +31,9 @@ var api = builder
     .WithEnvironment("Auth__Provider", "workos")
     .WithEnvironment("Auth__WorkOS__ApiKey", "sk_test_default")
     .WithEnvironment("Auth__WorkOS__ClientId", "client_premise_dev")
-    .WithEnvironment("Auth__WorkOS__ApiBaseUrl", workosEndpoint);
+    .WithEnvironment("Auth__WorkOS__ApiBaseUrl", workosEndpoint)
+    // WaitFor(api) waits for HEALTHY: 503 until dev bootstrap finishes
+    .WithHttpHealthCheck("/healthz");
 
 builder
     .AddNpmApp("console", "../../web/apps/console", "dev")
