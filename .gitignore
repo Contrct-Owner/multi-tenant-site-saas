@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node
+node_modules/
+dist/
+.tanstack/
+
+# Local env & secrets
+.env
+.env.*
+!.env.example
+*.local.json
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+.idea/
