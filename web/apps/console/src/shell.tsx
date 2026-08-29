@@ -22,17 +22,7 @@ export function Shell({ children }: { children: ReactNode }) {
   if (isLoading) return <div className="p-12 text-muted-foreground">Loading session…</div>;
 
   if (me?.tier !== 'user') {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-8 text-center">
-          <h1 className="text-xl font-semibold">Premise Console</h1>
-          <p className="text-sm text-muted-foreground">Sign in to manage your organization.</p>
-          <Button asChild className="w-full">
-            <a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`}>Sign in</a>
-          </Button>
-        </div>
-      </main>
-    );
+    return <SignInScreen />;
   }
 
   if (me.organizations.length === 0) {
@@ -95,6 +85,56 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
       <main className="flex-1 overflow-auto p-8">{children}</main>
     </div>
+  );
+}
+
+function SignInScreen() {
+  const authError = new URLSearchParams(location.search).get('authError');
+  const [signupEmail, setSignupEmail] = useState<string | null>(null);
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-8 text-center">
+        <h1 className="text-xl font-semibold">Premise Console</h1>
+        <p className="text-sm text-muted-foreground">Sign in to manage your organization.</p>
+        {authError && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {authError === 'user_not_found'
+              ? 'No account for that email yet — use Create account below.'
+              : `Sign-in didn't complete (${authError.replaceAll('_', ' ')}). Try again.`}
+          </p>
+        )}
+        <Button asChild className="w-full">
+          <a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`}>Sign in</a>
+        </Button>
+        {signupEmail === null ? (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            onClick={() => setSignupEmail('')}
+          >
+            Create account
+          </button>
+        ) : (
+          <div className="space-y-2 text-left">
+            <Label htmlFor="signup-email">Email for your new account</Label>
+            <Input
+              id="signup-email"
+              type="email"
+              value={signupEmail}
+              onChange={(e) => setSignupEmail(e.target.value)}
+            />
+            <Button asChild className="w-full" variant="secondary">
+              <a
+                href={`/auth/signup?email=${encodeURIComponent(signupEmail)}`}
+                aria-disabled={!signupEmail.includes('@')}
+              >
+                Create account
+              </a>
+            </Button>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
 

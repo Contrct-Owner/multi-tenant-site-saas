@@ -34,7 +34,8 @@ public static class AuthEndpoints
                 IDataProtectionProvider dp,
                 string? returnUrl,
                 string? hint,
-                string? org
+                string? org,
+                bool signup = false
             ) =>
             {
                 var state = dp.CreateProtector(StatePurpose)
@@ -43,7 +44,31 @@ public static class AuthEndpoints
                     );
                 var redirectUri = CallbackUri(http);
                 return Results.Redirect(
-                    provider.BuildAuthorizationUrl(redirectUri, state, hint, org)
+                    provider.BuildAuthorizationUrl(
+                        redirectUri,
+                        state,
+                        hint,
+                        org,
+                        signup ? "sign-up" : null
+                    )
+                );
+            }
+        );
+
+        app.MapGet(
+            "/auth/signup",
+            async (IAuthProvider provider, string email, CancellationToken ct) =>
+            {
+                var trimmed = email.Trim().ToLowerInvariant();
+                if (!trimmed.Contains('@') || trimmed.Length > 320)
+                    return Results.BadRequest(new { error = "a valid email is required" });
+                // AuthKit's hosted screen registers users itself; providers
+                // that need the record first (the emulator, bare OIDC setups
+                // with admin-created users) get it via the capability.
+                if (provider is IUserProvisioning provisioning)
+                    await provisioning.EnsureUserAsync(trimmed, ct);
+                return Results.Redirect(
+                    $"/auth/login?hint={Uri.EscapeDataString(trimmed)}&signup=true"
                 );
             }
         );
@@ -55,11 +80,25 @@ public static class AuthEndpoints
                 IAuthProvider provider,
                 IDataProtectionProvider dp,
                 IdentityDbContext db,
-                string code,
-                string state,
+                string? code,
+                string? state,
+                string? error,
                 CancellationToken ct
             ) =>
             {
+                // OAuth error callback (cancelled login, unknown user, signup
+                // disabled): no code arrives - hand the reason to the login
+                // screen instead of crashing on a missing parameter.
+                if (error is not null || code is null || state is null)
+                {
+                    var reason = new string(
+                        (error ?? "missing_code")
+                            .Where(c => char.IsAsciiLetterOrDigit(c) || c == '_')
+                            .ToArray()
+                    );
+                    return Results.Redirect($"/?authError={reason}");
+                }
+
                 string returnUrl;
                 try
                 {
@@ -274,7 +313,7 @@ public static class AuthEndpoints
 
     /// <summary>Open-redirect guard: relative paths only.</summary>
     private static string SafeReturnUrl(string? returnUrl) =>
-        returnUrl is ['/', ..] && !returnUrl.StartsWith("//") ? returnUrl : "/me";
+        returnUrl is ['/', ..] && !returnUrl.StartsWith("//") ? returnUrl : "/";
 }
 
 public sealed record SwitchOrgRequest(Guid OrgId);

@@ -59,6 +59,18 @@ public class AuthFlowTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task OAuth_error_callback_redirects_to_login_with_reason()
+    {
+        // provider error branch (cancelled login, unknown user): no code, no crash
+        var client = fixture.Factory.CreateDefaultClient(
+            new Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler()
+        );
+        var response = await client.GetAsync("/auth/callback?error=user_not_found&state=whatever");
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/?authError=user_not_found", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
     public async Task Logout_returns_to_guest()
     {
         var client = await fixture.LoginAsync(ApiFixture.UserA);

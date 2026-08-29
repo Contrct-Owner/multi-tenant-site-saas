@@ -216,7 +216,7 @@ public class ApiFixture : IAsyncLifetime
             new RedirectHandler(),
             new CookieContainerHandler()
         );
-        var url = $"/auth/login?hint={Uri.EscapeDataString(email)}";
+        var url = $"/auth/login?returnUrl=%2Fme&hint={Uri.EscapeDataString(email)}";
         if (orgHint is not null)
             url += $"&org={Uri.EscapeDataString(orgHint)}";
         var response = await client.GetAsync(url);

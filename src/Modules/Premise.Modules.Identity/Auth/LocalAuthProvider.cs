@@ -9,13 +9,15 @@ namespace Premise.Modules.Identity.Auth;
 /// Lets the template run and its test suites authenticate with no external
 /// account. Program blocks it in Production.
 /// </summary>
-public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory
+public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory, IUserProvisioning
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<
         string,
         List<PendingInvitation>
     > _invitations = new();
     private int _sequence;
+
+    public Task EnsureUserAsync(string email, CancellationToken ct = default) => Task.CompletedTask; // local logins accept any email already
 
     public Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default) =>
         Task.FromResult($"local_org_{Interlocked.Increment(ref _sequence):D6}");
@@ -60,7 +62,8 @@ public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory
         string redirectUri,
         string state,
         string? loginHint = null,
-        string? orgHint = null
+        string? orgHint = null,
+        string? screenHint = null
     )
     {
         var email = loginHint ?? "dev@premise.local";

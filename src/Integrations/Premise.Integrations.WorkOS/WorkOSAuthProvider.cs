@@ -23,7 +23,7 @@ public sealed class WorkOSOptions
 /// lifecycle. Grants, entitlements, and audit stay internal (ADRs 6/10/12) -
 /// WorkOS is identity and org directory only.
 /// </summary>
-public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory
+public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory, IUserProvisioning
 {
     private readonly WorkOSClient _client;
     private readonly string _clientId;
@@ -49,7 +49,8 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory
         string redirectUri,
         string state,
         string? loginHint = null,
-        string? orgHint = null
+        string? orgHint = null,
+        string? screenHint = null
     ) =>
         AuthorizationUrlBuilder.BuildAuthKitAuthorizationUrl(
             _baseUrl,
@@ -60,6 +61,7 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory
                 State = state,
                 LoginHint = loginHint,
                 OrganizationId = orgHint,
+                ScreenHint = screenHint, // "sign-up" sends AuthKit to registration
             }
         );
 
@@ -85,6 +87,19 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory
             Name: string.IsNullOrWhiteSpace(name) ? null : name,
             ExternalOrgId: response.OrganizationId
         );
+    }
+
+    public async Task EnsureUserAsync(string email, CancellationToken ct = default)
+    {
+        try
+        {
+            await _client.UserManagement.CreateAsync(
+                new UserManagementCreateOptions { Email = email, EmailVerified = true },
+                cancellationToken: ct
+            );
+        }
+        catch (ApiException) // already exists: sign-up is idempotent
+        { }
     }
 
     public async Task AddMemberAsync(

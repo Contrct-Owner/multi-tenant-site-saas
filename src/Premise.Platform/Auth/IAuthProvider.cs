@@ -19,7 +19,8 @@ public interface IAuthProvider
         string redirectUri,
         string state,
         string? loginHint = null,
-        string? orgHint = null
+        string? orgHint = null,
+        string? screenHint = null
     );
 
     /// <summary>Exchange the callback code for the authenticated identity.</summary>
@@ -74,6 +75,17 @@ public interface IOrganizationDirectory
     );
 
     Task RevokeInvitationAsync(string invitationId, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Optional capability (ADR 14): pre-create a user at the provider. Real
+/// AuthKit registers users on its hosted sign-up screen; the emulator (and
+/// admin-creates-user flows) need the record to exist before authorize.
+/// </summary>
+public interface IUserProvisioning
+{
+    /// <summary>Idempotent: an existing user is not an error.</summary>
+    Task EnsureUserAsync(string email, CancellationToken ct = default);
 }
 
 public sealed record PendingInvitation(
