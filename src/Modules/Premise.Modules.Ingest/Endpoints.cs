@@ -1,0 +1,220 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
+using Premise.Modules.Ingest.Data;
+using Premise.Platform.Kernel;
+using Premise.Platform.Secrets;
+using Premise.Platform.Storage;
+using Wolverine;
+using Wolverine.Attributes;
+using Wolverine.Http;
+
+namespace Premise.Modules.Ingest;
+
+public sealed record StageUploadRequest(Guid FileId);
+
+public sealed record CreateConnectorRequest(string Name, string Url, string ApiKey);
+
+public static class IngestEndpoints
+{
+    /// <summary>Stage a CLEAN uploaded CSV: parse, validate, diff - nothing applied.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePost("/api/ingest/uploads")]
+    public static async Task<IResult> StageUpload(
+        StageUploadRequest request,
+        IngestDbContext db,
+        StagingService staging,
+        IStoredFileLookup files,
+        IObjectStore store,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
+            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+        )
+            return Results.Unauthorized();
+
+        var file = await files.GetAsync(request.FileId, ct);
+        if (file is null)
+            return Results.NotFound();
+        if (file.Status != "Clean")
+            return Results.Conflict(
+                new { error = $"file is {file.Status}; only Clean files can be staged" }
+            );
+
+        string text;
+        await using (var stream = await store.OpenReadAsync(file.Key, ct))
+        using (var reader = new StreamReader(stream))
+            text = await reader.ReadToEndAsync(ct);
+
+        var rows = CsvParser.Parse(text).Select(CsvParser.ToSourceRow).ToList();
+        if (rows.Count == 0)
+            return Results.BadRequest(new { error = "no data rows found" });
+
+        var batch = await staging.StageAsync(org, userId, "upload", rows, ct);
+        return Results.Ok(
+            new { batchId = batch.Id, counts = JsonSerializer.Deserialize<object>(batch.Counts) }
+        );
+    }
+
+    /// <summary>The diff preview (ADR 18): what WOULD happen, row by row.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverineGet("/api/ingest/batches/{id}")]
+    public static async Task<IResult> Preview(
+        Guid id,
+        IngestDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, "ingest:manage", ct))
+            return Results.Unauthorized();
+        var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (batch is null)
+            return Results.NotFound();
+        var rows = await db
+            .StagedSites.Where(s => s.BatchId == id)
+            .Select(s => new
+            {
+                s.ExternalId,
+                s.Name,
+                s.NodePath,
+                s.Action,
+                errors = s.Errors,
+                changes = s.Changes,
+            })
+            .ToListAsync(ct);
+        return Results.Ok(
+            new
+            {
+                batch.Id,
+                batch.Source,
+                status = batch.Status.ToString(),
+                counts = JsonSerializer.Deserialize<object>(batch.Counts),
+                rows,
+            }
+        );
+    }
+
+    /// <summary>
+    /// Commit: publish one SiteChangeRequested per actionable row over the
+    /// outbox - Tenancy applies them (ADR 17). Invalid/unchanged rows are
+    /// skipped; the batch commits exactly once.
+    /// </summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePost("/api/ingest/batches/{id}/commit")]
+    public static async Task<IResult> Commit(
+        Guid id,
+        IngestDbContext db,
+        IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
+            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+        )
+            return Results.Unauthorized();
+        var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (batch is null)
+            return Results.NotFound();
+        if (batch.Status != BatchStatus.Staged)
+            return Results.Conflict(new { error = $"batch is {batch.Status}" });
+
+        var actionable = await db
+            .StagedSites.Where(s =>
+                s.BatchId == id
+                && (s.Action == "create" || s.Action == "update" || s.Action == "close")
+            )
+            .ToListAsync(ct);
+        foreach (var row in actionable)
+            await bus.PublishAsync(
+                new SiteChangeRequested(
+                    row.Action,
+                    row.ExternalId,
+                    row.Name,
+                    row.TimeZone,
+                    row.NodeId
+                ),
+                new DeliveryOptions { TenantId = org.Value.ToString() }
+            );
+
+        batch.Status = BatchStatus.Committed;
+        await db.SaveChangesAsync(ct);
+        await bus.PublishAsync(
+            new RecordDomainAudit(
+                "ingest.batch_committed",
+                JsonSerializer.Serialize(new { batchId = batch.Id, applied = actionable.Count })
+            ),
+            new DeliveryOptions { TenantId = org.Value.ToString() }
+        );
+        return Results.Ok(new { applied = actionable.Count });
+    }
+
+    // ---- connectors (ADR 18/31) ----
+
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePost("/api/connectors")]
+    public static async Task<IResult> CreateConnector(
+        CreateConnectorRequest request,
+        IngestDbContext db,
+        IKeyWrapper kms,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
+            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+        )
+            return Results.Unauthorized();
+
+        var connector = new SiteConnector
+        {
+            Id = Guid.CreateVersion7(),
+            OrgId = org,
+            Name = request.Name,
+            Type = "json-http",
+            Url = request.Url,
+            // ADR 31: envelope-encrypted, never plaintext at rest
+            EncryptedCredentials = await EnvelopeCrypto.EncryptAsync(request.ApiKey, kms, ct),
+        };
+        db.Connectors.Add(connector);
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new { connector.Id });
+    }
+
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePost("/api/connectors/{id}/sync")]
+    public static async Task<IResult> Sync(
+        Guid id,
+        IngestDbContext db,
+        IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
+            || !await scopes.CanAsync(principal, "ingest:manage", ct)
+        )
+            return Results.Unauthorized();
+        if (!await db.Connectors.AnyAsync(c => c.Id == id, ct))
+            return Results.NotFound();
+        await bus.PublishAsync(
+            new SyncSiteConnector(id),
+            new DeliveryOptions { TenantId = org.Value.ToString() }
+        );
+        return Results.Accepted();
+    }
+}

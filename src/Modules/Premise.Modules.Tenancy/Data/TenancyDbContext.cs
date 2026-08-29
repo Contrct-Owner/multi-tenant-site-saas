@@ -94,6 +94,7 @@ public sealed class TenancyDbContext(
             b.Property(s => s.NodeId).HasColumnName("node_id");
             b.Property(s => s.Name).HasColumnName("name").HasMaxLength(200);
             b.Property(s => s.TimeZone).HasColumnName("time_zone").HasMaxLength(64);
+            b.Property(s => s.ExternalId).HasColumnName("external_id").HasMaxLength(120);
             b.Property(s => s.Path).HasColumnName("path");
             b.Property(s => s.Status)
                 .HasColumnName("status")
@@ -108,6 +109,9 @@ public sealed class TenancyDbContext(
             b.Property(s => s.CreatedAt).HasColumnName("created_at");
             b.HasIndex(s => s.Path).HasMethod("gist");
             b.HasIndex(s => s.NodeId);
+            b.HasIndex(s => new { s.OrgId, s.ExternalId })
+                .IsUnique()
+                .HasFilter("external_id IS NOT NULL");
         });
 
         modelBuilder.Entity<SiteSchedule>(b =>

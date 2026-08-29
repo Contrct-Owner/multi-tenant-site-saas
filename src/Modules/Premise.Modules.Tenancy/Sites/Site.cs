@@ -19,6 +19,10 @@ public sealed class Site : IPathScoped
     public required string Name { get; set; }
     public required string TimeZone { get; set; }
     public required LTree Path { get; set; }
+
+    /// <summary>Source-system id for idempotent ingest (ADR 18).</summary>
+    public string? ExternalId { get; set; }
+
     public SiteStatus Status { get; set; } = SiteStatus.Open;
     public string? AddressLine1 { get; set; }
     public string? City { get; set; }

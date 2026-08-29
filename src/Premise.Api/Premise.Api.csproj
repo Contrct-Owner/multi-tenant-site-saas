@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="WolverineFx.Http" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
@@ -17,5 +18,7 @@
     <ProjectReference Include="..\Integrations\Premise.Integrations.WorkOS\Premise.Integrations.WorkOS.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Entitlements\Premise.Modules.Entitlements.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Audit\Premise.Modules.Audit.csproj" />
+    <ProjectReference Include="..\Modules\Premise.Modules.Storage\Premise.Modules.Storage.csproj" />
+    <ProjectReference Include="..\Modules\Premise.Modules.Ingest\Premise.Modules.Ingest.csproj" />
   </ItemGroup>
 </Project>

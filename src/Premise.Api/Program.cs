@@ -1,18 +1,24 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
 using Premise.Api;
 using Premise.Integrations.WorkOS;
 using Premise.Modules.Audit;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
+using Premise.Modules.Ingest;
+using Premise.Modules.Storage;
 using Premise.Modules.Tenancy;
 using Premise.Platform.Audit;
 using Premise.Platform.Auth;
 using Premise.Platform.Data;
+using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
 using Premise.Platform.Notifications;
+using Premise.Platform.Secrets;
+using Premise.Platform.Storage;
 using Wolverine;
 using Wolverine.Http;
 using Wolverine.Postgresql;
@@ -87,6 +93,42 @@ builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
 builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
 builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
+builder.Services.AddStorageModule();
+builder.Services.AddIngestModule();
+
+// Platform infra context (idempotency, ADR 29)
+builder.Services.AddDbContext<PlatformDbContext>(
+    (sp, options) =>
+    {
+        var regions = sp.GetRequiredService<IRegionDataSources>();
+        var tenant = sp.GetRequiredService<ITenantContext>();
+        options
+            .UseNpgsql(
+                regions.For(tenant.Region),
+                npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", "platform")
+            )
+            .AddInterceptors(TenantSessionInterceptor.Instance);
+    }
+);
+if (role == "worker")
+    builder.Services.AddHostedService<IdempotencyCleanupService>();
+
+// Object storage (ADR 19): local adapter by default; forks point
+// Storage:Adapter at s3 (Premise.Integrations.AmazonS3) or their own.
+builder.Services.AddSingleton<IObjectStore, LocalObjectStore>();
+builder.Services.AddSingleton<IVirusScanner, EicarScanner>();
+
+// Secrets (ADR 31): local wrapper is DEV/TEST ONLY - Production must boot a KMS.
+if (builder.Configuration["Secrets:LocalMasterKey"] is { } localKey)
+{
+    if (builder.Environment.IsProduction())
+        throw new InvalidOperationException(
+            "LocalKeyWrapper is dev/test only (ADR 31); configure a cloud KMS adapter."
+        );
+    builder.Services.AddSingleton<IKeyWrapper>(
+        new LocalKeyWrapper(Convert.FromBase64String(localKey))
+    );
+}
 builder.Services.AddWolverineHttp();
 
 // Notifications (ADR 32): local catcher unless a fork wires a real transport.
@@ -161,6 +203,8 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(AuditModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(StorageModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(IngestModule).Assembly);
 });
 
 var app = builder.Build();
@@ -171,7 +215,9 @@ if (role == "api")
     app.UseMiddleware<GuestSessionMiddleware>();
     app.UseMiddleware<GuestOrgMiddleware>();
     app.UseRateLimiter();
+    app.UseMiddleware<IdempotencyMiddleware>();
     app.UseMiddleware<AccessLogMiddleware>();
+    app.MapLocalObjectStore();
 
     app.MapIdentityEndpoints();
     app.MapContactLinkEndpoints();

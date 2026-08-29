@@ -39,7 +39,7 @@ public sealed record SiteResponse(
     Guid NodeId,
     string Name,
     string TimeZone,
-    SiteStatus Status,
+    string Status,
     string Path
 );
 
@@ -259,5 +259,5 @@ public static class SiteEndpoints
     }
 
     private static SiteResponse ToResponse(Site s) =>
-        new(s.Id.Value, s.NodeId, s.Name, s.TimeZone, s.Status, s.Path.ToString());
+        new(s.Id.Value, s.NodeId, s.Name, s.TimeZone, s.Status.ToString(), s.Path.ToString());
 }

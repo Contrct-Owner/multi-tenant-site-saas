@@ -58,3 +58,47 @@ public sealed record RecordAuthzAudit(string Action, string Outcome, string Scop
 
 /// <summary>Read/access audit: high-volume, async path (ADR 13).</summary>
 public sealed record RecordAccessAudit(string Method, string Path, int StatusCode);
+
+/// <summary>Cross-module read contracts for ingest (implemented by Tenancy / Storage; consumed above the ladder).</summary>
+public interface ISiteLookup
+{
+    Task<IReadOnlyList<SiteSnapshot>> ListSitesAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<NodeSnapshot>> ListNodesAsync(CancellationToken ct = default);
+}
+
+public sealed record SiteSnapshot(
+    SiteId Id,
+    string? ExternalId,
+    string Name,
+    string TimeZone,
+    string Status
+);
+
+/// <summary>NamePath is the human path ("East/Boston") ingest files address nodes by.</summary>
+public sealed record NodeSnapshot(Guid Id, string NamePath);
+
+public interface IStoredFileLookup
+{
+    Task<StoredFileInfo?> GetAsync(Guid fileId, CancellationToken ct = default);
+}
+
+public sealed record StoredFileInfo(
+    Guid Id,
+    string Key,
+    string Status,
+    string ContentType,
+    string Name
+);
+
+/// <summary>
+/// Cross-module WRITE (ADR 17/18): ingest never touches Tenancy's tables -
+/// it requests changes over the outbox and Tenancy applies them. Closing is
+/// an action with a domain event, never a delete.
+/// </summary>
+public sealed record SiteChangeRequested(
+    string Action, // create | update | close
+    string ExternalId,
+    string Name,
+    string TimeZone,
+    Guid? NodeId
+);

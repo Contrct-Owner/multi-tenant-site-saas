@@ -8,8 +8,11 @@ using Premise.Modules.Entitlements.Data;
 using Premise.Modules.Identity.Access;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
+using Premise.Modules.Ingest.Data;
+using Premise.Modules.Storage.Data;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Organizations;
+using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
 using Testcontainers.PostgreSql;
 
@@ -31,6 +34,11 @@ public class ApiFixture : IAsyncLifetime
     ).Build();
 
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
+    private readonly string _storageRoot = Path.Combine(
+        Path.GetTempPath(),
+        "premise-test-objects",
+        Guid.NewGuid().ToString("N")
+    );
     public OrgId OrgA { get; } = OrgId.New();
     public OrgId OrgB { get; } = OrgId.New();
     public const string UserA = "user-a@premise.local"; // member: OrgA
@@ -51,17 +59,26 @@ public class ApiFixture : IAsyncLifetime
             await ents.Database.MigrateAsync();
         await using (var audit = CreateAuditContext(adminCs))
             await audit.Database.MigrateAsync();
+        await using (var storage = CreateModuleContext<StorageDbContext>(adminCs, "storage"))
+            await storage.Database.MigrateAsync();
+        await using (var platform = CreateModuleContext<PlatformDbContext>(adminCs, "platform"))
+            await platform.Database.MigrateAsync();
+        await using (var ingest = CreateModuleContext<IngestDbContext>(adminCs, "ingest"))
+            await ingest.Database.MigrateAsync();
 
         await _postgres.ExecScriptAsync(
             """
             CREATE ROLE app_user LOGIN PASSWORD 'app_user' NOSUPERUSER;
             -- Wolverine owns its envelope schema; the app creates it at startup
             GRANT CREATE ON DATABASE postgres TO app_user;
-            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit TO app_user;
+            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit, storage, platform, ingest TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA entitlements TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA audit TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA storage TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA platform TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO app_user;
             """
         );
         var appCs = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
@@ -149,6 +166,8 @@ public class ApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:premise", appCs);
             builder.UseSetting("Auth:Provider", "local");
             builder.UseSetting("Audit:PolicyCacheTtlSeconds", "1");
+            builder.UseSetting("Storage:LocalRoot", _storageRoot);
+            builder.UseSetting("Secrets:LocalMasterKey", Convert.ToBase64String(new byte[32])); // dev/test wrapper key
             builder.UseEnvironment("Testing");
             ConfigureHost(builder);
         });
@@ -325,11 +344,35 @@ public class ApiFixture : IAsyncLifetime
         await db.SaveChangesAsync();
     }
 
+    public async Task<object?> QueryIngestBatch(string source)
+    {
+        await using var db = CreateModuleContext<IngestDbContext>(
+            _postgres.GetConnectionString(),
+            "ingest"
+        );
+        return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            db.Batches.IgnoreQueryFilters()
+                .Where(b => b.Source == source)
+                .Select(b => new { b.Id, status = b.Status.ToString() })
+        );
+    }
+
     public async Task<List<T>> QueryAudit<T>(Func<AuditDbContext, IQueryable<T>> query)
     {
         await using var db = CreateAuditContext(_postgres.GetConnectionString());
         return await query(db).ToListAsync();
     }
+
+    private static T CreateModuleContext<T>(string cs, string schema)
+        where T : Premise.Platform.Data.ModuleDbContext =>
+        (T)
+            Activator.CreateInstance(
+                typeof(T),
+                new DbContextOptionsBuilder<T>()
+                    .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", schema))
+                    .Options,
+                new TenantContext()
+            )!;
 
     private static AuditDbContext CreateAuditContext(string cs) =>
         new(
