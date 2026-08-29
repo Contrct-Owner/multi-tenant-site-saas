@@ -44,10 +44,41 @@ public sealed record ExternalIdentity(
 );
 
 /// <summary>
-/// Optional capability (ADR 14): providers that manage an org directory.
-/// Used by tenant lifecycle to link a Premise org to a provider org.
+/// Optional capability (ADR 14): providers that manage an org directory and
+/// its invitations. WorkOS implements all of it (it delivers and tracks the
+/// invitation emails); the local dev provider carries an in-memory version so
+/// the day-zero flows run offline. Role INTENT never travels here - grants
+/// are internal (ADR 6); the provider only knows who belongs where.
 /// </summary>
 public interface IOrganizationDirectory
 {
     Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default);
+
+    /// <summary>Record provider-side membership so future SSO/AuthKit logins carry the org.</summary>
+    Task AddMemberAsync(
+        string externalOrgId,
+        string externalUserId,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Provider creates, emails, and tracks the invitation. Returns its id.</summary>
+    Task<string> SendInvitationAsync(
+        string externalOrgId,
+        string email,
+        CancellationToken ct = default
+    );
+
+    Task<IReadOnlyList<PendingInvitation>> ListInvitationsAsync(
+        string externalOrgId,
+        CancellationToken ct = default
+    );
+
+    Task RevokeInvitationAsync(string invitationId, CancellationToken ct = default);
 }
+
+public sealed record PendingInvitation(
+    string Id,
+    string Email,
+    string State,
+    DateTimeOffset ExpiresAt
+);

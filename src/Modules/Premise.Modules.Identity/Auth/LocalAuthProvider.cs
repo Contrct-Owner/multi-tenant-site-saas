@@ -9,8 +9,51 @@ namespace Premise.Modules.Identity.Auth;
 /// Lets the template run and its test suites authenticate with no external
 /// account. Program blocks it in Production.
 /// </summary>
-public sealed class LocalAuthProvider : IAuthProvider
+public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory
 {
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<
+        string,
+        List<PendingInvitation>
+    > _invitations = new();
+    private int _sequence;
+
+    public Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default) =>
+        Task.FromResult($"local_org_{Interlocked.Increment(ref _sequence):D6}");
+
+    public Task AddMemberAsync(
+        string externalOrgId,
+        string externalUserId,
+        CancellationToken ct = default
+    ) => Task.CompletedTask;
+
+    public Task<string> SendInvitationAsync(
+        string externalOrgId,
+        string email,
+        CancellationToken ct = default
+    )
+    {
+        var id = $"local_invite_{Interlocked.Increment(ref _sequence):D6}";
+        _invitations
+            .GetOrAdd(externalOrgId, _ => [])
+            .Add(new PendingInvitation(id, email, "pending", DateTimeOffset.UtcNow.AddDays(7)));
+        return Task.FromResult(id);
+    }
+
+    public Task<IReadOnlyList<PendingInvitation>> ListInvitationsAsync(
+        string externalOrgId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult<IReadOnlyList<PendingInvitation>>(
+            _invitations.GetValueOrDefault(externalOrgId) ?? []
+        );
+
+    public Task RevokeInvitationAsync(string invitationId, CancellationToken ct = default)
+    {
+        foreach (var list in _invitations.Values)
+            list.RemoveAll(i => i.Id == invitationId);
+        return Task.CompletedTask;
+    }
+
     public string Name => "local";
 
     public string BuildAuthorizationUrl(

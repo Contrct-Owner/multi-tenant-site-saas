@@ -20,6 +20,7 @@ public sealed class IdentityDbContext(
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<MembershipRole> MembershipRoles => Set<MembershipRole>();
     public DbSet<GrantException> GrantExceptions => Set<GrantException>();
+    public DbSet<InvitedRole> InvitedRoles => Set<InvitedRole>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +98,22 @@ public sealed class IdentityDbContext(
             b.Property(m => m.RoleId).HasColumnName("role_id");
             b.Property(m => m.ScopePath).HasColumnName("scope_path").HasMaxLength(2000);
             b.HasIndex(m => m.MembershipId);
+        });
+
+        modelBuilder.Entity<InvitedRole>(b =>
+        {
+            b.ToTable("invited_roles");
+            b.HasKey(i => i.Id);
+            b.Property(i => i.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(i => i.OrgId).HasColumnName("org_id");
+            b.Property(i => i.Email).HasColumnName("email").HasMaxLength(320);
+            b.Property(i => i.RoleId).HasColumnName("role_id");
+            b.Property(i => i.InvitationExternalId)
+                .HasColumnName("invitation_external_id")
+                .HasMaxLength(120);
+            b.Property(i => i.InvitedBy).HasColumnName("invited_by");
+            b.Property(i => i.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(i => new { i.OrgId, i.Email }).IsUnique();
         });
 
         modelBuilder.Entity<GrantException>(b =>

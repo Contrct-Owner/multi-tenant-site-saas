@@ -23,6 +23,27 @@ public sealed record AddGrantExceptionRequest(
 
 public static class AccessEndpoints
 {
+    [Wolverine.Attributes.Transactional(typeof(IdentityDbContext))]
+    [WolverineGet("/api/roles")]
+    public static async Task<IResult> ListRoles(
+        IdentityDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current is not Principal.User { ActiveOrg: not null } principal
+            || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
+        )
+            return Results.Unauthorized();
+        var roles = await db
+            .Roles.OrderBy(r => r.Name)
+            .Select(r => new { r.Id, r.Name })
+            .ToListAsync(ct);
+        return Results.Ok(roles);
+    }
+
     [WolverinePost("/api/roles")]
     public static async Task<IResult> CreateRole(
         CreateRoleRequest request,

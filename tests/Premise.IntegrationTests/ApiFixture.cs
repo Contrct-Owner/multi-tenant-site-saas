@@ -210,13 +210,16 @@ public class ApiFixture : IAsyncLifetime
     protected virtual void ConfigureHost(IWebHostBuilder builder) { }
 
     /// <summary>Fresh client authenticated as the given user via the real login flow.</summary>
-    public async Task<HttpClient> LoginAsync(string email)
+    public async Task<HttpClient> LoginAsync(string email, string? orgHint = null)
     {
         var client = Factory.CreateDefaultClient(
             new RedirectHandler(),
             new CookieContainerHandler()
         );
-        var response = await client.GetAsync($"/auth/login?hint={Uri.EscapeDataString(email)}");
+        var url = $"/auth/login?hint={Uri.EscapeDataString(email)}";
+        if (orgHint is not null)
+            url += $"&org={Uri.EscapeDataString(orgHint)}";
+        var response = await client.GetAsync(url);
         response.EnsureSuccessStatusCode(); // followed: login -> provider -> callback -> /me
         return client;
     }
@@ -285,6 +288,26 @@ public class ApiFixture : IAsyncLifetime
         await using var scope = Factory.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
         await Premise.Modules.Tenancy.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
+    }
+
+    /// <summary>A user with NO org at all - the day-zero starting state.</summary>
+    public async Task<Guid> CreateUserOnly(string email)
+    {
+        await using var db = CreateIdentityContext(_postgres.GetConnectionString());
+        var user = AppUser.Create("local", email, email, email.Split('@')[0]);
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return user.Id;
+    }
+
+    public async Task<string> ExternalOrgIdOf(Guid orgId)
+    {
+        await using var db = CreateTenancyContext(_postgres.GetConnectionString());
+        var typed = new OrgId(orgId);
+        return await db
+            .Organizations.Where(o => o.Id == typed)
+            .Select(o => o.ExternalId!)
+            .SingleAsync();
     }
 
     /// <summary>Fresh role-less member of the org - for order-independent grant tests.</summary>

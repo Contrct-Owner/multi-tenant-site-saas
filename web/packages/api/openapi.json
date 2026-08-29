@@ -389,6 +389,46 @@
         }
       }
     },
+    "/api/orgs": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OnboardingEndpoints"
+        ],
+        "summary": "POST_api_orgs",
+        "description": "POST_api_orgs",
+        "operationId": "POST_api_orgs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrgRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/hierarchy": {
       "post": {
         "tags": [
@@ -548,7 +588,214 @@
         }
       }
     },
+    "/api/members": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "GET_api_members",
+        "description": "GET_api_members",
+        "operationId": "GET_api_members",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/members/invitations": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "POST_api_members_invitations",
+        "description": "POST_api_members_invitations",
+        "operationId": "POST_api_members_invitations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "GET_api_members_invitations",
+        "description": "GET_api_members_invitations",
+        "operationId": "GET_api_members_invitations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/members/invitations/{invitationId}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "DELETE_api_members_invitations_invitationId",
+        "description": "DELETE_api_members_invitations_invitationId",
+        "operationId": "DELETE_api_members_invitations_invitationId",
+        "parameters": [
+          {
+            "name": "invitationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "DELETE_api_members_userId",
+        "description": "DELETE_api_members_userId",
+        "operationId": "DELETE_api_members_userId",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roles": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Access.AccessEndpoints"
+        ],
+        "summary": "GET_api_roles",
+        "description": "GET_api_roles",
+        "operationId": "GET_api_roles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Premise.Modules.Identity.Access.AccessEndpoints"
@@ -1738,6 +1985,21 @@
           }
         }
       },
+      "CreateOrgRequest": {
+        "required": [
+          "name",
+          "slug"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
       "CreateRoleRequest": {
         "required": [
           "name",
@@ -1870,6 +2132,22 @@
           },
           "action": {
             "type": "string"
+          }
+        }
+      },
+      "InviteMemberRequest": {
+        "required": [
+          "email",
+          "roleId"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -2069,7 +2347,13 @@
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
     },
     {
+      "name": "Premise.Modules.Tenancy.Organizations.OnboardingEndpoints"
+    },
+    {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Users.MemberEndpoints"
     },
     {
       "name": "Premise.Modules.Identity.Access.AccessEndpoints"

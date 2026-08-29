@@ -87,6 +87,61 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory
         );
     }
 
+    public async Task AddMemberAsync(
+        string externalOrgId,
+        string externalUserId,
+        CancellationToken ct = default
+    ) =>
+        await _client.OrganizationMembership.CreateAsync(
+            new OrganizationMembershipCreateOptions
+            {
+                OrganizationId = externalOrgId,
+                UserId = externalUserId,
+            },
+            cancellationToken: ct
+        );
+
+    public async Task<string> SendInvitationAsync(
+        string externalOrgId,
+        string email,
+        CancellationToken ct = default
+    )
+    {
+        var invitation = await _client.UserManagement.SendInvitationAsync(
+            new UserManagementSendInvitationOptions
+            {
+                OrganizationId = externalOrgId,
+                Email = email,
+                ExpiresInDays = 7,
+            },
+            cancellationToken: ct
+        );
+        return invitation.Id;
+    }
+
+    public async Task<IReadOnlyList<PendingInvitation>> ListInvitationsAsync(
+        string externalOrgId,
+        CancellationToken ct = default
+    )
+    {
+        var invitations = await _client.UserManagement.ListInvitationsAsync(
+            new UserManagementListInvitationsOptions { OrganizationId = externalOrgId },
+            cancellationToken: ct
+        );
+        return
+        [
+            .. (invitations.Data ?? []).Select(i => new PendingInvitation(
+                i.Id,
+                i.Email,
+                i.State.ToString(),
+                i.ExpiresAt
+            )),
+        ];
+    }
+
+    public async Task RevokeInvitationAsync(string invitationId, CancellationToken ct = default) =>
+        await _client.UserManagement.RevokeInvitationAsync(invitationId, cancellationToken: ct);
+
     public async Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default)
     {
         var org = await _client.Organizations.CreateAsync(

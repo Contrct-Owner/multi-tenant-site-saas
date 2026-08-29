@@ -6,6 +6,7 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Premise.IntegrationTests;
 
@@ -62,6 +63,26 @@ public sealed class WorkOSEmulatorFixture : ApiFixture
 public class WorkOSAdapterTests(WorkOSEmulatorFixture fixture)
     : IClassFixture<WorkOSEmulatorFixture>
 {
+    [Fact]
+    public async Task Directory_capability_runs_against_the_emulator()
+    {
+        var provider = (Premise.Platform.Auth.IOrganizationDirectory)
+            fixture.Factory.Services.GetRequiredService<Premise.Platform.Auth.IAuthProvider>();
+
+        // org + invitation lifecycle through the REAL adapter
+        var externalOrgId = await provider.CreateOrganizationAsync("Adapter Smoke Org");
+        Assert.StartsWith("org_", externalOrgId);
+
+        var invitationId = await provider.SendInvitationAsync(externalOrgId, "invitee@smoke.test");
+        var pending = await provider.ListInvitationsAsync(externalOrgId);
+        var row = Assert.Single(pending, i => i.Id == invitationId);
+        Assert.Equal("invitee@smoke.test", row.Email);
+
+        await provider.RevokeInvitationAsync(invitationId);
+        var after = await provider.ListInvitationsAsync(externalOrgId);
+        Assert.DoesNotContain(after, i => i.Id == invitationId && i.State == "pending");
+    }
+
     [Fact]
     public async Task Full_authkit_flow_through_real_adapter()
     {

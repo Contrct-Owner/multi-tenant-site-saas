@@ -102,3 +102,9 @@ public sealed record SiteChangeRequested(
     string TimeZone,
     Guid? NodeId
 );
+
+/// <summary>
+/// Cross-module write (ADR 17): Tenancy created the org; Identity provisions
+/// the founder's membership, Owner bootstrap, and provider-side membership.
+/// </summary>
+public sealed record ProvisionFounderMembership(Guid UserId, OrgId OrgId);

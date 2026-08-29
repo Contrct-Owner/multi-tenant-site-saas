@@ -1,15 +1,16 @@
 import { api } from '@premise/api';
-import { Badge, Button, cn } from '@premise/ui';
+import { Badge, Button, cn, Input, Label } from '@premise/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
-import { can, useMe } from './session';
+import { useState, type ReactNode } from 'react';
+import { can, useMe, type Me } from './session';
 
 const NAV = [
   { to: '/', label: 'Dashboard', capability: null },
   { to: '/sites', label: 'Sites', capability: 'sites:read' },
   { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage' },
   { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
+  { to: '/members', label: 'Members', capability: 'roles:manage' },
   { to: '/audit', label: 'Audit', capability: 'audit:read' },
 ] as const;
 
@@ -32,6 +33,10 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </main>
     );
+  }
+
+  if (me.organizations.length === 0) {
+    return <CreateOrgScreen />;
   }
 
   const activeOrg = me.organizations.find((o) => o.id === me.activeOrg);
@@ -90,6 +95,72 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
       <main className="flex-1 overflow-auto p-8">{children}</main>
     </div>
+  );
+}
+
+function CreateOrgScreen() {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const create = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      const { orgId } = await api.post<{ orgId: string }>('/api/orgs', { name, slug });
+      // founder membership arrives via the outbox: poll, then switch in
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const me = await api.get<Me>('/me');
+        if (me.tier === 'user' && me.organizations.some((o) => o.id === orgId)) break;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      await api.post('/auth/switch-org', { orgId });
+      await queryClient.invalidateQueries();
+    } catch (e) {
+      setError(
+        String((e as { body?: { error?: string } }).body?.error ?? 'could not create organization'),
+      );
+      setCreating(false);
+    }
+  };
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-8">
+        <div>
+          <h1 className="text-xl font-semibold">Create your organization</h1>
+          <p className="text-sm text-muted-foreground">
+            You&apos;re signed in but don&apos;t belong to an organization yet.
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="org-name">Organization name</Label>
+          <Input
+            id="org-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setSlug(
+                e.target.value
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-|-$/g, ''),
+              );
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="org-slug">URL slug</Label>
+          <Input id="org-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+        </div>
+        <Button className="w-full" disabled={!name || slug.length < 3 || creating} onClick={create}>
+          {creating ? 'Setting up…' : 'Create organization'}
+        </Button>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    </main>
   );
 }
 

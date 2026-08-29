@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Platform.Auth;
@@ -98,6 +99,7 @@ public static class AuthEndpoints
 
                 // Provider-org mapping: an SSO login through an org connection joins
                 // that org (JIT membership). Otherwise the user keeps existing memberships.
+                await db.SaveChangesAsync(ct);
                 if (
                     identity.ExternalOrgId is { } externalOrgId
                     && await db.OrgDirectory.FirstOrDefaultAsync(
@@ -105,48 +107,30 @@ public static class AuthEndpoints
                         ct
                     )
                         is { } mapped
-                    && !await db.Memberships.AnyAsync(
-                        m => m.UserId == user.Id && m.OrgId == mapped.OrgId,
-                        ct
-                    )
                 )
                 {
-                    var membership = Membership.Create(user.Id, mapped.OrgId);
-                    db.Memberships.Add(membership);
-                    // Bootstrap: the FIRST member of an org with no roles
-                    // becomes Owner (*:*, org-wide) - someone must be able to
-                    // assign roles (ADR 6).
-                    if (
-                        !await db
-                            .Roles.IgnoreQueryFilters()
-                            .AnyAsync(r => r.OrgId == mapped.OrgId, ct)
-                    )
-                    {
-                        var owner = Access.Role.Create(mapped.OrgId, "Owner");
-                        db.Roles.Add(owner);
-                        db.RoleGrants.Add(
-                            new Access.RoleGrant
-                            {
-                                Id = Guid.CreateVersion7(),
-                                OrgId = mapped.OrgId,
-                                RoleId = owner.Id,
-                                Domain = "*",
-                                Action = "*",
-                            }
-                        );
-                        db.MembershipRoles.Add(
-                            new Access.MembershipRole
-                            {
-                                Id = Guid.CreateVersion7(),
-                                OrgId = mapped.OrgId,
-                                MembershipId = membership.Id,
-                                RoleId = owner.Id,
-                                ScopePath = null,
-                            }
-                        );
-                    }
+                    // JIT join (invite acceptance lands here). The bootstrap
+                    // reads RLS-protected tables, and THIS request's
+                    // connection opened with no tenant - so it runs in a
+                    // FRESH scope whose TenantContext carries the org
+                    // (read-time rule: the answer must exist at connection
+                    // open, and a new scope means a new connection).
+                    await using var jitScope = http
+                        .RequestServices.GetRequiredService<IServiceScopeFactory>()
+                        .CreateAsyncScope();
+                    jitScope
+                        .ServiceProvider.GetRequiredService<TenantContext>()
+                        .Set(mapped.OrgId, RegionId.Default);
+                    var scopedDb = jitScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                    var scopedUser = await scopedDb.Users.FirstAsync(u => u.Id == user.Id, ct);
+                    await Users.MembershipBootstrap.EnsureMembershipAsync(
+                        scopedDb,
+                        scopedUser,
+                        mapped.OrgId,
+                        ct
+                    );
+                    await scopedDb.SaveChangesAsync(ct);
                 }
-                await db.SaveChangesAsync(ct);
 
                 var activeOrg = await db
                     .Memberships.Where(m => m.UserId == user.Id)
