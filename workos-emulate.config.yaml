@@ -1,0 +1,17 @@
+# Seed data for the WorkOS emulator (@workos/emulate) used in local dev.
+# `aspire run` boots the emulator with this file; ids are pinned so a dev
+# database that references them stays stable across restarts.
+users:
+  - id: user_01DEVALICE00000000000000
+    email: alice@acme.test
+    first_name: Alice
+    last_name: Dev
+    password: test123
+    email_verified: true
+
+organizations:
+  - id: org_01DEVACME000000000000000
+    name: Acme Dev
+    domains:
+      - domain: acme.test
+        state: verified

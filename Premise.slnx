@@ -5,7 +5,11 @@
     <Project Path="src/Premise.Contracts/Premise.Contracts.csproj" />
     <Project Path="src/Premise.Platform/Premise.Platform.csproj" />
   </Folder>
+  <Folder Name="/src/Integrations/">
+    <Project Path="src/Integrations/Premise.Integrations.WorkOS/Premise.Integrations.WorkOS.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Premise.Modules.Identity/Premise.Modules.Identity.csproj" />
     <Project Path="src/Modules/Premise.Modules.Tenancy/Premise.Modules.Tenancy.csproj" />
   </Folder>
   <Folder Name="/tests/">

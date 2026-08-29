@@ -58,6 +58,18 @@ public class ModuleBoundaryTests
     }
 
     [Fact]
+    public void Integrations_reference_only_platform()
+    {
+        // ADR 14: adapters implement Platform ports; they never reach into modules.
+        var result = Types
+            .InAssembly(typeof(Integrations.WorkOS.WorkOSAuthProvider).Assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(ModulePrefix + "*", "Premise.Api")
+            .GetResult();
+        Assert.True(result.IsSuccessful, "Integrations depend on Platform ports only.");
+    }
+
+    [Fact]
     public void Platform_does_not_reference_any_module()
     {
         var result = Types
@@ -77,11 +89,7 @@ public class ModuleBoundaryTests
         var result = Types
             .InAssembly(typeof(Contracts.AssemblyMarker).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny(
-                ModulePrefix + "*",
-                "Premise.Api",
-                "Microsoft.EntityFrameworkCore"
-            )
+            .HaveDependencyOnAny(ModulePrefix + "*", "Premise.Api", "Microsoft.EntityFrameworkCore")
             .GetResult();
         Assert.True(result.IsSuccessful, "Contracts carry DTOs and integration events only.");
     }

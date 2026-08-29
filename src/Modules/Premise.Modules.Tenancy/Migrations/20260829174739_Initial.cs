@@ -1,6 +1,6 @@
 ﻿using System;
-using Premise.Platform.Data;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Premise.Platform.Data;
 
 #nullable disable
 

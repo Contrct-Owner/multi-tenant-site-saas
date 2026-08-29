@@ -1,7 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Organizations;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
-using Microsoft.EntityFrameworkCore;
 
 namespace Premise.Modules.Tenancy.Data;
 
@@ -27,12 +27,14 @@ public sealed class TenancyDbContext(
             b.Property(o => o.Name).HasColumnName("name").HasMaxLength(200);
             b.Property(o => o.Slug).HasColumnName("slug").HasMaxLength(80);
             b.Property(o => o.Region).HasColumnName("region").HasMaxLength(40);
+            b.Property(o => o.ExternalId).HasColumnName("external_id").HasMaxLength(120);
             b.Property(o => o.Status)
                 .HasColumnName("status")
                 .HasConversion<string>()
                 .HasMaxLength(20);
             b.Property(o => o.CreatedAt).HasColumnName("created_at");
             b.HasIndex(o => o.Slug).IsUnique();
+            b.HasIndex(o => o.ExternalId).IsUnique().HasFilter("external_id IS NOT NULL");
         });
 
         modelBuilder.Entity<OrganizationSetting>(b =>

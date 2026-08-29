@@ -70,7 +70,7 @@ don't restate them here.
   `dotnet test tests/Premise.ArchitectureTests`
 - Tenant-isolation golden suite (needs Docker; Testcontainers Postgres):
   `dotnet test tests/Premise.IntegrationTests`
-- Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + api + worker + dashboard)
+- Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + WorkOS emulator + api + worker + dashboard). Dev login: alice@acme.test / test123 (seeded in `workos-emulate.config.yaml`)
 - Migrations: `dotnet ef migrations add <Name> --project src/Modules/<Module> --startup-project src/Modules/<Module>` (see new-migration skill)
 - Format: `dotnet csharpier format .`
 - Frontend: `pnpm install && pnpm dev` (workspace arrives in later steps)

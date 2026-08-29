@@ -1,6 +1,6 @@
 using System.Reflection;
-using Premise.Platform.Data;
 using NetArchTest.Rules;
+using Premise.Platform.Data;
 
 namespace Premise.ArchitectureTests;
 

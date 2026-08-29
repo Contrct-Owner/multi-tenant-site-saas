@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using Premise.Platform.Kernel;
 using Microsoft.EntityFrameworkCore;
+using Premise.Platform.Kernel;
 
 namespace Premise.Platform.Data;
 

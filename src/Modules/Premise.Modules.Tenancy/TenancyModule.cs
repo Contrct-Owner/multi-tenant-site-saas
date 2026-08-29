@@ -1,8 +1,10 @@
-using Premise.Modules.Tenancy.Data;
-using Premise.Platform.Data;
-using Premise.Platform.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Premise.Contracts;
+using Premise.Modules.Tenancy.Data;
+using Premise.Modules.Tenancy.Organizations;
+using Premise.Platform.Data;
+using Premise.Platform.Kernel;
 using Wolverine.EntityFrameworkCore;
 
 namespace Premise.Modules.Tenancy;
@@ -29,6 +31,7 @@ public static class TenancyModule
                     .AddInterceptors(TenantSessionInterceptor.Instance);
             }
         );
+        services.AddScoped<IOrganizationLookup, OrganizationLookup>();
         return services;
     }
 }

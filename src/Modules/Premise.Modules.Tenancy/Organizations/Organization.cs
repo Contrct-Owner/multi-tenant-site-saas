@@ -14,6 +14,10 @@ public sealed class Organization
     public required string Name { get; set; }
     public required string Slug { get; init; }
     public required RegionId Region { get; init; }
+
+    /// <summary>Auth-provider org id (e.g. WorkOS org) for SSO mapping (ADR 14).</summary>
+    public string? ExternalId { get; set; }
+
     public OrganizationStatus Status { get; set; } = OrganizationStatus.Active;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

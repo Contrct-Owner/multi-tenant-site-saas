@@ -1,48 +1,56 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing.Handlers;
+using Microsoft.EntityFrameworkCore;
+using Premise.Modules.Identity.Data;
+using Premise.Modules.Identity.Users;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Organizations;
 using Premise.Platform.Kernel;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
 namespace Premise.IntegrationTests;
 
 /// <summary>
 /// Boots real Postgres (Testcontainers), applies every module's migrations
-/// (RLS policies included), seeds two orgs, and hosts the API in-process.
+/// (RLS policies included), seeds two orgs and their users, and hosts the API
+/// in-process with the local auth provider (ADR 14). Clients authenticate
+/// through the REAL cookie flow (ADR 21) - login redirect, code exchange,
+/// session cookie - not a header hack.
 /// The app connects as a NON-superuser role: table owners bypass RLS unless
 /// FORCEd, and superusers always do - testing as postgres would test nothing.
 /// </summary>
-public sealed class ApiFixture : IAsyncLifetime
+public class ApiFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(
         "postgres:17-alpine"
     ).Build();
 
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
-    public string AppUserConnectionString { get; private set; } = null!;
     public OrgId OrgA { get; } = OrgId.New();
     public OrgId OrgB { get; } = OrgId.New();
+    public const string UserA = "user-a@premise.local"; // member: OrgA
+    public const string UserB = "user-b@premise.local"; // member: OrgB
+    public const string UserBoth = "user-ab@premise.local"; // member: OrgA + OrgB
 
-    public async Task InitializeAsync()
+    public virtual async Task InitializeAsync()
     {
         await _postgres.StartAsync();
 
-        // migrate as owner, then create the restricted app role
         var adminCs = _postgres.GetConnectionString();
-        await using (var admin = CreateContext(adminCs))
-        {
-            await admin.Database.MigrateAsync();
-        }
+        await using (var tenancy = CreateTenancyContext(adminCs))
+            await tenancy.Database.MigrateAsync();
+        await using (var identity = CreateIdentityContext(adminCs))
+            await identity.Database.MigrateAsync();
+
         await _postgres.ExecScriptAsync(
             """
             CREATE ROLE app_user LOGIN PASSWORD 'app_user' NOSUPERUSER;
             -- Wolverine owns its envelope schema; the app creates it at startup
             GRANT CREATE ON DATABASE postgres TO app_user;
-            GRANT USAGE ON SCHEMA tenancy TO app_user;
+            GRANT USAGE ON SCHEMA tenancy, identity TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
             """
         );
         var appCs = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
@@ -51,8 +59,7 @@ public sealed class ApiFixture : IAsyncLifetime
             Password = "app_user",
         }.ConnectionString;
 
-        // seed two orgs + a setting each (as owner: seeding is platform work)
-        await using (var seed = CreateContext(adminCs))
+        await using (var seed = CreateTenancyContext(adminCs))
         {
             seed.Organizations.AddRange(
                 new Organization
@@ -76,26 +83,52 @@ public sealed class ApiFixture : IAsyncLifetime
             );
             await seed.SaveChangesAsync();
         }
+        await using (var seed = CreateIdentityContext(adminCs))
+        {
+            var a = AppUser.Create("local", UserA, UserA, "User A");
+            var b = AppUser.Create("local", UserB, UserB, "User B");
+            var both = AppUser.Create("local", UserBoth, UserBoth, "User AB");
+            seed.Users.AddRange(a, b, both);
+            seed.Memberships.AddRange(
+                Membership.Create(a.Id, OrgA),
+                Membership.Create(b.Id, OrgB),
+                Membership.Create(both.Id, OrgA),
+                Membership.Create(both.Id, OrgB)
+            );
+            await seed.SaveChangesAsync();
+        }
 
-        AppUserConnectionString = appCs;
         Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:premise", appCs);
+            builder.UseSetting("Auth:Provider", "local");
             builder.UseEnvironment("Testing");
+            ConfigureHost(builder);
         });
     }
 
-    /// <summary>Client whose requests carry the given org's principal.</summary>
-    public HttpClient ClientFor(OrgId org)
+    /// <summary>Subclass hook (e.g. the WorkOS-emulator fixture overrides auth settings).</summary>
+    protected virtual void ConfigureHost(IWebHostBuilder builder) { }
+
+    /// <summary>Fresh client authenticated as the given user via the real login flow.</summary>
+    public async Task<HttpClient> LoginAsync(string email)
     {
-        var client = Factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Org-Id", org.Value.ToString());
+        var client = Factory.CreateDefaultClient(
+            new RedirectHandler(),
+            new CookieContainerHandler()
+        );
+        var response = await client.GetAsync($"/auth/login?hint={Uri.EscapeDataString(email)}");
+        response.EnsureSuccessStatusCode(); // followed: login -> provider -> callback -> /me
         return client;
     }
 
+    /// <summary>Unauthenticated client: a Guest principal (ADR 7).</summary>
+    public HttpClient GuestClient() =>
+        Factory.CreateDefaultClient(new RedirectHandler(), new CookieContainerHandler());
+
     public async Task<Guid> SettingIdOf(OrgId org, string key)
     {
-        await using var db = CreateContext(_postgres.GetConnectionString());
+        await using var db = CreateTenancyContext(_postgres.GetConnectionString());
         return await db
             .OrganizationSettings.IgnoreQueryFilters()
             .Where(s => s.OrgId == org && s.Key == key)
@@ -103,15 +136,23 @@ public sealed class ApiFixture : IAsyncLifetime
             .SingleAsync();
     }
 
-    private static TenancyDbContext CreateContext(string cs)
-    {
-        var options = new DbContextOptionsBuilder<TenancyDbContext>()
-            .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "tenancy"))
-            .Options;
-        return new TenancyDbContext(options, new TenantContext());
-    }
+    private static TenancyDbContext CreateTenancyContext(string cs) =>
+        new(
+            new DbContextOptionsBuilder<TenancyDbContext>()
+                .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "tenancy"))
+                .Options,
+            new TenantContext()
+        );
 
-    public async Task DisposeAsync()
+    private static IdentityDbContext CreateIdentityContext(string cs) =>
+        new(
+            new DbContextOptionsBuilder<IdentityDbContext>()
+                .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "identity"))
+                .Options,
+            new TenantContext()
+        );
+
+    public virtual async Task DisposeAsync()
     {
         if (Factory is not null)
             await Factory.DisposeAsync();

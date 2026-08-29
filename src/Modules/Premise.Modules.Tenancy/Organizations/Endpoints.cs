@@ -1,7 +1,7 @@
-using Premise.Modules.Tenancy.Data;
-using Premise.Platform.Kernel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Premise.Modules.Tenancy.Data;
+using Premise.Platform.Kernel;
 using Wolverine.Http;
 
 namespace Premise.Modules.Tenancy.Organizations;

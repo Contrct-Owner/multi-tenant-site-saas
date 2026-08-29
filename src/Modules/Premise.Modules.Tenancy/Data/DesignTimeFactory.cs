@@ -1,6 +1,6 @@
-using Premise.Platform.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Tenancy.Data;
 

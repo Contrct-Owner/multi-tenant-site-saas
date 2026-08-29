@@ -1,6 +1,6 @@
-using Premise.Platform.Kernel;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using Premise.Platform.Kernel;
 
 namespace Premise.Platform.Data;
 
