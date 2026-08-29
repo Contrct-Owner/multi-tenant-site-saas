@@ -15,5 +15,6 @@
     <ProjectReference Include="..\Modules\Premise.Modules.Tenancy\Premise.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Identity\Premise.Modules.Identity.csproj" />
     <ProjectReference Include="..\Integrations\Premise.Integrations.WorkOS\Premise.Integrations.WorkOS.csproj" />
+    <ProjectReference Include="..\Modules\Premise.Modules.Entitlements\Premise.Modules.Entitlements.csproj" />
   </ItemGroup>
 </Project>

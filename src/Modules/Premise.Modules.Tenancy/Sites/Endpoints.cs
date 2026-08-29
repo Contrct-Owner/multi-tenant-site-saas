@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Platform.Data;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Wolverine;
+using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Tenancy.Sites;
@@ -48,11 +50,15 @@ public sealed record SiteResponse(
 /// </summary>
 public static class SiteEndpoints
 {
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites")]
     public static async Task<IResult> Create(
         CreateSiteRequest request,
         TenancyDbContext db,
         IMessageBus bus,
+        IEntitlements entitlements,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
         CancellationToken ct
     )
     {
@@ -63,6 +69,32 @@ public static class SiteEndpoints
         var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == request.NodeId, ct);
         if (node is null)
             return Results.NotFound();
+
+        // Gates 2+3 on the write side: the grant must COVER the target node.
+        var writeScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        if (!writeScope.Covers(node.Path.ToString()))
+            return Results.Forbid();
+
+        // Gate 1 (ADR 8/9): a limit failure is 402-and-upsell, never an error.
+        var siteCount = await db.Sites.LongCountAsync(ct);
+        var decision = await entitlements.CheckLimitAsync(
+            node.OrgId,
+            EntitlementCatalog.MaxSites,
+            siteCount,
+            1,
+            ct
+        );
+        if (!decision.IsAllowed)
+            return Results.Json(
+                new
+                {
+                    error = "plan limit reached",
+                    decision.Code,
+                    decision.Limit,
+                    current = siteCount,
+                },
+                statusCode: StatusCodes.Status402PaymentRequired
+            );
 
         var id = SiteId.New();
         var site = new Site
@@ -85,6 +117,7 @@ public static class SiteEndpoints
         return Results.Ok(ToResponse(site));
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites")]
     public static async Task<IReadOnlyList<SiteResponse>> List(
         TenancyDbContext db,
@@ -108,6 +141,7 @@ public static class SiteEndpoints
         return sites.Select(ToResponse).ToList();
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites/open-now")]
     public static async Task<IReadOnlyList<SiteResponse>> OpenNow(
         TenancyDbContext db,
@@ -144,12 +178,15 @@ public static class SiteEndpoints
         return site is null ? Results.NotFound() : Results.Ok(ToResponse(site));
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites/{id}")]
     public static async Task<IResult> Update(
         Guid id,
         UpdateSiteRequest request,
         TenancyDbContext db,
         IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
         CancellationToken ct
     )
     {
@@ -157,6 +194,9 @@ public static class SiteEndpoints
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
         if (site is null)
             return Results.NotFound();
+        var updateScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        if (!updateScope.Covers(site.Path.ToString()))
+            return Results.Forbid();
 
         var timeZoneChanged = false;
         if (request.TimeZone is { } zone && zone != site.TimeZone)
@@ -179,12 +219,15 @@ public static class SiteEndpoints
         return Results.Ok(ToResponse(site));
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites/{id}/schedules")]
     public static async Task<IResult> CreateSchedule(
         Guid id,
         CreateScheduleRequest request,
         TenancyDbContext db,
         IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
         CancellationToken ct
     )
     {
@@ -192,6 +235,9 @@ public static class SiteEndpoints
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
         if (site is null)
             return Results.NotFound();
+        var scheduleScope = await scopes.ScopeForAsync(accessor.Current, "sites:manage", ct);
+        if (!scheduleScope.Covers(site.Path.ToString()))
+            return Results.Forbid();
         if (!Premise.Platform.Scheduling.RecurrenceExpander.IsValidRule(request.RRule))
             return Results.BadRequest(new { error = "invalid RRULE" });
 

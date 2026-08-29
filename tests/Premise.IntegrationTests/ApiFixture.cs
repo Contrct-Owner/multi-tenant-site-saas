@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Premise.Modules.Entitlements.Data;
+using Premise.Modules.Identity.Access;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Modules.Tenancy.Data;
@@ -33,6 +35,7 @@ public class ApiFixture : IAsyncLifetime
     public const string UserA = "user-a@premise.local"; // member: OrgA
     public const string UserB = "user-b@premise.local"; // member: OrgB
     public const string UserBoth = "user-ab@premise.local"; // member: OrgA + OrgB
+    public const string ViewerA = "viewer-a@premise.local"; // member: OrgA, NO role
 
     public virtual async Task InitializeAsync()
     {
@@ -43,15 +46,18 @@ public class ApiFixture : IAsyncLifetime
             await tenancy.Database.MigrateAsync();
         await using (var identity = CreateIdentityContext(adminCs))
             await identity.Database.MigrateAsync();
+        await using (var ents = CreateEntitlementsContext(adminCs))
+            await ents.Database.MigrateAsync();
 
         await _postgres.ExecScriptAsync(
             """
             CREATE ROLE app_user LOGIN PASSWORD 'app_user' NOSUPERUSER;
             -- Wolverine owns its envelope schema; the app creates it at startup
             GRANT CREATE ON DATABASE postgres TO app_user;
-            GRANT USAGE ON SCHEMA tenancy, identity TO app_user;
+            GRANT USAGE ON SCHEMA tenancy, identity, entitlements TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA entitlements TO app_user;
             """
         );
         var appCs = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
@@ -89,13 +95,48 @@ public class ApiFixture : IAsyncLifetime
             var a = AppUser.Create("local", UserA, UserA, "User A");
             var b = AppUser.Create("local", UserB, UserB, "User B");
             var both = AppUser.Create("local", UserBoth, UserBoth, "User AB");
-            seed.Users.AddRange(a, b, both);
-            seed.Memberships.AddRange(
-                Membership.Create(a.Id, OrgA),
-                Membership.Create(b.Id, OrgB),
-                Membership.Create(both.Id, OrgA),
-                Membership.Create(both.Id, OrgB)
-            );
+            var viewer = AppUser.Create("local", ViewerA, ViewerA, "Viewer A");
+            seed.Users.AddRange(a, b, both, viewer);
+            var memberships = new[]
+            {
+                (Membership.Create(a.Id, OrgA), true),
+                (Membership.Create(b.Id, OrgB), true),
+                (Membership.Create(both.Id, OrgA), true),
+                (Membership.Create(both.Id, OrgB), true),
+                (Membership.Create(viewer.Id, OrgA), false), // no role: gets nothing
+            };
+            seed.Memberships.AddRange(memberships.Select(m => m.Item1));
+            // Owner (*:*) per org, assigned org-wide to the seeded members (ADR 6)
+            var owners = new Dictionary<OrgId, Role>
+            {
+                [OrgA] = Role.Create(OrgA, "Owner"),
+                [OrgB] = Role.Create(OrgB, "Owner"),
+            };
+            foreach (var (org, ownerRole) in owners)
+            {
+                seed.Roles.Add(ownerRole);
+                seed.RoleGrants.Add(
+                    new RoleGrant
+                    {
+                        Id = Guid.CreateVersion7(),
+                        OrgId = org,
+                        RoleId = ownerRole.Id,
+                        Domain = "*",
+                        Action = "*",
+                    }
+                );
+            }
+            foreach (var (membership, isOwner) in memberships.Where(m => m.Item2))
+                seed.MembershipRoles.Add(
+                    new MembershipRole
+                    {
+                        Id = Guid.CreateVersion7(),
+                        OrgId = membership.OrgId,
+                        MembershipId = membership.Id,
+                        RoleId = owners[membership.OrgId].Id,
+                        ScopePath = null,
+                    }
+                );
             await seed.SaveChangesAsync();
         }
 
@@ -187,6 +228,23 @@ public class ApiFixture : IAsyncLifetime
         await Premise.Modules.Tenancy.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
     }
 
+    /// <summary>Fresh role-less member of the org - for order-independent grant tests.</summary>
+    public async Task<Guid> CreateMemberAsync(string email, OrgId org)
+    {
+        await using var db = CreateIdentityContext(_postgres.GetConnectionString());
+        var user = AppUser.Create("local", email, email, email.Split('@')[0]);
+        db.Users.Add(user);
+        db.Memberships.Add(Membership.Create(user.Id, org));
+        await db.SaveChangesAsync();
+        return user.Id;
+    }
+
+    public async Task<Guid> UserIdOf(string email)
+    {
+        await using var db = CreateIdentityContext(_postgres.GetConnectionString());
+        return await db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync();
+    }
+
     public async Task<Guid> SettingIdOf(OrgId org, string key)
     {
         await using var db = CreateTenancyContext(_postgres.GetConnectionString());
@@ -201,6 +259,17 @@ public class ApiFixture : IAsyncLifetime
         new(
             new DbContextOptionsBuilder<TenancyDbContext>()
                 .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", "tenancy"))
+                .Options,
+            new TenantContext()
+        );
+
+    private static EntitlementsDbContext CreateEntitlementsContext(string cs) =>
+        new(
+            new DbContextOptionsBuilder<EntitlementsDbContext>()
+                .UseNpgsql(
+                    cs,
+                    n => n.MigrationsHistoryTable("__ef_migrations_history", "entitlements")
+                )
                 .Options,
             new TenantContext()
         );

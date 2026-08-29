@@ -20,3 +20,19 @@ public abstract record NodeScope
 
     public static readonly NodeScope Nothing = new None();
 }
+
+public static class NodeScopeExtensions
+{
+    /// <summary>
+    /// Write-side coverage check: does the scope include this path? (String
+    /// prefix semantics - ltree translation is for queries, this is for
+    /// materialized entities.)
+    /// </summary>
+    public static bool Covers(this NodeScope scope, string path) =>
+        scope switch
+        {
+            NodeScope.EntireOrg => true,
+            NodeScope.Subtrees s => s.Paths.Any(p => path == p || path.StartsWith(p + '.')),
+            _ => false,
+        };
+}

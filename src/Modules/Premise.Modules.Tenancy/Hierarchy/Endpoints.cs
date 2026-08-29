@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
+using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Tenancy.Hierarchy;
@@ -16,12 +18,14 @@ public sealed record NodeResponse(Guid Id, Guid? ParentId, string Name, int Dept
 
 public static class HierarchyEndpoints
 {
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/hierarchy")]
     public static async Task<IResult> Create(
         CreateHierarchyRequest request,
         TenancyDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        IEntitlements entitlements,
         CancellationToken ct
     )
     {
@@ -32,6 +36,21 @@ public static class HierarchyEndpoints
             return Results.Unauthorized();
         if (request.Levels.Length == 0)
             return Results.BadRequest(new { error = "at least one level is required" });
+
+        // Gate 1: depth is entitlement-capped AT PROVISIONING (the register's
+        // canonical structural-capability example).
+        var depthLimit = await entitlements.LimitAsync(org, EntitlementCatalog.HierarchyDepth, ct);
+        if (request.Levels.Length > depthLimit)
+            return Results.Json(
+                new
+                {
+                    error = "plan allows fewer hierarchy levels",
+                    code = EntitlementCatalog.HierarchyDepth,
+                    limit = depthLimit,
+                    requested = request.Levels.Length,
+                },
+                statusCode: StatusCodes.Status402PaymentRequired
+            );
         if (await db.Hierarchies.AnyAsync(h => h.IsAuthoritative, ct))
             return Results.Conflict(new { error = "hierarchy already exists" });
 
@@ -65,16 +84,22 @@ public static class HierarchyEndpoints
         );
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/hierarchy/nodes")]
     public static async Task<IResult> CreateNode(
         CreateNodeRequest request,
         TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
         CancellationToken ct
     )
     {
         var parent = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == request.ParentId, ct);
         if (parent is null)
             return Results.NotFound();
+        var scope = await scopes.ScopeForAsync(accessor.Current, "hierarchy:manage", ct);
+        if (!scope.Covers(parent.Path.ToString()))
+            return Results.Forbid();
         var hierarchy = await db.Hierarchies.FirstAsync(h => h.Id == parent.HierarchyId, ct);
         if (parent.Depth + 1 > hierarchy.Levels.Length)
             return Results.BadRequest(
@@ -98,14 +123,18 @@ public static class HierarchyEndpoints
     /// stays honest because FACT tables stamp paths at write time; projections
     /// join live rows and need no rewrite.
     /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/hierarchy/nodes/{id}/move")]
     public static async Task<IResult> MoveNode(
         Guid id,
         MoveNodeRequest request,
         TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
         CancellationToken ct
     )
     {
+        var moveScope = await scopes.ScopeForAsync(accessor.Current, "hierarchy:manage", ct);
         var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == id, ct);
         var newParent = await db.HierarchyNodes.FirstOrDefaultAsync(
             n => n.Id == request.NewParentId,
@@ -113,6 +142,8 @@ public static class HierarchyEndpoints
         );
         if (node is null || newParent is null)
             return Results.NotFound();
+        if (!moveScope.Covers(node.Path.ToString()) || !moveScope.Covers(newParent.Path.ToString()))
+            return Results.Forbid();
         if (node.ParentId is null)
             return Results.BadRequest(new { error = "the root cannot move" });
         // in-memory prefix check (LTree.IsDescendantOf only translates in queries)

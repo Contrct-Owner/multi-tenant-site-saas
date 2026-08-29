@@ -23,6 +23,9 @@ public sealed class OrganizationLookup(TenancyDbContext db) : IOrganizationLooku
     public async Task<OrgSummary?> GetAsync(OrgId id, CancellationToken ct = default) =>
         Map(await db.Organizations.FirstOrDefaultAsync(o => o.Id == id, ct));
 
+    public async Task<IReadOnlyList<OrgId>> ListIdsAsync(CancellationToken ct = default) =>
+        await db.Organizations.Select(o => o.Id).ToListAsync(ct);
+
     private static OrgSummary? Map(Organization? o) =>
         o is null ? null : new OrgSummary(o.Id, o.Name, o.Slug, o.Region, o.ExternalId);
 }

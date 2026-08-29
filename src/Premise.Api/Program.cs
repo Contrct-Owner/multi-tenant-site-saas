@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Premise.Api;
 using Premise.Integrations.WorkOS;
+using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Tenancy;
@@ -30,8 +31,8 @@ builder.Services.AddScoped<TenantContext>(); // envelope-tenant holder (ADR 24)
 builder.Services.AddScoped<ITenantContext, PrincipalTenantContext>();
 builder.Services.AddSingleton(TimeProvider.System);
 
-// The third gate (scope). Step-4 grants replace this implementation.
-builder.Services.AddSingleton<IScopeResolver, MembershipScopeResolver>();
+// Gates 2+3: roles compile to grants; scope evaluated per request (ADR 6).
+builder.Services.AddScoped<IScopeResolver, Premise.Modules.Identity.Access.GrantScopeResolver>();
 
 // Auth seam (ADR 14): provider selected by config; WorkOS is the built-in
 // full-capability implementation, local is the dev/test base implementation.
@@ -78,6 +79,7 @@ builder
 
 builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
+builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
 builder.Services.AddWolverineHttp();
 
 // Notifications (ADR 32): local catcher unless a fork wires a real transport.
@@ -88,28 +90,55 @@ builder.Services.AddSingleton<INotificationTransport, LocalMailCatcher>();
 // reading metered entitlements attaches in step 4.
 var guestLimit = builder.Configuration.GetValue("RateLimits:GuestPerMinute", 60);
 var userLimit = builder.Configuration.GetValue("RateLimits:UserPerMinute", 300);
+builder.Services.AddSingleton<OrgRateLimitCache>();
 builder.Services.AddRateLimiter(limiter =>
 {
     limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    limiter.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-    {
-        var (key, permits) =
-            http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.UserId)?.Value
-                is { } userId
-                ? ($"user:{userId}", userLimit)
-            : http.Request.Cookies.TryGetValue(GuestSessionMiddleware.CookieName, out var guest)
-                ? ($"guest:{guest}", guestLimit)
-            : ($"ip:{http.Connection.RemoteIpAddress}", guestLimit);
-        return RateLimitPartition.GetFixedWindowLimiter(
-            key,
-            _ => new FixedWindowRateLimiterOptions
+    limiter.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        // ADR 30: org-level quota from the metered entitlement, over the per-principal limiter
+        PartitionedRateLimiter.Create<HttpContext, string>(http =>
+        {
+            if (
+                http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.ActiveOrg)?.Value
+                    is { } activeOrg
+                && Guid.TryParse(activeOrg, out var orgGuid)
+            )
             {
-                PermitLimit = permits,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
+                var orgLimit = http
+                    .RequestServices.GetRequiredService<OrgRateLimitCache>()
+                    .LimitFor(new OrgId(orgGuid));
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    $"org:{orgGuid}",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = orgLimit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }
+                );
             }
-        );
-    });
+            return RateLimitPartition.GetNoLimiter("org:none");
+        }),
+        PartitionedRateLimiter.Create<HttpContext, string>(http =>
+        {
+            var (key, permits) =
+                http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.UserId)?.Value
+                    is { } userId
+                    ? ($"user:{userId}", userLimit)
+                : http.Request.Cookies.TryGetValue(GuestSessionMiddleware.CookieName, out var guest)
+                    ? ($"guest:{guest}", guestLimit)
+                : ($"ip:{http.Connection.RemoteIpAddress}", guestLimit);
+            return RateLimitPartition.GetFixedWindowLimiter(
+                key,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = permits,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }
+            );
+        })
+    );
 });
 
 // Wolverine (ADR 23): mediation + messaging + durable Postgres outbox.
@@ -123,6 +152,7 @@ builder.UseWolverine(opts =>
     opts.Policies.UseDurableLocalQueues();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);
 });
 
 var app = builder.Build();

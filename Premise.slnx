@@ -9,6 +9,7 @@
     <Project Path="src/Integrations/Premise.Integrations.WorkOS/Premise.Integrations.WorkOS.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Premise.Modules.Entitlements/Premise.Modules.Entitlements.csproj" />
     <Project Path="src/Modules/Premise.Modules.Identity/Premise.Modules.Identity.csproj" />
     <Project Path="src/Modules/Premise.Modules.Tenancy/Premise.Modules.Tenancy.csproj" />
   </Folder>

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Identity.Data;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Notifications;
 using Wolverine;
@@ -40,6 +41,7 @@ public static class ContactLinks
                 IdentityDbContext db,
                 IDataProtectionProvider dp,
                 IMessageBus bus,
+                IEntitlements entitlements,
                 IssueContactLinkRequest request,
                 CancellationToken ct
             ) =>
@@ -51,6 +53,35 @@ public static class ContactLinks
                     return Results.Unauthorized();
                 if (!await db.Memberships.AnyAsync(m => m.UserId == userId && m.OrgId == org, ct))
                     return Results.NotFound();
+
+                // Gate 1, both shapes: boolean feature switch + monthly meter
+                // (Grace absorbs the approximate live count, ADR 9).
+                if (!await entitlements.HasAsync(org, EntitlementCatalog.ContactLinksEnabled, ct))
+                    return Results.Json(
+                        new
+                        {
+                            error = "contact links are not part of this plan",
+                            code = EntitlementCatalog.ContactLinksEnabled,
+                        },
+                        statusCode: StatusCodes.Status402PaymentRequired
+                    );
+                var usage = await entitlements.RecordUsageAsync(
+                    org,
+                    EntitlementCatalog.ContactLinksMonthly,
+                    1,
+                    ct
+                );
+                if (!usage.IsAllowed)
+                    return Results.Json(
+                        new
+                        {
+                            error = "monthly contact-link allowance exhausted",
+                            usage.Code,
+                            usage.Limit,
+                            usage.Current,
+                        },
+                        statusCode: StatusCodes.Status402PaymentRequired
+                    );
 
                 var contactId = Guid.CreateVersion7();
                 var expires = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();

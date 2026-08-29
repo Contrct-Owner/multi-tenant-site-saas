@@ -39,6 +39,8 @@ public static class TenancyModule
             }
         );
         services.AddScoped<IOrganizationLookup, OrganizationLookup>();
+        services.AddScoped<IEntitlementUsageProbe, MaxSitesProbe>();
+        services.AddScoped<IEntitlementUsageProbe, HierarchyDepthProbe>();
         return services;
     }
 }
