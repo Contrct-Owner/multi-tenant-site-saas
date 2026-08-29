@@ -43,8 +43,12 @@ builder
     .WithEnvironment("PREMISE_API", api.GetEndpoint("http"))
     .WaitFor(api);
 
+// launchProfileName: null - the worker must NOT inherit launchSettings'
+// http port, or it races the api for 5293 and every API path 404s
+// (whichever resource registers first wins the proxy).
 builder
-    .AddProject<Projects.Premise_Api>("worker")
+    .AddProject<Projects.Premise_Api>("worker", launchProfileName: null)
+    .WithEnvironment("ASPNETCORE_URLS", "http://127.0.0.1:0")
     .WithReference(postgres)
     .WaitFor(postgres)
     .WithEnvironment("ROLE", "worker");
