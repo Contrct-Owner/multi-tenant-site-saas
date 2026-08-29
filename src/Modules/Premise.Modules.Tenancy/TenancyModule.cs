@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Organizations;
+using Premise.Modules.Tenancy.Sites;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Wolverine.EntityFrameworkCore;
@@ -15,8 +16,14 @@ public static class TenancyModule
     /// Module registration: DbContext resolves its connection through the
     /// region resolver per scope - no ambient connection string (ADR 35).
     /// </summary>
-    public static IServiceCollection AddTenancyModule(this IServiceCollection services)
+    public static IServiceCollection AddTenancyModule(
+        this IServiceCollection services,
+        bool runBackgroundWork = false
+    )
     {
+        if (runBackgroundWork)
+            services.AddHostedService<HorizonRollService>();
+
         services.AddDbContextWithWolverineIntegration<TenancyDbContext>(
             (sp, options) =>
             {

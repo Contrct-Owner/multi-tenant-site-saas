@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Modules.Tenancy.Data;
@@ -125,6 +126,66 @@ public class ApiFixture : IAsyncLifetime
     /// <summary>Unauthenticated client: a Guest principal (ADR 7).</summary>
     public HttpClient GuestClient() =>
         Factory.CreateDefaultClient(new RedirectHandler(), new CookieContainerHandler());
+
+    public async Task<List<(DateTimeOffset start, DateTimeOffset end)>> QueryWindows(Guid siteId)
+    {
+        await using var db = CreateTenancyContext(_postgres.GetConnectionString());
+        var typed = new SiteId(siteId);
+        return (
+            await db
+                .SiteOpenWindows.IgnoreQueryFilters()
+                .Where(w => w.SiteId == typed)
+                .OrderBy(w => w.StartsAtUtc)
+                .Select(w => new { w.StartsAtUtc, w.EndsAtUtc })
+                .ToListAsync()
+        )
+            .Select(w => (w.StartsAtUtc, w.EndsAtUtc))
+            .ToList();
+    }
+
+    /// <summary>Debug helper: surface Wolverine dead-letter exceptions in test failures.</summary>
+    public async Task<string> DeadLetterSummary()
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(_postgres.GetConnectionString());
+        await conn.OpenAsync();
+        try
+        {
+            await using var cmd = new Npgsql.NpgsqlCommand(
+                """
+                SELECT (SELECT count(*) FROM wolverine.wolverine_dead_letters),
+                       (SELECT min(exception_type || ': ' || exception_message) FROM wolverine.wolverine_dead_letters),
+                       (SELECT min(status || '/' || owner_id || '/' || message_type || '/' || coalesce(execution_time::text,'now')) FROM wolverine.wolverine_incoming_envelopes),
+                       (SELECT count(*) FROM wolverine.wolverine_outgoing_envelopes)
+                """,
+                conn
+            );
+            await using var reader = await cmd.ExecuteReaderAsync();
+            await reader.ReadAsync();
+            return $"dead={reader.GetInt64(0)} first={(reader.IsDBNull(1) ? "-" : reader.GetString(1))} incoming={(reader.IsDBNull(2) ? "-" : reader.GetString(2))} outgoing={reader.GetInt64(3)}";
+        }
+        catch (Npgsql.PostgresException e)
+        {
+            return "dead-letter query failed: " + e.MessageText;
+        }
+    }
+
+    public async Task DeleteWindows(Guid siteId)
+    {
+        await using var db = CreateTenancyContext(_postgres.GetConnectionString());
+        var typed = new SiteId(siteId);
+        await db
+            .SiteOpenWindows.IgnoreQueryFilters()
+            .Where(w => w.SiteId == typed)
+            .ExecuteDeleteAsync();
+    }
+
+    public async Task PublishForOrgA<T>(T message)
+        where T : notnull
+    {
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
+        await Premise.Modules.Tenancy.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
+    }
 
     public async Task<Guid> SettingIdOf(OrgId org, string key)
     {

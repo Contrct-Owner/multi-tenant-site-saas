@@ -1,0 +1,320 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Premise.Platform.Kernel;
+
+namespace Premise.IntegrationTests;
+
+public class HierarchyAndTimeTests(ApiFixture fixture) : IClassFixture<ApiFixture>
+{
+    private static async Task<JsonElement> PostJson(HttpClient client, string url, object body)
+    {
+        var response = await client.PostAsJsonAsync(url, body);
+        Assert.True(
+            response.IsSuccessStatusCode,
+            $"{url} -> {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}"
+        );
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private async Task<(HttpClient client, Guid rootId)> SetupHierarchy()
+    {
+        var client = await fixture.LoginAsync(ApiFixture.UserA);
+        var get = await client.GetAsync("/api/hierarchy");
+        if (get.StatusCode == HttpStatusCode.OK)
+        {
+            var existing = await get.Content.ReadFromJsonAsync<JsonElement>();
+            var root = existing
+                .GetProperty("nodes")
+                .EnumerateArray()
+                .First(n => n.GetProperty("depth").GetInt32() == 0);
+            return (client, root.GetProperty("id").GetGuid());
+        }
+        var created = await PostJson(
+            client,
+            "/api/hierarchy",
+            new { name = "Org A", levels = new[] { "Region", "Market" } }
+        );
+        return (client, created.GetProperty("rootNodeId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Hierarchy_depth_is_capped_by_level_definitions()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var region = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "Northeast" }
+        );
+        var market = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = region.GetProperty("id").GetGuid(), name = "NYC Metro" }
+        );
+
+        // levels = [Region, Market] -> depth 3 below root must fail
+        var tooDeep = await client.PostAsJsonAsync(
+            "/api/hierarchy/nodes",
+            new { parentId = market.GetProperty("id").GetGuid(), name = "Too Deep" }
+        );
+        Assert.Equal(HttpStatusCode.BadRequest, tooDeep.StatusCode);
+    }
+
+    [Fact]
+    public async Task Moving_a_node_rewrites_subtree_and_site_paths()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var east = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "East" }
+        );
+        var west = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "West" }
+        );
+        var market = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = east.GetProperty("id").GetGuid(), name = "Boston" }
+        );
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = market.GetProperty("id").GetGuid(),
+                name = "Boston Store",
+                timeZone = "America/New_York",
+            }
+        );
+        var oldPath = site.GetProperty("path").GetString()!;
+        Assert.StartsWith(east.GetProperty("path").GetString()!, oldPath);
+
+        // move Boston market from East to West
+        var move = await client.PostAsJsonAsync(
+            $"/api/hierarchy/nodes/{market.GetProperty("id").GetGuid()}/move",
+            new { newParentId = west.GetProperty("id").GetGuid() }
+        );
+        Assert.Equal(HttpStatusCode.NoContent, move.StatusCode);
+
+        var moved = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/sites/{site.GetProperty("id").GetGuid()}"
+        );
+        Assert.StartsWith(
+            west.GetProperty("path").GetString()!,
+            moved.GetProperty("path").GetString()!
+        );
+
+        // subtree filter follows the new location
+        var underWest = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/sites?under={west.GetProperty("id").GetGuid()}"
+        );
+        Assert.Contains(
+            underWest.EnumerateArray(),
+            s => s.GetProperty("name").GetString() == "Boston Store"
+        );
+    }
+
+    [Fact]
+    public async Task Cannot_move_node_under_its_own_subtree()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var a = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "Cycle A" }
+        );
+        var b = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = a.GetProperty("id").GetGuid(), name = "Cycle B" }
+        );
+        var move = await client.PostAsJsonAsync(
+            $"/api/hierarchy/nodes/{a.GetProperty("id").GetGuid()}/move",
+            new { newParentId = b.GetProperty("id").GetGuid() }
+        );
+        Assert.Equal(HttpStatusCode.BadRequest, move.StatusCode);
+    }
+
+    [Fact]
+    public async Task Schedules_materialize_dst_correct_occurrences()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = rootId,
+                name = "DST Store",
+                timeZone = "America/New_York",
+            }
+        );
+        var siteId = site.GetProperty("id").GetGuid();
+
+        await PostJson(
+            client,
+            $"/api/sites/{siteId}/schedules",
+            new
+            {
+                name = "Weekday hours",
+                rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+                anchorDate = "2026-01-05",
+                opens = "09:00",
+                closes = "17:00",
+            }
+        );
+
+        var windows = await PollWindows(siteId, minimum: 50);
+        // EDT (Oct 2026): 9am local = 13:00Z. EST (Dec 2026): 9am local = 14:00Z.
+        var october = windows.Where(w => w.start.Month == 10).ToList();
+        var december = windows.Where(w => w.start.Month == 12).ToList();
+        Assert.NotEmpty(october);
+        Assert.NotEmpty(december);
+        Assert.All(october, w => Assert.Equal(13, w.start.Hour));
+        Assert.All(december, w => Assert.Equal(14, w.start.Hour));
+    }
+
+    [Fact]
+    public async Task Timezone_change_rebuilds_the_projection()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = rootId,
+                name = "Moving Store",
+                timeZone = "America/New_York",
+            }
+        );
+        var siteId = site.GetProperty("id").GetGuid();
+        await PostJson(
+            client,
+            $"/api/sites/{siteId}/schedules",
+            new
+            {
+                name = "Hours",
+                rrule = "FREQ=DAILY",
+                anchorDate = "2026-01-01",
+                opens = "09:00",
+                closes = "17:00",
+            }
+        );
+        var before = await PollWindows(siteId, minimum: 10);
+
+        // the rebuild trigger everyone forgets (ADR 28)
+        var patch = await client.PostAsJsonAsync(
+            $"/api/sites/{siteId}",
+            new { timeZone = "America/Los_Angeles" }
+        );
+        patch.EnsureSuccessStatusCode();
+
+        List<(DateTimeOffset start, DateTimeOffset end)> after = [];
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(100);
+            after = await PollWindows(siteId, minimum: 0);
+            if (after.Count > 0 && after[0].start != before[0].start)
+                break;
+        }
+        // same local 9am is 3 hours later in UTC on the west coast
+        Assert.Equal(before[0].start.AddHours(3), after[0].start);
+    }
+
+    [Fact]
+    public async Task Open_now_is_an_indexed_query_over_the_projection()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = rootId,
+                name = "Always Open",
+                timeZone = "Etc/UTC",
+            }
+        );
+        var siteId = site.GetProperty("id").GetGuid();
+        await PostJson(
+            client,
+            $"/api/sites/{siteId}/schedules",
+            new
+            {
+                name = "24-ish",
+                rrule = "FREQ=DAILY",
+                anchorDate = "2026-01-01",
+                opens = "00:00",
+                closes = "23:59",
+            }
+        );
+        await PollWindows(siteId, minimum: 10);
+
+        var open = await client.GetFromJsonAsync<JsonElement>("/api/sites/open-now");
+        Assert.Contains(open.EnumerateArray(), s => s.GetProperty("id").GetGuid() == siteId);
+    }
+
+    [Fact]
+    public async Task Horizon_roll_fans_out_and_restores_the_projection()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = rootId,
+                name = "Rolled Store",
+                timeZone = "Etc/UTC",
+            }
+        );
+        var siteId = site.GetProperty("id").GetGuid();
+        await PostJson(
+            client,
+            $"/api/sites/{siteId}/schedules",
+            new
+            {
+                name = "Hours",
+                rrule = "FREQ=DAILY",
+                anchorDate = "2026-01-01",
+                opens = "08:00",
+                closes = "18:00",
+            }
+        );
+        await PollWindows(siteId, minimum: 10);
+
+        // wipe the projection, then run the enumerator's per-org message
+        await fixture.DeleteWindows(siteId);
+        Assert.Empty(await fixture.QueryWindows(siteId));
+        await fixture.PublishForOrgA(new Premise.Modules.Tenancy.Sites.RollOccurrenceHorizons());
+
+        var restored = await PollWindows(siteId, minimum: 10);
+        Assert.NotEmpty(restored);
+    }
+
+    private async Task<List<(DateTimeOffset start, DateTimeOffset end)>> PollWindows(
+        Guid siteId,
+        int minimum
+    )
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            var windows = await fixture.QueryWindows(siteId);
+            if (windows.Count >= Math.Max(minimum, 1))
+                return windows;
+            await Task.Delay(100);
+        }
+        var final = await fixture.QueryWindows(siteId);
+        Assert.True(
+            final.Count >= minimum,
+            $"projection has {final.Count} rows, wanted >= {minimum}; {await fixture.DeadLetterSummary()}"
+        );
+        return final;
+    }
+}

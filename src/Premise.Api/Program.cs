@@ -26,7 +26,12 @@ builder.Services.AddSingleton<IRegionDataSources, SingleRegionDataSources>();
 // Principals (ADR 7): read-time resolution, usable from any scope.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IPrincipalAccessor, RequestPrincipalAccessor>();
+builder.Services.AddScoped<TenantContext>(); // envelope-tenant holder (ADR 24)
 builder.Services.AddScoped<ITenantContext, PrincipalTenantContext>();
+builder.Services.AddSingleton(TimeProvider.System);
+
+// The third gate (scope). Step-4 grants replace this implementation.
+builder.Services.AddSingleton<IScopeResolver, MembershipScopeResolver>();
 
 // Auth seam (ADR 14): provider selected by config; WorkOS is the built-in
 // full-capability implementation, local is the dev/test base implementation.
@@ -71,7 +76,7 @@ builder
         };
     });
 
-builder.Services.AddTenancyModule();
+builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
 builder.Services.AddWolverineHttp();
 

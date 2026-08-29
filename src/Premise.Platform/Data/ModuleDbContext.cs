@@ -67,6 +67,7 @@ public abstract class ModuleDbContext(DbContextOptions options, ITenantContext t
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<OrgId>().HaveConversion<OrgIdConverter>();
+        configurationBuilder.Properties<SiteId>().HaveConversion<SiteIdConverter>();
         configurationBuilder.Properties<RegionId>().HaveConversion<RegionIdConverter>();
     }
 }
@@ -75,6 +76,12 @@ public sealed class OrgIdConverter()
     : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<OrgId, Guid>(
         v => v.Value,
         v => new OrgId(v)
+    );
+
+public sealed class SiteIdConverter()
+    : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<SiteId, Guid>(
+        v => v.Value,
+        v => new SiteId(v)
     );
 
 public sealed class RegionIdConverter()

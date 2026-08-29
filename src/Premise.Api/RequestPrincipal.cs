@@ -60,17 +60,34 @@ public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IP
     }
 }
 
-/// <summary>ITenantContext backed by the resolved principal (ADR 5/7).</summary>
-public sealed class PrincipalTenantContext(IPrincipalAccessor accessor) : ITenantContext
+/// <summary>
+/// ITenantContext backed by the resolved principal (ADR 5/7). In Wolverine
+/// message scopes there is no request principal - the tenant is read LAZILY
+/// off the scoped IMessageContext's envelope (ADR 24). Lazy is load-bearing,
+/// third time now: transactional frames open the database connection before
+/// any middleware or handler body runs, so anything the RLS interceptor needs
+/// must be answerable at connection-open from whatever scope asks.
+/// </summary>
+public sealed class PrincipalTenantContext(
+    IPrincipalAccessor accessor,
+    TenantContext holder,
+    Wolverine.IMessageContext messageContext
+) : ITenantContext
 {
     public OrgId? OrgId =>
         accessor.Current switch
         {
             Principal.User u => u.ActiveOrg,
             Principal.Contact c => c.Org,
-            Principal.Guest g => g.Org,
-            _ => null,
+            Principal.Guest g => g.Org ?? holder.OrgId ?? EnvelopeOrg,
+            _ => holder.OrgId ?? EnvelopeOrg,
         };
+
+    private OrgId? EnvelopeOrg =>
+        messageContext.Envelope?.TenantId is { } tenantId
+        && Guid.TryParse(tenantId, out var orgGuid)
+            ? new OrgId(orgGuid)
+            : null;
 
     public RegionId Region => RegionId.Default; // org->region routing lands with ADR 35 step two
 }
