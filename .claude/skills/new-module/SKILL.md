@@ -14,12 +14,12 @@ boundaries erode.
 Run it and stop - it performs the checklist below:
 
 ```bash
-dotnet run --project tools/ModuleGenerator -- --name <ModuleName>
+dotnet run --project tools/ModuleGenerator -- --name <Name>
 ```
 
 ## Until the generator exists, perform every step
 
-1. **Project layout**: `modules/<ModuleName>/` with feature folders (one folder
+1. **Project layout**: `src/Modules/Premise.Modules.<Name>/` with feature folders (one folder
    per use case), not layer folders. Handlers are Wolverine handlers.
 2. **Schema + DbContext**: new `<ModuleName>DbContext` with
    `HasDefaultSchema("<module_name>")` and its own `__EFMigrationsHistory` in
@@ -31,7 +31,7 @@ dotnet run --project tools/ModuleGenerator -- --name <ModuleName>
    integration message subscriptions. Cross-module communication is messages +
    outbox only - no project reference to another module's internals.
 5. **Contracts**: anything other modules may consume goes in
-   `shared/contracts/<ModuleName>/` (DTOs and integration events only).
+   `src/Premise.Contracts/<Name>/` (DTOs and integration events only).
 6. **Architecture tests**: add the module to the boundary rules (may not
    reference other modules' internals; must only expose contracts).
 7. **Test fixtures**: per-module fixture that provisions the schema, applies

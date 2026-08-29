@@ -1,7 +1,8 @@
-# Location SaaS Template
+# Premise
 
-A forkable template for location/site-based multi-tenant SaaS: a vertically sliced
-modular monolith. C# 14 / .NET 10 / EF Core 10 / PostgreSQL backend; TanStack +
+A forkable template for location/site-based multi-tenant SaaS.
+
+A vertically sliced modular monolith. C# 14 / .NET 10 / EF Core 10 / PostgreSQL backend; TanStack +
 TypeScript frontend (Start for the public app, SPA for the console); WorkOS behind
 an OIDC-generic auth seam; Wolverine for mediation, messaging, and the outbox.
 
@@ -64,12 +65,15 @@ don't restate them here.
 
 ## Commands
 
-The solution does not exist yet; update this section as the build progresses.
-
-- Build: `dotnet build` (from repo root, once the solution exists)
-- Tests: `dotnet test` — architecture tests live in their own fast project; run
-  them after any cross-module change
-- Frontend: `pnpm install && pnpm dev` (once the workspace exists)
+- Build: `dotnet build Premise.slnx` (Aspire CLI must be on PATH: `~/.aspire/bin`)
+- Architecture tests (fast, run after any cross-module change):
+  `dotnet test tests/Premise.ArchitectureTests`
+- Tenant-isolation golden suite (needs Docker; Testcontainers Postgres):
+  `dotnet test tests/Premise.IntegrationTests`
+- Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + api + worker + dashboard)
+- Migrations: `dotnet ef migrations add <Name> --project src/Modules/<Module> --startup-project src/Modules/<Module>` (see new-migration skill)
+- Format: `dotnet csharpier format .`
+- Frontend: `pnpm install && pnpm dev` (workspace arrives in later steps)
 
 ## For forks
 

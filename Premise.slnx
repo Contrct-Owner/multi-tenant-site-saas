@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Premise.Api/Premise.Api.csproj" />
+    <Project Path="src/Premise.AppHost/Premise.AppHost.csproj" />
+    <Project Path="src/Premise.Contracts/Premise.Contracts.csproj" />
+    <Project Path="src/Premise.Platform/Premise.Platform.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Premise.Modules.Tenancy/Premise.Modules.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Premise.ArchitectureTests/Premise.ArchitectureTests.csproj" />
+    <Project Path="tests/Premise.IntegrationTests/Premise.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
