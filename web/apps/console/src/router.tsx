@@ -6,6 +6,7 @@ import { HierarchyPage } from './pages/hierarchy';
 import { IngestPage } from './pages/ingest';
 import { MembersPage } from './pages/members';
 import { OperatorPage } from './pages/operator';
+import { SettingsPage } from './pages/settings';
 import { SitesPage } from './pages/sites';
 
 const rootRoute = createRootRoute({
@@ -24,6 +25,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: '/members', component: MembersPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/audit', component: AuditPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/operator', component: OperatorPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage }),
 ];
 
 export const router = createRouter({ routeTree: rootRoute.addChildren(routes) });

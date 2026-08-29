@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
@@ -19,6 +20,73 @@ public sealed record InviteMemberRequest(string Email, Guid RoleId);
 /// </summary>
 public static class MemberEndpoints
 {
+    /// <summary>
+    /// A member walks away from the ACTIVE org (deletion tier 3 + audit).
+    /// The last role manager cannot leave - transfer management first.
+    /// </summary>
+    [Transactional(typeof(IdentityDbContext))]
+    [WolverinePost("/api/members/leave")]
+    public static async Task<IResult> Leave(
+        Microsoft.AspNetCore.Http.HttpContext http,
+        IdentityDbContext db,
+        IPrincipalAccessor accessor,
+        IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        if (accessor.Current is not Principal.User { ActiveOrg: { } org, UserId: var userId })
+            return Results.Unauthorized();
+        var membership = await db.Memberships.FirstOrDefaultAsync(
+            m => m.UserId == userId && m.OrgId == org,
+            ct
+        );
+        if (membership is null)
+            return Results.NotFound();
+        if (await Access.ManagerGuard.WouldOrphanAsync(db, org, userId, ct))
+            return Results.Conflict(
+                new { error = "you are the last role manager; assign another before leaving" }
+            );
+
+        await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);
+        db.Memberships.Remove(membership);
+        await db.SaveChangesAsync(ct);
+
+        await bus.PublishAsync(
+            new RecordDomainAudit(
+                "member.left",
+                System.Text.Json.JsonSerializer.Serialize(new { userId })
+            ),
+            new DeliveryOptions
+            {
+                TenantId = org.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = userId.ToString(),
+                },
+            }
+        );
+
+        // session still points at the org they left: reissue against the next
+        // membership (or none - back to the day-zero screen)
+        var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+        var nextOrg = await db
+            .Memberships.Where(m => m.UserId == userId)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => (OrgId?)m.OrgId)
+            .FirstOrDefaultAsync(ct);
+        await http.SignInAsync(
+            Microsoft
+                .AspNetCore
+                .Authentication
+                .Cookies
+                .CookieAuthenticationDefaults
+                .AuthenticationScheme,
+            Auth.AuthEndpoints.BuildClaimsPrincipal(user, nextOrg)
+        );
+        return Results.NoContent();
+    }
+
     [Transactional(typeof(IdentityDbContext))]
     [WolverineGet("/api/members")]
     public static async Task<IResult> List(
@@ -221,7 +289,9 @@ public static class MemberEndpoints
         )
             return Results.Unauthorized();
         if (userId == actor)
-            return Results.BadRequest(new { error = "you cannot remove yourself" });
+            return Results.BadRequest(
+                new { error = "you cannot remove yourself; use leave instead" }
+            );
 
         var membership = await db.Memberships.FirstOrDefaultAsync(
             m => m.UserId == userId && m.OrgId == org,
@@ -229,6 +299,8 @@ public static class MemberEndpoints
         );
         if (membership is null)
             return Results.NotFound();
+        if (await Access.ManagerGuard.WouldOrphanAsync(db, org, userId, ct))
+            return Results.Conflict(new { error = "cannot remove the org's last role manager" });
 
         // deletion tier 3 (ADR 25): the membership ends; audit is the record
         await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);

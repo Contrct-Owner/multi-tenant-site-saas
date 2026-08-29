@@ -55,6 +55,12 @@ public interface IOrganizationDirectory
 {
     Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default);
 
+    Task UpdateOrganizationNameAsync(
+        string externalOrgId,
+        string name,
+        CancellationToken ct = default
+    );
+
     /// <summary>Record provider-side membership so future SSO/AuthKit logins carry the org.</summary>
     Task AddMemberAsync(
         string externalOrgId,

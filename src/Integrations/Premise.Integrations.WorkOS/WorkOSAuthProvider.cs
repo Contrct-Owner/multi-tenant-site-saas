@@ -102,6 +102,17 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory, 
         { }
     }
 
+    public async Task UpdateOrganizationNameAsync(
+        string externalOrgId,
+        string name,
+        CancellationToken ct = default
+    ) =>
+        await _client.Organizations.UpdateAsync(
+            externalOrgId,
+            new OrganizationsUpdateOptions { Name = name },
+            cancellationToken: ct
+        );
+
     public async Task AddMemberAsync(
         string externalOrgId,
         string externalUserId,

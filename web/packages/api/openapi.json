@@ -429,6 +429,46 @@
         }
       }
     },
+    "/api/org": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OrgSettingsEndpoints"
+        ],
+        "summary": "PUT_api_org",
+        "description": "PUT_api_org",
+        "operationId": "PUT_api_org",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameOrgRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/operator/orgs": {
       "get": {
         "tags": [
@@ -678,6 +718,36 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/members/leave": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Users.MemberEndpoints"
+        ],
+        "summary": "POST_api_members_leave",
+        "description": "POST_api_members_leave",
+        "operationId": "POST_api_members_leave",
         "responses": {
           "200": {
             "description": "OK",
@@ -1016,6 +1086,215 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+        ],
+        "summary": "GET_api_grant_exceptions",
+        "description": "GET_api_grant_exceptions",
+        "operationId": "GET_api_grant_exceptions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{id}": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+        ],
+        "summary": "PUT_api_roles_id",
+        "description": "PUT_api_roles_id",
+        "operationId": "PUT_api_roles_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+        ],
+        "summary": "DELETE_api_roles_id",
+        "description": "DELETE_api_roles_id",
+        "operationId": "DELETE_api_roles_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/assign/{userId}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+        ],
+        "summary": "DELETE_api_roles_id_assign_userId",
+        "description": "DELETE_api_roles_id_assign_userId",
+        "operationId": "DELETE_api_roles_id_assign_userId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/grant-exceptions/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+        ],
+        "summary": "DELETE_api_grant_exceptions_id",
+        "description": "DELETE_api_grant_exceptions_id",
+        "operationId": "DELETE_api_grant_exceptions_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2405,6 +2684,17 @@
           }
         }
       },
+      "RenameOrgRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "SetAuditConfigRequest": {
         "required": [
           "logGrants",
@@ -2511,6 +2801,24 @@
           }
         }
       },
+      "UpdateRoleRequest": {
+        "required": [
+          "name",
+          "grants"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrantSpec"
+            }
+          }
+        }
+      },
       "UpdateSiteRequest": {
         "required": [
           "name",
@@ -2556,6 +2864,9 @@
       "name": "Premise.Modules.Tenancy.Organizations.OnboardingEndpoints"
     },
     {
+      "name": "Premise.Modules.Tenancy.Organizations.OrgSettingsEndpoints"
+    },
+    {
       "name": "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
     },
     {
@@ -2566,6 +2877,9 @@
     },
     {
       "name": "Premise.Modules.Identity.Access.AccessEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Access.RoleManagementEndpoints"
     },
     {
       "name": "Premise.Modules.Entitlements.EntitlementEndpoints"

@@ -41,6 +41,18 @@ export function MembersPage() {
   const remove = useMutation({
     mutationFn: (userId: string) => api.del(`/api/members/${userId}`),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['members'] }),
+    onError: (e) =>
+      alert(String((e as { body?: { error?: string } }).body?.error ?? 'removal failed')),
+  });
+  const unassign = useMutation({
+    mutationFn: (input: { roleName: string; userId: string }) => {
+      const role = roles?.find((r) => r.name === input.roleName);
+      if (!role) throw new Error('unknown role');
+      return api.del(`/api/roles/${role.id}/assign/${input.userId}`);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['members'] }),
+    onError: (e) =>
+      alert(String((e as { body?: { error?: string } }).body?.error ?? 'unassign failed')),
   });
 
   const self = me?.tier === 'user' ? me.userId : undefined;
@@ -67,7 +79,21 @@ export function MembersPage() {
                     <div className="font-medium">{m.name ?? m.email}</div>
                     <div className="text-xs text-muted-foreground">{m.email}</div>
                   </TableCell>
-                  <TableCell>{m.roles.join(', ') || '—'}</TableCell>
+                  <TableCell>
+                    {m.roles.length === 0
+                      ? '—'
+                      : m.roles.map((roleName) => (
+                          <button
+                            key={roleName}
+                            type="button"
+                            title="Click to unassign"
+                            className="mr-1 rounded-full bg-secondary px-2 py-0.5 text-xs hover:bg-destructive/15"
+                            onClick={() => unassign.mutate({ roleName, userId: m.userId })}
+                          >
+                            {roleName} ×
+                          </button>
+                        ))}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(m.joinedAt).toLocaleDateString()}
                   </TableCell>

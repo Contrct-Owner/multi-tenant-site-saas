@@ -11,6 +11,7 @@ const NAV = [
   { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage' },
   { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
   { to: '/members', label: 'Members', capability: 'roles:manage' },
+  { to: '/settings', label: 'Settings', capability: 'org:manage' },
   { to: '/audit', label: 'Audit', capability: 'audit:read' },
   { to: '/operator', label: 'Operator', capability: 'platform:operate' },
 ] as const;

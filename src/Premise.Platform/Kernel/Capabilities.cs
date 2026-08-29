@@ -19,6 +19,9 @@ public static class Capabilities
     public const string EntitlementsManage = "entitlements:manage";
     public const string RolesManage = "roles:manage";
 
+    /// <summary>Org settings: rename, and (later) offboarding.</summary>
+    public const string OrgManage = "org:manage";
+
     /// <summary>Platform-operator reach: held only inside the flagged platform org.</summary>
     public const string PlatformOperate = "platform:operate";
 
@@ -34,6 +37,7 @@ public static class Capabilities
         AuditManage,
         EntitlementsManage,
         RolesManage,
+        OrgManage,
         PlatformOperate,
     ];
 }

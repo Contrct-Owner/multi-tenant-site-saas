@@ -45,8 +45,14 @@ public class DayZeroTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             await founder.PostAsJsonAsync("/auth/switch-org", new { orgId })
         ).EnsureSuccessStatusCode();
         var active = await founder.GetFromJsonAsync<JsonElement>("/me");
-        // founder is Owner (*:*): full capability set
-        Assert.Equal(10, active.GetProperty("capabilities").GetArrayLength());
+        // founder is Owner (*:*): every capability EXCEPT platform reach -
+        // the org flag is the operator wall, never advertised to tenants
+        var capabilities = active.GetProperty("capabilities").EnumerateArray()
+            .Select(c => c.GetString()).ToHashSet();
+        Assert.Equal(
+            Premise.Platform.Kernel.Capabilities.All.Count - 1, capabilities.Count);
+        Assert.DoesNotContain(
+            Premise.Platform.Kernel.Capabilities.PlatformOperate, capabilities);
     }
 
     [Fact]

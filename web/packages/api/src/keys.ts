@@ -12,6 +12,7 @@ export const CAPABILITIES = [
   'audit:manage',
   'entitlements:manage',
   'roles:manage',
+  'org:manage',
   'platform:operate',
 ] as const;
 

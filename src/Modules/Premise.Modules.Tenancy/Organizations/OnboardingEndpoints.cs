@@ -98,3 +98,67 @@ public static class OnboardingEndpoints
         return Results.Ok(new { orgId = org.Id.Value, org.Slug });
     }
 }
+
+public sealed record RenameOrgRequest(string Name);
+
+public static class OrgSettingsEndpoints
+{
+    /// <summary>Rename the active org: local truth, read models, and the provider directory all learn.</summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverinePut("/api/org")]
+    public static async Task<IResult> Rename(
+        RenameOrgRequest request,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        IAuthProvider provider,
+        IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } orgId, UserId: var userId } principal
+            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
+        )
+            return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            return Results.BadRequest(new { error = "name must be 1-200 characters" });
+
+        var org = await db.Organizations.FirstAsync(o => o.Id == orgId, ct);
+        var previous = org.Name;
+        org.Name = request.Name.Trim();
+        await db.SaveChangesAsync(ct);
+
+        if (provider is IOrganizationDirectory directory && org.ExternalId is { } externalId)
+            await directory.UpdateOrganizationNameAsync(externalId, org.Name, ct);
+
+        await bus.PublishAsync(
+            new OrganizationUpserted(
+                org.Id,
+                org.Name,
+                org.Slug,
+                org.Region,
+                org.ExternalId,
+                org.Status.ToString(),
+                org.IsPlatform
+            )
+        );
+        await bus.PublishAsync(
+            new RecordDomainAudit(
+                "org.renamed",
+                System.Text.Json.JsonSerializer.Serialize(new { from = previous, to = org.Name })
+            ),
+            new DeliveryOptions
+            {
+                TenantId = org.Id.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = userId.ToString(),
+                },
+            }
+        );
+        return Results.Ok(new { org.Name });
+    }
+}
