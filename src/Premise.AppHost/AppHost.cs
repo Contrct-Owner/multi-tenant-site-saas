@@ -35,7 +35,9 @@ var api = builder
 
 builder
     .AddNpmApp("console", "../../web/apps/console", "dev")
-    .WithHttpEndpoint(env: "PORT", port: 5173, targetPort: 5173)
+    // unproxied: executables cannot be proxied onto their own target port;
+    // vite binds 5173 directly and reads it from PORT
+    .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
     .WithEnvironment("PREMISE_API", api.GetEndpoint("http"))
     .WaitFor(api);
 
