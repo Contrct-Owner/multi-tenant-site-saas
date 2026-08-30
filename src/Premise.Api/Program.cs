@@ -158,6 +158,33 @@ if (builder.Configuration["Secrets:LocalMasterKey"] is { } localKey)
         new LocalKeyWrapper(Convert.FromBase64String(localKey))
     );
 }
+
+// Billing (ADR 39): local provider is DEV/TEST ONLY - Production must boot a
+// real one (StripeBillingProvider in Premise.Integrations.Stripe, or a fork's).
+switch (builder.Configuration["Billing:Provider"] ?? "local")
+{
+    case "stripe":
+        builder.Services.Configure<Premise.Integrations.Stripe.StripeOptions>(
+            builder.Configuration.GetSection("Billing:Stripe")
+        );
+        builder.Services.AddSingleton<
+            Premise.Platform.Billing.IBillingProvider,
+            Premise.Integrations.Stripe.StripeBillingProvider
+        >();
+        break;
+    case "local" when !builder.Environment.IsProduction():
+        builder.Services.AddSingleton<Premise.Platform.Billing.IBillingProvider>(
+            new Premise.Modules.Entitlements.LocalBillingProvider(
+                builder.Configuration["Billing:WebhookSecret"] ?? "dev-billing-secret"
+            )
+        );
+        break;
+    default:
+        throw new InvalidOperationException(
+            "Billing:Provider 'local' is dev/test only (ADR 39); configure 'stripe' or a fork adapter in Production."
+        );
+}
+
 builder.Services.AddWolverineHttp();
 builder.Services.AddOpenApi(); // ADR 16: the spec is the contract; TS client + keys generate from it
 
@@ -264,6 +291,36 @@ if (role == "api")
     app.MapLocalObjectStore();
 
     app.MapOpenApi();
+    if (app.Environment.IsDevelopment())
+        // instant "checkout" for the local billing provider: applies the plan
+        // as if the provider's webhook had fired, then returns to the console
+        app.MapGet(
+                "/billing/dev/complete",
+                async (Guid org, string plan, string? returnUrl, Wolverine.IMessageBus bus) =>
+                {
+                    await bus.PublishAsync(
+                        new Premise.Modules.Entitlements.BillingSubscriptionChanged(
+                            plan,
+                            Premise.Platform.Billing.SubscriptionStatus.Active,
+                            $"local_cus_{org:N}",
+                            $"local_sub_{org:N}",
+                            DateTimeOffset.UtcNow.AddMonths(1)
+                        ),
+                        new Wolverine.DeliveryOptions { TenantId = org.ToString() }
+                    );
+                    // checkout hands the provider an ABSOLUTE success URL
+                    // (Stripe requires one); redirect to its path only, which
+                    // also forecloses open redirects
+                    var path = Uri.TryCreate(returnUrl, UriKind.Absolute, out var absolute)
+                        ? absolute.PathAndQuery
+                        : returnUrl;
+                    return Results.Redirect(
+                        path is ['/', ..] && !path.StartsWith("//") ? path : "/"
+                    );
+                }
+            )
+            .ExcludeFromDescription();
+
     if (app.Environment.IsDevelopment())
         // caught mail (contact links, password resets) is otherwise trapped
         // in memory: this closes the dev loop. Never mapped outside dev.

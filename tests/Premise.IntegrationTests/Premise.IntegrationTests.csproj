@@ -27,5 +27,6 @@
     <ProjectReference Include="..\..\src\Premise.Api\Premise.Api.csproj" />
     <ProjectReference Include="..\..\src\Integrations\Premise.Integrations.AmazonS3\Premise.Integrations.AmazonS3.csproj" />
     <ProjectReference Include="..\..\src\Integrations\Premise.Integrations.AzureBlob\Premise.Integrations.AzureBlob.csproj" />
+    <ProjectReference Include="..\..\src\Integrations\Premise.Integrations.Stripe\Premise.Integrations.Stripe.csproj" />
   </ItemGroup>
 </Project>

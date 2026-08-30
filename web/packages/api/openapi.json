@@ -1833,6 +1833,146 @@
         }
       }
     },
+    "/api/billing": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Entitlements.BillingEndpoints"
+        ],
+        "summary": "GET_api_billing",
+        "description": "GET_api_billing",
+        "operationId": "GET_api_billing",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/checkout": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Entitlements.BillingEndpoints"
+        ],
+        "summary": "POST_api_billing_checkout",
+        "description": "POST_api_billing_checkout",
+        "operationId": "POST_api_billing_checkout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/portal": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Entitlements.BillingEndpoints"
+        ],
+        "summary": "POST_api_billing_portal",
+        "description": "POST_api_billing_portal",
+        "operationId": "POST_api_billing_portal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/webhook": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Entitlements.BillingEndpoints"
+        ],
+        "summary": "POST_billing_webhook",
+        "description": "POST_billing_webhook",
+        "operationId": "POST_billing_webhook",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/entitlements": {
       "get": {
         "tags": [
@@ -3171,6 +3311,21 @@
           }
         }
       },
+      "CheckoutRequest": {
+        "required": [
+          "planId",
+          "returnPath"
+        ],
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "returnPath": {
+            "type": "string"
+          }
+        }
+      },
       "CreateConnectorRequest": {
         "required": [
           "name",
@@ -3480,6 +3635,17 @@
           }
         }
       },
+      "PortalRequest": {
+        "required": [
+          "returnPath"
+        ],
+        "type": "object",
+        "properties": {
+          "returnPath": {
+            "type": "string"
+          }
+        }
+      },
       "PutSettingRequest": {
         "required": [
           "value"
@@ -3757,6 +3923,9 @@
     },
     {
       "name": "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Entitlements.BillingEndpoints"
     },
     {
       "name": "Premise.Modules.Entitlements.EntitlementEndpoints"

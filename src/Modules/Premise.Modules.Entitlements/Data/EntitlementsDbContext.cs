@@ -15,10 +15,26 @@ public sealed class EntitlementsDbContext(
     public DbSet<EntitlementException> Exceptions => Set<EntitlementException>();
     public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
     public DbSet<MeterRollup> Rollups => Set<MeterRollup>();
+    public DbSet<OrgSubscription> Subscriptions => Set<OrgSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<OrgSubscription>(b =>
+        {
+            b.ToTable("org_subscriptions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.PlanId).HasColumnName("plan_id").HasMaxLength(80);
+            b.Property(x => x.Status).HasColumnName("status").HasMaxLength(20);
+            b.Property(x => x.CustomerRef).HasColumnName("customer_ref").HasMaxLength(200);
+            b.Property(x => x.SubscriptionRef).HasColumnName("subscription_ref").HasMaxLength(200);
+            b.Property(x => x.CurrentPeriodEnd).HasColumnName("current_period_end");
+            b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            b.HasIndex(x => x.OrgId).IsUnique();
+        });
 
         modelBuilder.Entity<OrgEntitlement>(b =>
         {

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Premise.Modules.Entitlements.Data;
@@ -11,9 +12,11 @@ using Premise.Modules.Entitlements.Data;
 namespace Premise.Modules.Entitlements.Migrations
 {
     [DbContext(typeof(EntitlementsDbContext))]
-    partial class EntitlementsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830042533_AddSubscriptions")]
+    partial class AddSubscriptions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

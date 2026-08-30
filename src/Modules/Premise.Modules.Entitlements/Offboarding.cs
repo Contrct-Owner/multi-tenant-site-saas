@@ -77,6 +77,10 @@ public static class PurgeOrgEntitlementsHandler
         await db.Rollups.IgnoreQueryFilters().Where(r => r.OrgId == org).ExecuteDeleteAsync(ct);
         await db.Exceptions.IgnoreQueryFilters().Where(e => e.OrgId == org).ExecuteDeleteAsync(ct);
         await db
+            .Subscriptions.IgnoreQueryFilters()
+            .Where(s => s.OrgId == org)
+            .ExecuteDeleteAsync(ct);
+        await db
             .OrgEntitlements.IgnoreQueryFilters()
             .Where(e => e.OrgId == org)
             .ExecuteDeleteAsync(ct);
