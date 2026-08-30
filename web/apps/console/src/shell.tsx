@@ -63,7 +63,14 @@ export function Shell({ children }: { children: ReactNode }) {
     );
   }
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
+      {me.impersonationExpiresAt && (
+        <ImpersonationBanner
+          orgName={activeOrg?.name ?? 'organization'}
+          expiresAt={me.impersonationExpiresAt}
+        />
+      )}
+      <div className="flex flex-1">
       <aside className="flex w-56 flex-col border-r bg-card">
         <div className="border-b p-4">
           <div className="font-semibold">Premise</div>
@@ -136,7 +143,34 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-8">{children}</main>
+      </div>
       <Toaster />
+    </div>
+  );
+}
+
+function ImpersonationBanner({ orgName, expiresAt }: { orgName: string; expiresAt: string }) {
+  const queryClient = useQueryClient();
+  const ends = new Date(expiresAt).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return (
+    <div className="flex items-center justify-between gap-3 bg-warning px-4 py-2 text-sm text-warning-foreground">
+      <span>
+        <span className="font-semibold">Support session:</span> impersonating {orgName} · ends{' '}
+        {ends}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={async () => {
+          await api.post('/auth/impersonation/stop');
+          await queryClient.invalidateQueries(); // back to the platform org: everything re-resolves
+        }}
+      >
+        Stop impersonating
+      </Button>
     </div>
   );
 }

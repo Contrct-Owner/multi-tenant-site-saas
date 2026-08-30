@@ -12,6 +12,7 @@ export type Me =
       activeOrg?: string;
       organizations: { id: string; name: string; slug: string }[];
       capabilities: Capability[];
+      impersonationExpiresAt?: string | null;
     };
 
 export function useMe() {

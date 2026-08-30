@@ -2061,6 +2061,77 @@
         }
       }
     },
+    "/api/operator/orgs/{orgId}/impersonate": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ImpersonationEndpoints"
+        ],
+        "summary": "POST_api_operator_orgs_orgId_impersonate",
+        "description": "POST_api_operator_orgs_orgId_impersonate",
+        "operationId": "POST_api_operator_orgs_orgId_impersonate",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/impersonation/stop": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ImpersonationEndpoints"
+        ],
+        "summary": "POST_auth_impersonation_stop",
+        "description": "POST_auth_impersonation_stop",
+        "operationId": "POST_auth_impersonation_stop",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roles/{id}": {
       "put": {
         "tags": [
@@ -4682,6 +4753,9 @@
     },
     {
       "name": "Premise.Modules.Identity.Access.RoleManagementEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Access.ImpersonationEndpoints"
     },
     {
       "name": "Premise.Modules.Entitlements.BillingEndpoints"

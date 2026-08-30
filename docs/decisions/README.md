@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-The 41 settled decisions for this template, from the design brainstorm of
+The 42 settled decisions for this template, from the design brainstorm of
 2026-08-29. The human-readable register (same content, with the three-gates
 overview and build sequence) is published from `design-decisions.html`.
 
@@ -58,3 +58,4 @@ confirmation on edits under this directory.
 - [0039. Billing seam: plans are entitlement bundles, the webhook is the writer](0039-billing-seam.md)
 - [0040. Integration surface: API keys as service principals, webhooks off the event record](0040-integration-surface.md)
 - [0041. Enterprise SSO self-service and directory sync](0041-enterprise-sso-directory-sync.md)
+- [0042. Support impersonation](0042-support-impersonation.md)

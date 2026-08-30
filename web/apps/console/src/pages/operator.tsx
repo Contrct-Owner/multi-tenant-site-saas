@@ -30,6 +30,13 @@ export function OperatorPage() {
     mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/export`),
     success: "Export queued - it lands in the org's Files",
   });
+  const impersonate = useApiMutation({
+    mutationFn: (orgId: string) =>
+      api.post<{ expiresAt: string }>(`/api/operator/orgs/${orgId}/impersonate`),
+    onSuccess: () => {
+      location.href = '/'; // full reload: the whole session re-resolves as the target org
+    },
+  });
   const offboard = useApiMutation({
     mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/offboard`),
     invalidate: [['operator-orgs']],
@@ -68,6 +75,17 @@ export function OperatorPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   {selected.name}
+                  <span className="flex items-center gap-2">
+                  {selected.status === 'Active' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={impersonate.isPending}
+                      onClick={() => impersonate.mutate(selected.id)}
+                    >
+                      Impersonate
+                    </Button>
+                  )}
                   {selected.status === 'Active' ? (
                     <Button
                       variant="destructive"
@@ -86,6 +104,7 @@ export function OperatorPage() {
                       Reactivate
                     </Button>
                   )}
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent>

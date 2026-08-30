@@ -58,11 +58,24 @@ public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IP
                 )
                     ? new OrgId(orgGuid)
                     : null;
+                // impersonation (ADR 42): live only while unexpired - a pure
+                // clock comparison, honoring "never the database" here
+                DateTimeOffset? impersonation = null;
+                if (
+                    long.TryParse(
+                        user.FindFirst(PremiseClaims.ImpersonationExpires)?.Value,
+                        out var expiresUnix
+                    )
+                    && DateTimeOffset.FromUnixTimeSeconds(expiresUnix) is var expires
+                    && expires > DateTimeOffset.UtcNow
+                )
+                    impersonation = expires;
                 return new Principal.User(
                     userId,
                     user.FindFirst(PremiseClaims.Email)?.Value ?? "",
                     user.FindFirst(PremiseClaims.DisplayName)?.Value,
-                    activeOrg
+                    activeOrg,
+                    impersonation
                 );
             }
 

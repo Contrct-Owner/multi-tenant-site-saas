@@ -15,8 +15,21 @@ public abstract record Principal
     /// <summary>An API key acting server-to-server: a service principal OF an org (ADR 40).</summary>
     public sealed record Service(Guid KeyId, OrgId Org) : Principal;
 
-    public sealed record User(Guid UserId, string Email, string? Name, OrgId? ActiveOrg)
-        : Principal;
+    /// <summary>
+    /// ImpersonationExpiresAt is set (ADR 42) only while an operator's
+    /// support session into ActiveOrg is unexpired; accessors derive it from
+    /// claims plus the clock, never the database.
+    /// </summary>
+    public sealed record User(
+        Guid UserId,
+        string Email,
+        string? Name,
+        OrgId? ActiveOrg,
+        DateTimeOffset? ImpersonationExpiresAt = null
+    ) : Principal
+    {
+        public bool Impersonating => ImpersonationExpiresAt is not null;
+    }
 }
 
 /// <summary>

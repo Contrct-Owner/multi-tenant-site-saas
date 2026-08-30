@@ -46,8 +46,16 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
         if (principal is Principal.Service service)
             return await ServiceScopeAsync(service, action, ct);
 
-        if (principal is not Principal.User { ActiveOrg: { } org, UserId: var userId })
+        if (principal is not Principal.User { ActiveOrg: { } org, UserId: var userId } user)
             return NodeScope.Nothing;
+
+        // impersonation (ADR 42): org-wide on everything EXCEPT the platform
+        // domain - support sees what an owner sees, and the cookie can never
+        // operate the platform from inside a tenant
+        if (user.Impersonating)
+            return action.StartsWith("platform:")
+                ? NodeScope.Nothing
+                : new NodeScope.EntireOrg(org);
 
         if (_memo.TryGetValue((userId, org, action), out var cached))
             return cached;

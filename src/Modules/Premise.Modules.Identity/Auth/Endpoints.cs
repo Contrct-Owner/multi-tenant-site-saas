@@ -261,6 +261,14 @@ public static class AuthEndpoints
                             .Select(m => m.OrgId)
                             .ToListAsync(ct);
                         // local read model (org_directory), never Tenancy's tables
+                        // an impersonated org (ADR 42) is not a membership;
+                        // surface it anyway so the console has a name to show
+                        if (
+                            u.Impersonating
+                            && u.ActiveOrg is { } impersonated
+                            && !orgIds.Contains(impersonated)
+                        )
+                            orgIds.Add(impersonated);
                         var summaries = await db
                             .OrgDirectory.Where(d => orgIds.Contains(d.OrgId))
                             .Select(d => new
@@ -300,6 +308,7 @@ public static class AuthEndpoints
                                 activeOrg = u.ActiveOrg?.Value,
                                 organizations = summaries,
                                 capabilities,
+                                impersonationExpiresAt = u.ImpersonationExpiresAt,
                             }
                         );
                     }
@@ -327,7 +336,8 @@ public static class AuthEndpoints
     public static ClaimsPrincipal BuildClaimsPrincipal(
         AppUser user,
         OrgId? activeOrg,
-        Guid? sessionId
+        Guid? sessionId,
+        DateTimeOffset? impersonationExpires = null
     )
     {
         var claims = new List<Claim>
@@ -342,6 +352,13 @@ public static class AuthEndpoints
             claims.Add(new Claim(PremiseClaims.ActiveOrg, org.Value.ToString()));
         if (sessionId is { } sid)
             claims.Add(new Claim(PremiseClaims.SessionId, sid.ToString()));
+        if (impersonationExpires is { } expires)
+            claims.Add(
+                new Claim(
+                    PremiseClaims.ImpersonationExpires,
+                    expires.ToUnixTimeSeconds().ToString()
+                )
+            );
         return new ClaimsPrincipal(
             new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)
         );

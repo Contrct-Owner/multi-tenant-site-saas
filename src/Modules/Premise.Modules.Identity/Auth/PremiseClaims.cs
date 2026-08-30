@@ -8,4 +8,5 @@ public static class PremiseClaims
     public const string ActiveOrg = "premise:active_org";
     public const string Tier = "premise:tier";
     public const string SessionId = "premise:session_id";
+    public const string ImpersonationExpires = "premise:impersonation_expires";
 }
