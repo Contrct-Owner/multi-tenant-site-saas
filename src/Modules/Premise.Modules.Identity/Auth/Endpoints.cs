@@ -309,6 +309,7 @@ public static class AuthEndpoints
                             {
                                 tier = "contact",
                                 contactId = c.ContactId,
+                                email = c.Email,
                                 org = c.Org.Value,
                             }
                         );

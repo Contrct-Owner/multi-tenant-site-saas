@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Identity.Access;
+using Premise.Modules.Identity.Auth;
 using Premise.Modules.Identity.Users;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
@@ -22,6 +23,7 @@ public sealed class IdentityDbContext(
     public DbSet<GrantException> GrantExceptions => Set<GrantException>();
     public DbSet<InvitedRole> InvitedRoles => Set<InvitedRole>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
+    public DbSet<Contact> Contacts => Set<Contact>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,19 @@ public sealed class IdentityDbContext(
             b.Property(u => u.CreatedAt).HasColumnName("created_at");
             b.HasIndex(u => new { u.Provider, u.Subject }).IsUnique();
             b.HasIndex(u => u.Email);
+        });
+
+        modelBuilder.Entity<Contact>(b =>
+        {
+            b.ToTable("contacts");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.Email).HasColumnName("email").HasMaxLength(320);
+            b.Property(x => x.CreatedBy).HasColumnName("created_by");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            b.HasIndex(x => new { x.OrgId, x.Email }).IsUnique();
         });
 
         modelBuilder.Entity<UserSession>(b =>

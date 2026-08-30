@@ -8,6 +8,7 @@ import { useMe } from '../session';
 type Member = { userId: string; email: string; name?: string; joinedAt: string; roles: string[] };
 type Role = { id: string; name: string };
 type Invitation = { id: string; email: string; state: string; expiresAt: string; role?: string };
+type Contact = { id: string; email: string; createdAt: string; revoked: boolean };
 
 export function MembersPage() {
   const { data: me } = useMe();
@@ -23,6 +24,10 @@ export function MembersPage() {
   const { data: invitations } = useQuery({
     queryKey: ['invitations'],
     queryFn: () => api.get<Invitation[]>('/api/members/invitations'),
+  });
+  const { data: contacts } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => api.get<Contact[]>('/api/contacts'),
   });
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState('');
@@ -53,6 +58,11 @@ export function MembersPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['members'] }),
     onError: (e) =>
       alert(String((e as { body?: { error?: string } }).body?.error ?? 'unassign failed')),
+  });
+
+  const revokeContact = useMutation({
+    mutationFn: (id: string) => api.del(`/api/contacts/${id}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['contacts'] }),
   });
 
   const self = me?.tier === 'user' ? me.userId : undefined;
@@ -187,6 +197,55 @@ export function MembersPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Contacts</CardTitle></CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
+            People given identified access to your public pages via contact links.
+            Revoking cuts off live sessions and unexpired links at once.
+          </p>
+          {contacts && contacts.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Since</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {contacts.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.email}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.revoked ? 'Revoked' : 'Active'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!c.revoked && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={revokeContact.isPending}
+                          onClick={() => revokeContact.mutate(c.id)}
+                        >
+                          Revoke
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground">No contacts yet.</p>
           )}
         </CardContent>
       </Card>

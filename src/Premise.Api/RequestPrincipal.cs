@@ -31,7 +31,11 @@ public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IP
                 && Guid.TryParse(user.FindFirst(PremiseClaims.ActiveOrg)?.Value, out var contactOrg)
             )
             {
-                return new Principal.Contact(contactId, new OrgId(contactOrg));
+                return new Principal.Contact(
+                    contactId,
+                    new OrgId(contactOrg),
+                    user.FindFirst(PremiseClaims.Email)?.Value
+                );
             }
 
             if (

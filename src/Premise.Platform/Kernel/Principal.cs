@@ -10,7 +10,7 @@ public abstract record Principal
 {
     public sealed record Guest(OrgId? Org) : Principal;
 
-    public sealed record Contact(Guid ContactId, OrgId Org) : Principal;
+    public sealed record Contact(Guid ContactId, OrgId Org, string? Email = null) : Principal;
 
     public sealed record User(Guid UserId, string Email, string? Name, OrgId? ActiveOrg)
         : Principal;

@@ -9,8 +9,14 @@ export async function publicApi<T>(path: string, fallback: T): Promise<T> {
   const apiBase = process.env.PREMISE_API ?? 'http://localhost:5293';
   try {
     const host = getRequestHeader('host');
+    // the browser's cookie rides along: an identified contact stays
+    // identified through the SSR hop
+    const cookie = getRequestHeader('cookie');
     const response = await fetch(`${apiBase}${path}`, {
-      headers: host ? { 'X-Forwarded-Host': host } : {},
+      headers: {
+        ...(host ? { 'X-Forwarded-Host': host } : {}),
+        ...(cookie ? { cookie } : {}),
+      },
     });
     if (!response.ok) return fallback;
     return (await response.json()) as T;
@@ -34,3 +40,5 @@ export type PublicSiteDetail = PublicSite & {
   countryCode?: string;
   windows: { startsAtUtc: string; endsAtUtc: string; localDate: string }[];
 };
+
+export type PublicMe = { tier: string; email?: string };

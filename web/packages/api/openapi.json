@@ -1274,6 +1274,77 @@
         }
       }
     },
+    "/api/contacts": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Auth.ContactManagementEndpoints"
+        ],
+        "summary": "GET_api_contacts",
+        "description": "GET_api_contacts",
+        "operationId": "GET_api_contacts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contacts/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Auth.ContactManagementEndpoints"
+        ],
+        "summary": "DELETE_api_contacts_id",
+        "description": "DELETE_api_contacts_id",
+        "operationId": "DELETE_api_contacts_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roles": {
       "get": {
         "tags": [
@@ -3318,6 +3389,9 @@
     },
     {
       "name": "Premise.Modules.Identity.Users.MemberEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Auth.ContactManagementEndpoints"
     },
     {
       "name": "Premise.Modules.Identity.Access.AccessEndpoints"

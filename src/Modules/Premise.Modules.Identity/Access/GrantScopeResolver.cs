@@ -34,7 +34,14 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
             case Principal.Guest { Org: { } guestOrg } when action == Capabilities.PublicRead:
                 return new NodeScope.EntireOrg(guestOrg);
             case Principal.Contact contact when action == Capabilities.PublicRead:
-                return new NodeScope.EntireOrg(contact.Org);
+                // the contact RECORD is the authority: a revoked contact's
+                // still-valid cookie holds nothing
+                return await db.Contacts.AnyAsync(
+                    c => c.Id == contact.ContactId && c.RevokedAt == null,
+                    ct
+                )
+                    ? new NodeScope.EntireOrg(contact.Org)
+                    : NodeScope.Nothing;
         }
         if (principal is not Principal.User { ActiveOrg: { } org, UserId: var userId })
             return NodeScope.Nothing;

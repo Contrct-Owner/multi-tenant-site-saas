@@ -1,20 +1,26 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { publicApi, type PublicSite } from '../api';
+import { publicApi, type PublicMe, type PublicSite } from '../api';
 
-const fetchSites = createServerFn({ method: 'GET' }).handler(() =>
-  publicApi<PublicSite[]>('/public/sites', []),
-);
+const fetchLocator = createServerFn({ method: 'GET' }).handler(async () => ({
+  sites: await publicApi<PublicSite[]>('/public/sites', []),
+  me: await publicApi<PublicMe>('/me', { tier: 'guest' }),
+}));
 
 export const Route = createFileRoute('/')({
-  loader: () => fetchSites(),
+  loader: () => fetchLocator(),
   component: Locator,
 });
 
 function Locator() {
-  const sites = Route.useLoaderData();
+  const { sites, me } = Route.useLoaderData();
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-6 py-16">
+      {me.tier === 'contact' && me.email && (
+        <p className="rounded-md border bg-card px-4 py-2 text-sm text-muted-foreground">
+          You&apos;re viewing as <span className="font-medium text-foreground">{me.email}</span>
+        </p>
+      )}
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Our locations</h1>
         <p className="text-muted-foreground">

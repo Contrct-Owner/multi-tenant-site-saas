@@ -31,14 +31,96 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.NotNull(mail);
         var url = mail!.TextBody.Split('\n')[0].Replace("Follow this link to continue: ", "");
 
-        // Redeem: fresh browser, no account
+        // the link points at the ORG'S public host - the contact's world is
+        // the public app
+        Assert.StartsWith("http://org-a.localhost:5174/contact/redeem", url);
+
+        // Redeem: fresh browser, no account (the redirect lands on the public
+        // app root, which the API test host doesn't serve - the cookie is the
+        // point)
         var visitor = fixture.GuestClient();
-        var redeem = await visitor.GetAsync(new Uri(url).PathAndQuery);
-        redeem.EnsureSuccessStatusCode();
+        await visitor.GetAsync(new Uri(url).PathAndQuery);
 
         var me = await visitor.GetFromJsonAsync<JsonElement>("/me");
         Assert.Equal("contact", me.GetProperty("tier").GetString());
+        Assert.Equal("visitor@example.com", me.GetProperty("email").GetString());
         Assert.Equal(fixture.OrgA.Value, me.GetProperty("org").GetGuid());
+    }
+
+    [Fact]
+    public async Task Revoking_a_contact_cuts_off_sessions_and_unexpired_links()
+    {
+        var member = await fixture.LoginAsync(ApiFixture.UserA);
+        (
+            await member.PostAsJsonAsync("/contact-links", new { email = "revokee@example.com" })
+        ).EnsureSuccessStatusCode();
+
+        var catcher = (LocalMailCatcher)
+            fixture.Factory.Services.GetRequiredService<INotificationTransport>();
+        EmailMessage? mail = null;
+        for (var i = 0; i < 50 && mail is null; i++)
+        {
+            await Task.Delay(100);
+            mail = catcher.Sent.FirstOrDefault(m => m.To == "revokee@example.com");
+        }
+        Assert.NotNull(mail);
+        var path = new Uri(
+            mail!.TextBody.Split('\n')[0].Replace("Follow this link to continue: ", "")
+        ).PathAndQuery;
+
+        // redeem, prove the identified session works against the public tier
+        var visitor = fixture.GuestClient();
+        visitor.DefaultRequestHeaders.Add("X-Forwarded-Host", "org-a.premise.test");
+        await visitor.GetAsync(path);
+        Assert.Equal(
+            "contact",
+            (await visitor.GetFromJsonAsync<JsonElement>("/me")).GetProperty("tier").GetString()
+        );
+        var before = await visitor.GetAsync("/public/sites");
+        before.EnsureSuccessStatusCode();
+
+        // the member takes it back
+        var contacts = await member.GetFromJsonAsync<JsonElement>("/api/contacts");
+        var contactId = contacts
+            .EnumerateArray()
+            .First(c => c.GetProperty("email").GetString() == "revokee@example.com")
+            .GetProperty("id")
+            .GetGuid();
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await member.DeleteAsync($"/api/contacts/{contactId}")).StatusCode
+        );
+
+        // the live session's scope collapses to nothing (fail closed - the
+        // still-valid cookie now opens no doors) ...
+        var after = await visitor.GetFromJsonAsync<JsonElement>("/public/sites");
+        Assert.Equal(0, after.GetArrayLength());
+
+        // ... and the unexpired link no longer redeems
+        var fresh = fixture.GuestClient();
+        var reRedeem = await fresh.GetAsync(path);
+        Assert.Equal(HttpStatusCode.BadRequest, reRedeem.StatusCode);
+
+        // re-inviting is a deliberate re-grant: same contact, active again
+        (
+            await member.PostAsJsonAsync("/contact-links", new { email = "revokee@example.com" })
+        ).EnsureSuccessStatusCode();
+        var relisted = await member.GetFromJsonAsync<JsonElement>("/api/contacts");
+        var row = relisted
+            .EnumerateArray()
+            .First(c => c.GetProperty("email").GetString() == "revokee@example.com");
+        Assert.Equal(contactId, row.GetProperty("id").GetGuid());
+        Assert.False(row.GetProperty("revoked").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Contact_custody_needs_roles_manage()
+    {
+        var viewer = await fixture.LoginAsync(ApiFixture.ViewerA);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await viewer.GetAsync("/api/contacts")).StatusCode
+        );
     }
 
     [Fact]
