@@ -12,10 +12,12 @@ export default defineConfig({
     port: Number(process.env.PORT ?? 5173), // Aspire assigns via PORT
     strictPort: true,
     proxy: Object.fromEntries(
-      ['/api', '/auth', '/me', '/objects', '/openapi', '/contact-links', '/contact'].map((p) => [
-        p,
-        { target: apiTarget, changeOrigin: false },
-      ]),
+      // '^/me$' is a regex EXACT match: a plain '/me' prefix would swallow
+      // hard navigations to /members (found by an E2E smoke - the page
+      // proxied to the API and rendered a black 404)
+      ['/api', '/auth', '^/me$', '/objects', '/openapi', '/contact-links', '/contact'].map(
+        (p) => [p, { target: apiTarget, changeOrigin: false }],
+      ),
     ),
   },
 });
