@@ -39,6 +39,7 @@ export type PublicSiteDetail = PublicSite & {
   postalCode?: string;
   countryCode?: string;
   windows: { startsAtUtc: string; endsAtUtc: string; localDate: string }[];
+  closures: string[];
 };
 
 /**

@@ -26,6 +26,10 @@ public class WebhookTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var received = new List<Received>();
         var failuresToServe = 0;
         var stub = WebApplication.CreateSlimBuilder().Build();
+        // ephemeral port: parallel test CLASSES each run stubs, and the
+        // default :5000 collides across them (found as intermittent
+        // AddressInUse failures once a second stub-using class existed)
+        stub.Urls.Add("http://127.0.0.1:0");
         stub.MapPost(
             "/hooks",
             async (HttpRequest req) =>

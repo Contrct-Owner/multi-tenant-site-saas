@@ -88,6 +88,25 @@ export function SiteDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editZone, setEditZone] = useState('');
+  const { data: closures } = useQuery({
+    queryKey: ['closures', siteId],
+    queryFn: () => api.get<string[]>(`/api/sites/${siteId}/closures`),
+  });
+  const addClosure = useApiMutation({
+    mutationFn: (date: string) => api.post(`/api/sites/${siteId}/closures`, { date }),
+    invalidate: [['closures', siteId]],
+    success: 'Day closed',
+    errorFallback: 'Could not close that day',
+    onSuccess: invalidate,
+  });
+  const removeClosure = useApiMutation({
+    mutationFn: (date: string) => api.del(`/api/sites/${siteId}/closures/${date}`),
+    invalidate: [['closures', siteId]],
+    success: 'Day reopened',
+    onSuccess: invalidate,
+  });
+  const [closureDate, setClosureDate] = useState('');
+
   const [days, setDays] = useState<string[]>(['MO', 'TU', 'WE', 'TH', 'FR']);
   const [opens, setOpens] = useState('09:00');
   const [closes, setCloses] = useState('17:00');
@@ -249,6 +268,53 @@ export function SiteDetailPage() {
                   Add hours
                 </Button>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Holiday closures</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {closures && closures.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {closures.map((date) => (
+                <li key={date} className="flex items-center justify-between">
+                  <span>
+                    {new Date(`${date}T00:00:00`).toLocaleDateString([], {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  {manage && (
+                    <ConfirmButton size="sm" confirmLabel="Reopen?"
+                      disabled={removeClosure.isPending}
+                      onConfirm={() => removeClosure.mutate(date)}>
+                      Reopen
+                    </ConfirmButton>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No upcoming closures.</p>
+          )}
+          {manage && (
+            <div className="flex items-end gap-2 border-t pt-3">
+              <div className="space-y-1">
+                <Label htmlFor="closure-date">Close a day</Label>
+                <Input id="closure-date" type="date" value={closureDate}
+                  onChange={(e) => setClosureDate(e.target.value)} />
+              </div>
+              <Button size="sm" disabled={!closureDate || addClosure.isPending}
+                onClick={() => {
+                  addClosure.mutate(closureDate);
+                  setClosureDate('');
+                }}>
+                Close this day
+              </Button>
             </div>
           )}
         </CardContent>

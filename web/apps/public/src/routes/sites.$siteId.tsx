@@ -92,6 +92,22 @@ function SitePage() {
             })}
           </ul>
         )}
+        {site.closures.length > 0 && (
+          <p className="text-sm">
+            <span className="font-medium">Upcoming closures:</span>{' '}
+            <span className="text-muted-foreground">
+              {site.closures
+                .map((date) =>
+                  new Date(`${date}T00:00:00`).toLocaleDateString([], {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                  }),
+                )
+                .join(' · ')}
+            </span>
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           All times local to the location ({site.timeZone.replaceAll('_', ' ')}).
         </p>

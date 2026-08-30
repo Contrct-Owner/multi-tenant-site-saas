@@ -129,6 +129,26 @@ public static class PublicSiteEndpoints
                 w.LocalDate,
             })
             .ToListAsync(ct);
+        // upcoming holiday closures (next 30 site-local days), so the page
+        // can say "Closed Dec 25" instead of silently skipping the day
+        var localToday = DateOnly.FromDateTime(
+            TimeZoneInfo
+                .ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById(site.TimeZone))
+                .DateTime
+        );
+        var closureHorizon = localToday.AddDays(30);
+        var closures = (
+            await db
+                .SiteSchedules.Where(s => s.SiteId == siteId)
+                .Select(s => s.ExDates)
+                .ToListAsync(ct)
+        )
+            .SelectMany(dates => dates)
+            .Where(date => date >= localToday && date <= closureHorizon)
+            .Distinct()
+            .OrderBy(date => date)
+            .Select(date => date.ToString("yyyy-MM-dd"))
+            .ToList();
         return Results.Ok(
             new
             {
@@ -142,6 +162,7 @@ public static class PublicSiteEndpoints
                 status = site.Status.ToString(),
                 openNow = windows.Any(w => w.StartsAtUtc <= now && now < w.EndsAtUtc),
                 windows,
+                closures,
             }
         );
     }

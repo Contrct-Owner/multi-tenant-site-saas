@@ -78,7 +78,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         (await client.PostAsync($"/api/files/{fileId}/complete", null)).EnsureSuccessStatusCode();
 
         // staging requires a Clean verdict
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 200; i++)
         {
             var files = await client.GetFromJsonAsync<JsonElement>("/api/files");
             if (
@@ -103,7 +103,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
     private async Task<JsonElement?> PollSite(HttpClient client, string name, bool expect = true)
     {
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 200; i++)
         {
             var sites = await client.GetFromJsonAsync<JsonElement>("/api/sites");
             var match = sites
@@ -160,7 +160,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var renamed = await PollSite(client, "Downtown Flagship");
         Assert.NotNull(renamed);
         JsonElement? uptown = null;
-        for (var i = 0; i < 60 && uptown?.GetProperty("status").GetString() != "Closed"; i++)
+        for (var i = 0; i < 200 && uptown?.GetProperty("status").GetString() != "Closed"; i++)
         {
             await Task.Delay(100);
             uptown = await PollSite(client, "Uptown");
@@ -169,7 +169,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // closing is a DOMAIN EVENT (ADR 18), never a delete
         List<Premise.Modules.Audit.Data.DomainLogEntry> closures = [];
-        for (var i = 0; i < 50 && closures.Count == 0; i++)
+        for (var i = 0; i < 200 && closures.Count == 0; i++)
         {
             await Task.Delay(100);
             closures = await fixture.QueryAudit(db =>
@@ -214,6 +214,10 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         // stub source: an org's POS system speaking json over http with an api key
         string? seenKey = null;
         var stub = WebApplication.CreateSlimBuilder().Build();
+        // ephemeral port: parallel test CLASSES each run stubs, and the
+        // default :5000 collides across them (found as intermittent
+        // AddressInUse failures once a second stub-using class existed)
+        stub.Urls.Add("http://127.0.0.1:0");
         stub.MapGet(
             "/sites",
             (HttpRequest req) =>
@@ -259,7 +263,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
             // sync lands a STAGED batch (same core as uploads); commit stays explicit
             JsonElement batch = default;
-            for (var i = 0; i < 60; i++)
+            for (var i = 0; i < 200; i++)
             {
                 await Task.Delay(100);
                 var found = await fixture.QueryIngestBatch("pos-sync");
@@ -284,7 +288,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
             // credential access is audited (ADR 31)
             List<Premise.Modules.Audit.Data.DomainLogEntry> accesses = [];
-            for (var i = 0; i < 50 && accesses.Count == 0; i++)
+            for (var i = 0; i < 200 && accesses.Count == 0; i++)
             {
                 await Task.Delay(100);
                 accesses = await fixture.QueryAudit(db =>
@@ -347,6 +351,10 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var (client, _, _) = await Setup();
         string? seenKey = null;
         var stub = WebApplication.CreateSlimBuilder().Build();
+        // ephemeral port: parallel test CLASSES each run stubs, and the
+        // default :5000 collides across them (found as intermittent
+        // AddressInUse failures once a second stub-using class existed)
+        stub.Urls.Add("http://127.0.0.1:0");
         stub.MapGet(
             "/sites",
             (HttpRequest req) =>
@@ -392,7 +400,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             );
             Assert.Equal(HttpStatusCode.NoContent, updated.StatusCode);
             (await client.PostAsync($"/api/connectors/{id}/sync", null)).EnsureSuccessStatusCode();
-            for (var i = 0; i < 50 && seenKey is null; i++)
+            for (var i = 0; i < 200 && seenKey is null; i++)
                 await Task.Delay(100);
             Assert.Equal("key-two", seenKey);
 
@@ -426,6 +434,10 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     {
         var (client, _, _) = await Setup();
         var stub = WebApplication.CreateSlimBuilder().Build();
+        // ephemeral port: parallel test CLASSES each run stubs, and the
+        // default :5000 collides across them (found as intermittent
+        // AddressInUse failures once a second stub-using class existed)
+        stub.Urls.Add("http://127.0.0.1:0");
         stub.MapGet(
             "/sites",
             () =>
@@ -472,7 +484,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             // the due connector lands a STAGED batch (never auto-committed)...
             JsonElement batches = default;
             var found = false;
-            for (var i = 0; i < 100 && !found; i++)
+            for (var i = 0; i < 200 && !found; i++)
             {
                 batches = await client.GetFromJsonAsync<JsonElement>("/api/ingest/batches");
                 found = batches

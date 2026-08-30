@@ -10,6 +10,145 @@
     }
   ],
   "paths": {
+    "/api/sites/{id}/closures": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ClosureEndpoints"
+        ],
+        "summary": "GET_api_sites_id_closures",
+        "description": "GET_api_sites_id_closures",
+        "operationId": "GET_api_sites_id_closures",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ClosureEndpoints"
+        ],
+        "summary": "POST_api_sites_id_closures",
+        "description": "POST_api_sites_id_closures",
+        "operationId": "POST_api_sites_id_closures",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddClosureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}/closures/{date}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ClosureEndpoints"
+        ],
+        "summary": "DELETE_api_sites_id_closures_date",
+        "description": "DELETE_api_sites_id_closures_date",
+        "operationId": "DELETE_api_sites_id_closures_date",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sites": {
       "post": {
         "tags": [
@@ -3558,6 +3697,18 @@
   },
   "components": {
     "schemas": {
+      "AddClosureRequest": {
+        "required": [
+          "date"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "AddGrantExceptionRequest": {
         "required": [
           "userId",
@@ -4227,6 +4378,9 @@
     }
   },
   "tags": [
+    {
+      "name": "Premise.Modules.Tenancy.Sites.ClosureEndpoints"
+    },
     {
       "name": "Premise.Modules.Tenancy.Sites.SiteEndpoints"
     },
