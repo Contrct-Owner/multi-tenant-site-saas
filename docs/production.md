@@ -53,6 +53,7 @@ Everything the image reads. Section syntax (`A:B`) maps to env vars as
 | Key | Required | Notes |
 |---|---|---|
 | `ROLE` | yes | `migrate` \| `api` \| `worker` (default `api`) |
+| `Build:Version` | recommended | Stamp it in CI (e.g. the git SHA or tag); surfaces in `/healthz` and the console footer so "what version are you running?" is answerable |
 | `ConnectionStrings:premise` | yes | Owner credentials; rewritten for api/worker |
 | `Database:AppUser` / `Database:AppPassword` | api/worker | The RLS-subject identity |
 | `Public:HostTemplate` | yes | e.g. `https://{slug}.yourproduct.com` — contact links are minted from this |

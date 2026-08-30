@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +41,17 @@ builder.Host.UseDefaultServiceProvider(o =>
 
 // Role flag (ADR 34): one image, run as "api" or "worker".
 var role = builder.Configuration["ROLE"] ?? "api";
+
+// "What version are you running?" must be answerable (maturity review,
+// hole 4): CI stamps Build:Version (see docs/production.md); local builds
+// fall back to the assembly's informational version.
+var buildVersion =
+    builder.Configuration["Build:Version"]
+    ?? System
+        .Reflection.Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion
+    ?? "dev";
 
 // The role split (ADR 38): api and worker connect as the unprivileged app
 // role; only the migrate role keeps the owner credentials the orchestrator
@@ -430,9 +442,21 @@ if (role == "api")
         "/healthz",
         (ReadinessState readiness) =>
             readiness.Ready
-                ? Results.Ok(new { status = "ok", role })
+                ? Results.Ok(
+                    new
+                    {
+                        status = "ok",
+                        role,
+                        version = buildVersion,
+                    }
+                )
                 : Results.Json(
-                    new { status = "starting", role },
+                    new
+                    {
+                        status = "starting",
+                        role,
+                        version = buildVersion,
+                    },
                     statusCode: StatusCodes.Status503ServiceUnavailable
                 )
     );

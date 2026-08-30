@@ -1,6 +1,6 @@
 import { api } from '@premise/api';
 import { Badge, Button, cn, Input, Label, Toaster } from '@premise/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useState, type ReactNode } from 'react';
 import { can, useMe, type Me } from './session';
@@ -127,12 +127,15 @@ export function Shell({ children }: { children: ReactNode }) {
             </select>
           )}
           <div className="flex items-center justify-between gap-2">
-            <Link
-              to="/account"
-              className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-            >
-              {me.email}
-            </Link>
+            <span className="min-w-0">
+              <Link
+                to="/account"
+                className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {me.email}
+              </Link>
+              <ApiVersion />
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -206,12 +209,15 @@ export function Shell({ children }: { children: ReactNode }) {
             </select>
           )}
           <div className="flex items-center justify-between gap-2">
-            <Link
-              to="/account"
-              className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-            >
-              {me.email}
-            </Link>
+            <span className="min-w-0">
+              <Link
+                to="/account"
+                className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {me.email}
+              </Link>
+              <ApiVersion />
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -244,6 +250,17 @@ export function Shell({ children }: { children: ReactNode }) {
       <Toaster />
     </div>
   );
+}
+
+/** "What version are you running?" - answerable from any screenshot (maturity review, hole 4). */
+function ApiVersion() {
+  const { data } = useQuery({
+    queryKey: ['healthz'],
+    queryFn: () => api.get<{ version: string }>('/healthz'),
+    staleTime: Infinity,
+  });
+  if (!data?.version) return null;
+  return <span className="block truncate text-[10px] text-muted-foreground/70">{data.version}</span>;
 }
 
 function ImpersonationBanner({ orgName, expiresAt }: { orgName: string; expiresAt: string }) {

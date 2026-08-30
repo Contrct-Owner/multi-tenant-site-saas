@@ -57,6 +57,9 @@ public class HttpHardeningTests(TinyRateLimitFixture fixture) : IClassFixture<Ti
         var guest = fixture.GuestClient();
         var ok = await guest.GetAsync("/healthz");
         Assert.True(ok.Headers.Contains("X-Trace-Id"));
+        // "what version are you running?" is answerable (hole 4)
+        var health = await ok.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(health.GetProperty("version").GetString()));
 
         // the deliberate dev failure: the body's traceId matches the header,
         // so a ticket quoting it joins straight to the exported trace
