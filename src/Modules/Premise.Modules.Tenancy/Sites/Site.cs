@@ -24,6 +24,13 @@ public sealed class Site : IPathScoped
     public string? ExternalId { get; set; }
 
     public SiteStatus Status { get; set; } = SiteStatus.Open;
+
+    /// <summary>
+    /// Postgres xmin as the optimistic-concurrency token (operability item
+    /// 5): the client echoes it on update, a mismatch is a 409 - two admins
+    /// editing the same site stop silently clobbering each other.
+    /// </summary>
+    public uint Version { get; set; }
     public string? AddressLine1 { get; set; }
     public string? City { get; set; }
     public string? PostalCode { get; set; }

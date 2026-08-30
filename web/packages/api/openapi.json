@@ -4807,7 +4807,8 @@
           "name",
           "timeZone",
           "status",
-          "path"
+          "path",
+          "version"
         ],
         "type": "object",
         "properties": {
@@ -4830,6 +4831,14 @@
           },
           "path": {
             "type": "string"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       },
@@ -4972,6 +4981,15 @@
                 "$ref": "#/components/schemas/SiteStatus"
               }
             ]
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       }

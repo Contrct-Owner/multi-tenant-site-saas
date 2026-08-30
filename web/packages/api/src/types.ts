@@ -2476,6 +2476,8 @@ export interface components {
             timeZone: string;
             status: string;
             path: string;
+            /** Format: uint32 */
+            version: number | string;
         };
         /** @enum {unknown} */
         SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
@@ -2509,6 +2511,8 @@ export interface components {
             name: null | string;
             timeZone: null | string;
             status: null | components["schemas"]["SiteStatus"];
+            /** Format: uint32 */
+            version?: null | number | string;
         };
     };
     responses: never;

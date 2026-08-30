@@ -23,7 +23,12 @@ public sealed record CreateSiteRequest(
     double? Longitude = null
 );
 
-public sealed record UpdateSiteRequest(string? Name, string? TimeZone, SiteStatus? Status);
+public sealed record UpdateSiteRequest(
+    string? Name,
+    string? TimeZone,
+    SiteStatus? Status,
+    uint? Version = null
+);
 
 public sealed record CreateScheduleRequest(
     string Name,
@@ -40,7 +45,8 @@ public sealed record SiteResponse(
     string Name,
     string TimeZone,
     string Status,
-    string Path
+    string Path,
+    uint Version
 );
 
 /// <summary>
@@ -239,6 +245,12 @@ public static class SiteEndpoints
         );
         if (!updateScope.Covers(site.Path.ToString()))
             return Results.Forbid();
+        // optimistic concurrency: the client echoes the version it edited;
+        // a mismatch means someone else saved first - 409, never a clobber
+        if (request.Version is { } version && version != site.Version)
+            return Results.Conflict(
+                new { error = "this site was changed by someone else; reload and retry" }
+            );
 
         var timeZoneChanged = false;
         if (request.TimeZone is { } zone && zone != site.TimeZone)
@@ -312,7 +324,15 @@ public static class SiteEndpoints
     );
 
     private static SiteResponse ToResponse(Site s) =>
-        new(s.Id.Value, s.NodeId, s.Name, s.TimeZone, s.Status.ToString(), s.Path.ToString());
+        new(
+            s.Id.Value,
+            s.NodeId,
+            s.Name,
+            s.TimeZone,
+            s.Status.ToString(),
+            s.Path.ToString(),
+            s.Version
+        );
 }
 
 public sealed record ScheduleResponse(

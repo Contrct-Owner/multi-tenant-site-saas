@@ -91,6 +91,11 @@ public sealed class TenancyDbContext(
             b.ToTable("sites");
             b.HasKey(s => s.Id);
             b.Property(s => s.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(s => s.Version)
+                .HasColumnName("xmin")
+                .HasColumnType("xid")
+                .ValueGeneratedOnAddOrUpdate()
+                .IsConcurrencyToken();
             b.Property(s => s.OrgId).HasColumnName("org_id");
             b.Property(s => s.NodeId).HasColumnName("node_id");
             b.Property(s => s.Name).HasColumnName("name").HasMaxLength(200);

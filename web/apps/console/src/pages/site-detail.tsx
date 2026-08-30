@@ -11,7 +11,7 @@ import { weeklySchedule, type DayCode } from '../lib/schedule';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
 
-type Site = { id: string; name: string; timeZone: string; status: string };
+type Site = { id: string; name: string; timeZone: string; status: string; version: number };
 type Schedule = {
   id: string; name: string; rRule: string;
   anchorDate: string; opens: string; closes: string; exDates: string[];
@@ -69,9 +69,11 @@ export function SiteDetailPage() {
 
   const update = useApiMutation({
     mutationFn: (body: Partial<{ name: string; timeZone: string; status: string }>) =>
-      api.post(`/api/sites/${siteId}`, body),
+      // echo the version we loaded: a 409 means someone else saved first
+      api.post(`/api/sites/${siteId}`, { ...body, version: site?.version }),
     success: 'Site updated',
     onSuccess: invalidate,
+    onError: invalidate, // a conflict means our copy is stale - reload it
   });
   const addSchedule = useApiMutation({
     mutationFn: (body: object) => api.post(`/api/sites/${siteId}/schedules`, body),

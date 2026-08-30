@@ -18,6 +18,7 @@ export function useApiMutation<TVariables = void, TData = unknown>(options: {
   success?: string;
   errorFallback?: string;
   onSuccess?: (data: TData, variables: TVariables) => void;
+  onError?: () => void;
 }) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -28,6 +29,9 @@ export function useApiMutation<TVariables = void, TData = unknown>(options: {
       if (options.success) toast.success(options.success);
       options.onSuccess?.(data, variables);
     },
-    onError: (error) => toast.error(apiError(error, options.errorFallback ?? 'Request failed')),
+    onError: (error) => {
+      toast.error(apiError(error, options.errorFallback ?? 'Request failed'));
+      options.onError?.();
+    },
   });
 }
