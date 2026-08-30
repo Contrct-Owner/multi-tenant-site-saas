@@ -193,7 +193,13 @@ public sealed class LocalBillingProvider(string webhookSecret) : IBillingProvide
         CancellationToken ct = default
     )
     {
-        if (!headers.TryGetValue("X-Billing-Secret", out var secret) || secret != webhookSecret)
+        if (
+            !headers.TryGetValue("X-Billing-Secret", out var secret)
+            || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(secret),
+                System.Text.Encoding.UTF8.GetBytes(webhookSecret)
+            )
+        )
             return Task.FromResult<BillingEvent?>(null);
         var payload = JsonSerializer.Deserialize<LocalPayload>(
             body,

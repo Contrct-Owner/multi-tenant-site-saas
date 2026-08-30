@@ -86,7 +86,9 @@ public static class SsoEndpoints
 
         // open-redirect guard: relative paths only (same rule as auth returnUrl)
         var returnPath =
-            request.ReturnPath is ['/', ..] && !request.ReturnPath.StartsWith("//")
+            request.ReturnPath is ['/', ..]
+            && !request.ReturnPath.StartsWith("//")
+            && !request.ReturnPath.Contains('\\')
                 ? request.ReturnPath
                 : "/";
         var url = await portal.GeneratePortalLinkAsync(

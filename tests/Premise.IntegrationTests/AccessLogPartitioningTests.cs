@@ -69,44 +69,29 @@ public class AccessLogPartitioningTests(ApiFixture fixture) : IClassFixture<ApiF
             )
         ).EnsureSuccessStatusCode();
 
-        await using var db = new Premise.Modules.Audit.Data.AuditDbContext(
-            new DbContextOptionsBuilder<Premise.Modules.Audit.Data.AuditDbContext>()
-                .UseNpgsql(fixture.AppConnectionString)
-                .Options,
-            new TenantContext()
-        );
+        // partitions are FORCE RLS'd (security review): a tenantless app_user
+        // sees nothing, so physical-routing verification bypasses RLS via the
+        // superuser connection. Counting as the superuser proves the ROUTING;
+        // that direct app_user access returns 0 is asserted separately below.
+        await using var admin = new Npgsql.NpgsqlConnection(fixture.PostgresConnectionString);
+        await admin.OpenAsync();
+        async Task<long> Count(string table)
+        {
+            await using var cmd = new Npgsql.NpgsqlCommand($"SELECT count(*) FROM {table}", admin);
+            return (long)(await cmd.ExecuteScalarAsync())!;
+        }
         var now = DateTimeOffset.UtcNow;
+        var partition = $"audit.access_log_y{now:yyyy}m{now:MM}"; // test-derived
         long inMonth = 0;
         for (var i = 0; i < 100 && inMonth == 0; i++)
         {
-            // audit policy resolves lazily; keep issuing requests until the
-            // first logged one lands (same idiom as AuditTests)
             (await client.GetAsync("/api/sites")).EnsureSuccessStatusCode();
-            var partition = $"access_log_y{now:yyyy}m{now:MM}"; // test-derived, not user input
-#pragma warning disable EF1002, EF1003
-            inMonth = (
-                await db
-                    .Database.SqlQueryRaw<long>(
-                        "SELECT count(*) AS \"Value\" FROM audit." + partition
-                    )
-                    .ToListAsync()
-            ).First();
-#pragma warning restore EF1002, EF1003
+            inMonth = await Count(partition);
             if (inMonth == 0)
                 await Task.Delay(100);
         }
-        var parentCount = (
-            await db
-                .Database.SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM audit.access_log")
-                .ToListAsync()
-        ).First();
-        var defaultCount = (
-            await db
-                .Database.SqlQueryRaw<long>(
-                    "SELECT count(*) AS \"Value\" FROM audit.access_log_default"
-                )
-                .ToListAsync()
-        ).First();
+        var parentCount = await Count("audit.access_log");
+        var defaultCount = await Count("audit.access_log_default");
         Assert.True(
             inMonth > 0,
             $"no rows in current month partition (parent={parentCount}, default={defaultCount})"

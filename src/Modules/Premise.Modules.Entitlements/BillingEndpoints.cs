@@ -186,7 +186,7 @@ public static class BillingEndpoints
         return Results.Accepted();
     }
 
-    /// <summary>Open-redirect guard: relative paths only (same rule as auth returnUrl).</summary>
+    /// <summary>Open-redirect guard: same-site path only (backslash-safe, matches SafeReturnUrl).</summary>
     private static string SafePath(string? path) =>
-        path is ['/', ..] && !path.StartsWith("//") ? path : "/";
+        path is ['/', ..] && !path.StartsWith("//") && !path.Contains('\\') ? path : "/";
 }

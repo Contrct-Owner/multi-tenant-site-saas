@@ -379,8 +379,18 @@ public static class AuthEndpoints
         $"{http.Request.Scheme}://{http.Request.Host}/auth/callback";
 
     /// <summary>Open-redirect guard: relative paths only.</summary>
-    private static string SafeReturnUrl(string? returnUrl) =>
-        returnUrl is ['/', ..] && !returnUrl.StartsWith("//") ? returnUrl : "/";
+    /// <summary>
+    /// Open-redirect guard: a same-site absolute PATH only. Requires a
+    /// leading '/', rejects '//' (protocol-relative) AND '/\' (browsers
+    /// normalize backslash to '/', so '/\evil.com' becomes '//evil.com').
+    /// </summary>
+    internal static string SafeReturnUrl(string? returnUrl) =>
+        returnUrl is ['/', ..]
+        && !returnUrl.StartsWith("//")
+        && !returnUrl.StartsWith("/\\")
+        && !returnUrl.Contains('\\')
+            ? returnUrl
+            : "/";
 }
 
 public sealed record SwitchOrgRequest(Guid OrgId);

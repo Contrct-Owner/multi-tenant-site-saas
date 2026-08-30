@@ -78,17 +78,29 @@ public static class WebhookManagementEndpoints
             return Results.BadRequest(new { error = "url must be absolute" });
         if (environment.IsProduction())
         {
-            // SSRF floor: outbound calls originate from OUR network
+            // SSRF floor: outbound calls originate from OUR network, so the
+            // target must be a PUBLIC https endpoint (ADR 40).
             if (uri.Scheme != "https")
                 return Results.BadRequest(new { error = "webhook urls must be https" });
-            if (
-                uri.IsLoopback
-                || uri.Host is "localhost"
-                || uri.HostNameType == UriHostNameType.IPv4
-                || uri.HostNameType == UriHostNameType.IPv6
-            )
+            if (uri.IsLoopback || uri.Host is "localhost")
+                return Results.BadRequest(new { error = "webhook urls must be public" });
+            // resolve the name and reject any address in a private/reserved
+            // range - a public DNS name that A-records to 10.x or the cloud
+            // metadata IP (169.254.169.254) is the classic SSRF pivot. This
+            // is registration-time defence; the delivery client should also
+            // pin/re-check at connect time in a hardened fork (DNS can rebind).
+            System.Net.IPAddress[] addresses;
+            try
+            {
+                addresses = await System.Net.Dns.GetHostAddressesAsync(uri.Host, ct);
+            }
+            catch (Exception)
+            {
+                return Results.BadRequest(new { error = "webhook host does not resolve" });
+            }
+            if (addresses.Length == 0 || addresses.Any(IsPrivateOrReserved))
                 return Results.BadRequest(
-                    new { error = "webhook urls must use a public dns name" }
+                    new { error = "webhook host resolves to a private or reserved address" }
                 );
         }
 
@@ -251,4 +263,25 @@ public static class WebhookManagementEndpoints
         IScopeResolver scopes,
         CancellationToken ct
     ) => await scopes.CanAsync(accessor.Current, Capabilities.OrgManage, ct);
+
+    private static bool IsPrivateOrReserved(System.Net.IPAddress address)
+    {
+        if (
+            System.Net.IPAddress.IsLoopback(address)
+            || address.IsIPv6LinkLocal
+            || address.IsIPv6SiteLocal
+            || address.IsIPv6UniqueLocal
+        )
+            return true;
+        var b = address.GetAddressBytes();
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            return b[0] == 10 // 10.0.0.0/8
+                || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) // 172.16.0.0/12
+                || (b[0] == 192 && b[1] == 168) // 192.168.0.0/16
+                || (b[0] == 169 && b[1] == 254) // 169.254.0.0/16 link-local (cloud metadata)
+                || b[0] == 127 // loopback
+                || b[0] == 0
+                || b[0] >= 224; // multicast/reserved
+        return false;
+    }
 }

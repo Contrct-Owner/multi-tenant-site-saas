@@ -156,6 +156,26 @@ triage and replay, dependency probes, migration failure recovery, the
 restore drill, and the support flows (customer lookup, unsuppression,
 impersonation).
 
+## Security posture (what the template enforces vs. what you own)
+
+Enforced in code: forced Postgres RLS on every org-scoped table (an
+integration test asserts coverage), the three-gate authz model, HttpOnly
+`Secure` cookies (Production floor), same-site-only redirects,
+constant-time secret comparison, CSPRNG tokens, envelope-encrypted webhook
+secrets, an SSRF floor that rejects private/reserved resolved addresses,
+per-tenant + per-key rate limits, security headers, and correlation IDs
+that never leak exception detail to clients.
+
+Your responsibility: TLS termination and HSTS at the proxy; the frontends'
+CSPs; a KMS for `Secrets:*` and the data-protection keyring; DNS-rebinding
+protection at the webhook egress if your threat model needs it (the
+registration-time resolve check is a floor, not a guarantee against a host
+that rebinds after validation); and a WAF/DDoS layer. CSRF defence is
+SameSite=Lax with no state-changing GETs — add anti-forgery tokens if a
+fork introduces cookie-authenticated cross-origin form posts. The OpenAPI
+spec is served unauthenticated (the console's developer page links it);
+gate `/openapi` at the proxy if you treat your API surface as secret.
+
 ## Database care
 
 - Keys are UUIDv7 (ADR 35) — no sequences to coordinate across regions later.

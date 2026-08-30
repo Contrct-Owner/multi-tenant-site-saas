@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading.RateLimiting;
 using JasperFx;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Logs;
@@ -138,6 +139,29 @@ switch (authProvider)
                 + "Use 'workos' in Production; 'local' is dev/test only (ADR 14)."
         );
 }
+
+// Data protection (security review): the keyring protects auth-ticket
+// cookies AND contact magic-link tokens. The framework default is a
+// per-process filesystem keyring, unencrypted - which means (a) across
+// REPLICAS a cookie/token minted by one instance cannot be read by
+// another (broken sessions and dead magic links behind a load balancer),
+// and (b) keys vanish on a fresh container. A shared, protected store is
+// therefore REQUIRED in any multi-replica deployment.
+//
+// The application name is pinned so a shared ring is unambiguous; the
+// persistence directory (a mounted volume or network path all replicas
+// share) is config-driven, and Production REFUSES to boot on the
+// ephemeral default rather than silently breaking sessions after the
+// first scale-out. Forks on a cloud should point this at a blob/secret
+// store and wrap it with their KMS (see docs/production.md).
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("premise");
+if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+else if (builder.Environment.IsProduction() && role != "migrate")
+    throw new InvalidOperationException(
+        "DataProtection:KeyPath is required in Production (a store all replicas share); "
+            + "the default per-process keyring breaks sessions and magic links after scale-out."
+    );
 
 // Cookie session (ADR 21): HttpOnly, no token ever reachable from JS.
 builder

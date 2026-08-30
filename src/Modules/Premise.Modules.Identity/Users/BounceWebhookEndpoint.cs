@@ -31,7 +31,16 @@ public static class BounceWebhookEndpoint
     {
         if (configuration["Notifications:BounceToken"] is not { Length: > 0 } token)
             return Results.NotFound();
-        if (http.Request.Headers["X-Bounce-Token"].ToString() != token)
+        // constant-time: a timing oracle here would let an attacker recover
+        // the token and forge suppressions (targeted email deliverability DoS)
+        if (
+            !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(
+                    http.Request.Headers["X-Bounce-Token"].ToString()
+                ),
+                System.Text.Encoding.UTF8.GetBytes(token)
+            )
+        )
             return Results.Unauthorized();
         var email = report.Email.Trim().ToLowerInvariant();
         if (email.Length == 0)
