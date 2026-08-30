@@ -113,8 +113,16 @@ key wrapper. Treat a failed boot here as the guard working, not a bug.
 
 ## Frontends and DNS
 
-Both frontends are static Vite builds (`pnpm build` in `web/`): the console
-(`web/apps/console/dist`) and the public app (`web/apps/public/dist`).
+The two frontends deploy differently (`pnpm build` in `web/`):
+
+- **Console** (`web/apps/console/dist`) is a **static SPA** — a folder of
+  assets served by any static host or your reverse proxy.
+- **Public app** (`web/apps/public/dist`) is **server-rendered** (TanStack
+  Start). Its build emits a **server bundle** (`dist/server/server.js`, a
+  web-standard `fetch` handler) plus client assets — it is NOT a static
+  drop. It must run as a process on a Node or serverless/edge host, with
+  `PREMISE_API` pointing at the API's internal URL (SSR fetches run
+  server-to-server) and reachable from the org subdomains.
 
 The session cookie is HttpOnly on a shared origin (ADR 21), so the console
 and API must share a host through your reverse proxy. Route these path
