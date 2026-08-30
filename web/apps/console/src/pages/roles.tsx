@@ -1,8 +1,11 @@
 import { api, CAPABILITIES } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+  Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
+  TableRow } from '@premise/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { fmtDate } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 
 type Grant = { domain: string; action: string };
 type Role = { id: string; name: string; grants: Grant[]; assignedCount: number };
@@ -23,7 +26,6 @@ const grantKey = (g: Grant) => `${g.domain}:${g.action}`;
 
 /** The role editor: what a role grants, who holds it and where, and the exceptions. */
 export function RolesPage() {
-  const queryClient = useQueryClient();
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<Role[]>('/api/roles'),
@@ -38,17 +40,25 @@ export function RolesPage() {
     retry: false,
   });
 
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['roles'] });
-  const reset = () => {
+
+  const openCreate = () => {
     setEditing(null);
     setName('');
     setPicked(new Set());
+    setEditorOpen(true);
+  };
+  const openEdit = (role: Role) => {
+    setEditing(role.id);
+    setName(role.name);
+    setPicked(new Set(role.grants.map(grantKey)));
+    setEditorOpen(true);
   };
 
-  const save = useMutation({
+  const save = useApiMutation({
     mutationFn: () => {
       const grants = [...picked].map((key) => {
         const [domain = '', action = ''] = key.split(':');
@@ -58,18 +68,16 @@ export function RolesPage() {
         ? api.put(`/api/roles/${editing}`, { name: name.trim(), grants })
         : api.post('/api/roles', { name: name.trim(), grants });
     },
-    onSuccess: () => {
-      reset();
-      refresh();
-    },
-    onError: (e) =>
-      alert(String((e as { body?: { error?: string } }).body?.error ?? 'save failed')),
+    invalidate: [['roles']],
+    success: 'Role saved',
+    errorFallback: 'Save failed',
+    onSuccess: () => setEditorOpen(false),
   });
-  const remove = useMutation({
+  const remove = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/roles/${id}`),
-    onSuccess: refresh,
-    onError: (e) =>
-      alert(String((e as { body?: { error?: string } }).body?.error ?? 'delete failed')),
+    invalidate: [['roles']],
+    success: 'Role deleted',
+    errorFallback: 'Delete failed',
   });
 
   const toggle = (key: string) => {
@@ -81,11 +89,51 @@ export function RolesPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-semibold">Roles</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Roles</h1>
+        <div className="flex gap-2">
+          <AssignDialog roles={roles ?? []} members={members ?? []}
+            nodes={hierarchy?.nodes ?? []} />
+          <FormDialog
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+            trigger={<Button onClick={openCreate}>New role</Button>}
+            title={editing ? 'Edit role' : 'New role'}
+            description="Grants are additive; scope is chosen at assignment."
+          >
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="role-name">Name</Label>
+                <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Grants</Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={picked.has(WILDCARD)}
+                      onChange={() => toggle(WILDCARD)} />
+                    <span className="font-mono">*:* (everything)</span>
+                  </label>
+                  {GRANTABLE.map((c) => (
+                    <label key={c} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={picked.has(c)} onChange={() => toggle(c)} />
+                      <span className="font-mono">{c}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <Button className="w-full"
+                disabled={!name.trim() || picked.size === 0 || save.isPending}
+                onClick={() => save.mutate()}>
+                {editing ? 'Save changes' : 'Create role'}
+              </Button>
+            </div>
+          </FormDialog>
+        </div>
+      </div>
 
       <Card>
-        <CardHeader><CardTitle>Roles</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {roles && roles.length > 0 ? (
             <Table>
               <TableHeader>
@@ -93,7 +141,7 @@ export function RolesPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Grants</TableHead>
                   <TableHead>Held by</TableHead>
-                  <TableHead />
+                  <TableHead className="w-40" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -103,10 +151,8 @@ export function RolesPage() {
                     <TableCell>
                       <div className="flex max-w-md flex-wrap gap-1">
                         {r.grants.map((g) => (
-                          <span
-                            key={grantKey(g)}
-                            className="rounded bg-accent px-1.5 py-0.5 font-mono text-xs"
-                          >
+                          <span key={grantKey(g)}
+                            className="rounded bg-accent px-1.5 py-0.5 font-mono text-xs">
                             {grantKey(g)}
                           </span>
                         ))}
@@ -114,160 +160,112 @@ export function RolesPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{r.assignedCount}</TableCell>
                     <TableCell className="space-x-1 text-right">
-                      <Button variant="ghost" size="sm"
-                        onClick={() => {
-                          setEditing(r.id);
-                          setName(r.name);
-                          setPicked(new Set(r.grants.map(grantKey)));
-                        }}>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(r)}>
                         Edit
                       </Button>
-                      <Button variant="ghost" size="sm" disabled={remove.isPending}
-                        onClick={() => {
-                          if (window.confirm(`Delete role ${r.name}?`)) remove.mutate(r.id);
-                        }}>
+                      <ConfirmButton size="sm" disabled={remove.isPending}
+                        onConfirm={() => remove.mutate(r.id)}>
                         Delete
-                      </Button>
+                      </ConfirmButton>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
-            <p className="text-sm text-muted-foreground">No roles yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No roles yet. Create one with &quot;New role&quot;.
+            </p>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{editing ? 'Edit role' : 'Create role'}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="role-name">Name</Label>
-            <Input id="role-name" className="max-w-xs" value={name}
-              onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Grants</Label>
-            <div className="grid grid-cols-3 gap-1.5">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={picked.has(WILDCARD)}
-                  onChange={() => toggle(WILDCARD)} />
-                <span className="font-mono">*:* (everything)</span>
-              </label>
-              {GRANTABLE.map((c) => (
-                <label key={c} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={picked.has(c)} onChange={() => toggle(c)} />
-                  <span className="font-mono">{c}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" disabled={!name.trim() || picked.size === 0 || save.isPending}
-              onClick={() => save.mutate()}>
-              {editing ? 'Save' : 'Create'}
-            </Button>
-            {editing && (
-              <Button variant="ghost" size="sm" onClick={reset}>Cancel</Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <AssignCard roles={roles ?? []} members={members ?? []} nodes={hierarchy?.nodes ?? []} />
       <ExceptionsCard members={members ?? []} nodes={hierarchy?.nodes ?? []} />
     </div>
   );
 }
 
 /** Scoped assignment is the point: a role can apply to the whole org or one subtree. */
-function AssignCard({ roles, members, nodes }: { roles: Role[]; members: Member[]; nodes: Node[] }) {
-  const queryClient = useQueryClient();
+function AssignDialog({ roles, members, nodes }: { roles: Role[]; members: Member[]; nodes: Node[] }) {
+  const [open, setOpen] = useState(false);
   const [roleId, setRoleId] = useState('');
   const [userId, setUserId] = useState('');
   const [scopePath, setScopePath] = useState('');
 
-  const assign = useMutation({
+  const assign = useApiMutation({
     mutationFn: () =>
-      api.post(`/api/roles/${roleId}/assign`, {
-        userId,
-        scopePath: scopePath || null,
-      }),
+      api.post(`/api/roles/${roleId}/assign`, { userId, scopePath: scopePath || null }),
+    invalidate: [['roles'], ['members']],
+    success: 'Role assigned',
     onSuccess: () => {
       setUserId('');
       setScopePath('');
-      void queryClient.invalidateQueries({ queryKey: ['roles'] });
-      void queryClient.invalidateQueries({ queryKey: ['members'] });
+      setOpen(false);
     },
   });
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Assign a role</CardTitle></CardHeader>
-      <CardContent className="flex flex-wrap items-end gap-3">
+    <FormDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={<Button variant="outline">Assign role</Button>}
+      title="Assign a role"
+      description="Over the entire org, or scoped to one hierarchy subtree."
+    >
+      <div className="space-y-3">
         <div className="space-y-1">
           <Label htmlFor="assign-role">Role</Label>
-          <select id="assign-role"
-            className="h-9 w-40 rounded-md border bg-background px-2 text-sm"
-            value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+          <Select id="assign-role" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
             <option value="">Choose…</option>
             {roles.map((r) => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label htmlFor="assign-member">Member</Label>
-          <select id="assign-member"
-            className="h-9 w-56 rounded-md border bg-background px-2 text-sm"
-            value={userId} onChange={(e) => setUserId(e.target.value)}>
+          <Select id="assign-member" value={userId} onChange={(e) => setUserId(e.target.value)}>
             <option value="">Choose…</option>
             {members.map((m) => (
               <option key={m.userId} value={m.userId}>{m.email}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label htmlFor="assign-scope">Scope</Label>
-          <select id="assign-scope"
-            className="h-9 w-48 rounded-md border bg-background px-2 text-sm"
-            value={scopePath} onChange={(e) => setScopePath(e.target.value)}>
+          <Select id="assign-scope" value={scopePath}
+            onChange={(e) => setScopePath(e.target.value)}>
             <option value="">Entire org</option>
             {nodes.map((n) => (
               <option key={n.id} value={n.path}>
-                {' '.repeat(n.depth * 2)}{n.name} subtree
+                {' '.repeat(n.depth * 2)}{n.name} subtree
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-        <Button size="sm" disabled={!roleId || !userId || assign.isPending}
+        <Button className="w-full" disabled={!roleId || !userId || assign.isPending}
           onClick={() => assign.mutate()}>
           Assign
         </Button>
-        {assign.isSuccess && <span className="text-sm text-muted-foreground">Assigned.</span>}
-      </CardContent>
-    </Card>
+      </div>
+    </FormDialog>
   );
 }
 
 /** Time-boxed additive exceptions (never deny): first-class and auditable. */
 function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }) {
-  const queryClient = useQueryClient();
   const { data: exceptions } = useQuery({
     queryKey: ['grant-exceptions'],
     queryFn: () => api.get<GrantException[]>('/api/grant-exceptions'),
   });
+  const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState('');
   const [capability, setCapability] = useState('');
   const [reason, setReason] = useState('');
   const [days, setDays] = useState('7');
   const [scopePath, setScopePath] = useState('');
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['grant-exceptions'] });
 
-  const grant = useMutation({
+  const grant = useApiMutation({
     mutationFn: () => {
       const [domain = '', action = ''] = capability.split(':');
       return api.post('/api/grant-exceptions', {
@@ -279,23 +277,89 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
         scopePath: scopePath || null,
       });
     },
+    invalidate: [['grant-exceptions']],
+    success: 'Exception granted',
     onSuccess: () => {
       setUserId('');
       setCapability('');
       setReason('');
-      refresh();
+      setOpen(false);
     },
   });
-  const revoke = useMutation({
+  const revoke = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/grant-exceptions/${id}`),
-    onSuccess: refresh,
+    invalidate: [['grant-exceptions']],
+    success: 'Exception revoked',
   });
 
   return (
     <Card>
-      <CardHeader><CardTitle>Grant exceptions</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        {exceptions && exceptions.length > 0 && (
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          Grant exceptions
+          <FormDialog
+            open={open}
+            onOpenChange={setOpen}
+            trigger={<Button variant="outline" size="sm">Grant exception</Button>}
+            title="Grant an exception"
+            description="Additive and time-boxed - it expires on its own, and the reason is part of the record."
+          >
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="exc-member">Member</Label>
+                <Select id="exc-member" value={userId}
+                  onChange={(e) => setUserId(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {members.map((m) => (
+                    <option key={m.userId} value={m.userId}>{m.email}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="exc-cap">Capability</Label>
+                <Select id="exc-cap" value={capability}
+                  onChange={(e) => setCapability(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {GRANTABLE.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="exc-scope">Scope</Label>
+                <Select id="exc-scope" value={scopePath}
+                  onChange={(e) => setScopePath(e.target.value)}>
+                  <option value="">Entire org</option>
+                  {nodes.map((n) => (
+                    <option key={n.id} value={n.path}>
+                      {' '.repeat(n.depth * 2)}{n.name} subtree
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="grid grid-cols-[1fr_6rem] gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="exc-reason">Reason</Label>
+                  <Input id="exc-reason" value={reason}
+                    onChange={(e) => setReason(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="exc-days">Days</Label>
+                  <Input id="exc-days" type="number" min="1" value={days}
+                    onChange={(e) => setDays(e.target.value)} />
+                </div>
+              </div>
+              <Button className="w-full"
+                disabled={!userId || !capability || !reason.trim() || !Number(days) || grant.isPending}
+                onClick={() => grant.mutate()}>
+                Grant
+              </Button>
+            </div>
+          </FormDialog>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {exceptions && exceptions.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -303,7 +367,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
                 <TableHead>Grant</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Expires</TableHead>
-                <TableHead />
+                <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -317,72 +381,20 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
                   <TableCell className="max-w-48 truncate text-muted-foreground">
                     {x.reason}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(x.expiresAt).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{fmtDate(x.expiresAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" disabled={revoke.isPending}
-                      onClick={() => revoke.mutate(x.id)}>
+                    <ConfirmButton size="sm" disabled={revoke.isPending}
+                      onConfirm={() => revoke.mutate(x.id)}>
                       Revoke
-                    </Button>
+                    </ConfirmButton>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground">No active exceptions.</p>
         )}
-        <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
-          <div className="space-y-1">
-            <Label htmlFor="exc-member">Member</Label>
-            <select id="exc-member"
-              className="h-9 w-52 rounded-md border bg-background px-2 text-sm"
-              value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">Choose…</option>
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>{m.email}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-cap">Capability</Label>
-            <select id="exc-cap"
-              className="h-9 w-44 rounded-md border bg-background px-2 text-sm"
-              value={capability} onChange={(e) => setCapability(e.target.value)}>
-              <option value="">Choose…</option>
-              {GRANTABLE.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-scope">Scope</Label>
-            <select id="exc-scope"
-              className="h-9 w-40 rounded-md border bg-background px-2 text-sm"
-              value={scopePath} onChange={(e) => setScopePath(e.target.value)}>
-              <option value="">Entire org</option>
-              {nodes.map((n) => (
-                <option key={n.id} value={n.path}>
-                  {' '.repeat(n.depth * 2)}{n.name} subtree
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-reason">Reason</Label>
-            <Input id="exc-reason" className="w-48" value={reason}
-              onChange={(e) => setReason(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exc-days">Days</Label>
-            <Input id="exc-days" type="number" min="1" className="w-20" value={days}
-              onChange={(e) => setDays(e.target.value)} />
-          </div>
-          <Button size="sm"
-            disabled={!userId || !capability || !reason.trim() || !Number(days) || grant.isPending}
-            onClick={() => grant.mutate()}>
-            Grant
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );

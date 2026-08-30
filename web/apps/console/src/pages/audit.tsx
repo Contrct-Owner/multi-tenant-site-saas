@@ -3,9 +3,16 @@ import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { fmtDateTime } from '../lib/format';
 
 const KINDS = ['events', 'changes', 'authz', 'access'] as const;
 type Kind = (typeof KINDS)[number];
+const KIND_LABELS: Record<Kind, string> = {
+  events: 'Events',
+  changes: 'Changes',
+  authz: 'Access decisions',
+  access: 'Request log',
+};
 type Row = Record<string, unknown> & { id: string; occurredAt: string; actorTier: string };
 
 export function AuditPage() {
@@ -34,7 +41,7 @@ export function AuditPage() {
       <div className="flex gap-2">
         {KINDS.map((k) => (
           <Button key={k} size="sm" variant={k === kind ? 'default' : 'outline'} onClick={() => setKind(k)}>
-            {k}
+            {KIND_LABELS[k]}
           </Button>
         ))}
       </div>
@@ -52,7 +59,7 @@ export function AuditPage() {
               {rows?.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(row.occurredAt).toLocaleString()}
+                    {fmtDateTime(row.occurredAt)}
                   </TableCell>
                   <TableCell className="text-xs">{row.actorTier}</TableCell>
                   <TableCell className="max-w-xl truncate font-mono text-xs">{detail(row)}</TableCell>

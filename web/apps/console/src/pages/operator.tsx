@@ -1,7 +1,9 @@
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input } from '@premise/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { entitlementLabel } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 import { StatusBadge } from '../shell';
 
 type OperatedOrg = {
@@ -12,27 +14,27 @@ type Effective = Record<string, { value: string; shape: string; policy: string }
 
 /** Entitlement custody + lifecycle: operator-set, tenant-read. */
 export function OperatorPage() {
-  const queryClient = useQueryClient();
   const { data: orgs } = useQuery({
     queryKey: ['operator-orgs'],
     queryFn: () => api.get<OperatedOrg[]>('/api/operator/orgs'),
   });
   const [selected, setSelected] = useState<OperatedOrg | null>(null);
 
-  const transition = useMutation({
+  const transition = useApiMutation({
     mutationFn: (input: { orgId: string; action: 'suspend' | 'reactivate' }) =>
       api.post(`/api/operator/orgs/${input.orgId}/${input.action}`),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operator-orgs'] }),
+    invalidate: [['operator-orgs']],
+    success: 'Status updated',
   });
-  const exportOrg = useMutation({
+  const exportOrg = useApiMutation({
     mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/export`),
+    success: "Export queued - it lands in the org's Files",
   });
-  const offboard = useMutation({
+  const offboard = useApiMutation({
     mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/offboard`),
-    onSuccess: () => {
-      setSelected(null);
-      void queryClient.invalidateQueries({ queryKey: ['operator-orgs'] });
-    },
+    invalidate: [['operator-orgs']],
+    success: 'Offboarding started',
+    onSuccess: () => setSelected(null),
   });
 
   return (
@@ -109,17 +111,15 @@ export function OperatorPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
+                  <ConfirmButton
                     variant="destructive"
                     size="sm"
+                    confirmLabel="Purge org data?"
                     disabled={offboard.isPending || selected.status !== 'Suspended'}
-                    onClick={() => {
-                      if (window.confirm(`Offboard ${selected.name}? This purges the org's data. Take an export first.`))
-                        offboard.mutate(selected.id);
-                    }}
+                    onConfirm={() => offboard.mutate(selected.id)}
                   >
                     Offboard
-                  </Button>
+                  </ConfirmButton>
                   <span className="text-sm text-muted-foreground">
                     {selected.status === 'Suspended'
                       ? 'Purges all org data. The audit trail and org record remain.'
@@ -136,35 +136,31 @@ export function OperatorPage() {
 }
 
 function OrgEntitlements({ orgId }: { orgId: string }) {
-  const queryClient = useQueryClient();
   const { data: effective } = useQuery({
     queryKey: ['operator-entitlements', orgId],
     queryFn: () => api.get<Effective>(`/api/operator/orgs/${orgId}/entitlements`),
   });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
 
-  const set = useMutation({
+  const set = useApiMutation({
     mutationFn: (input: { code: string; value: string }) =>
       api.put(`/api/operator/orgs/${orgId}/entitlements/${input.code}`, { value: input.value }),
-    onSuccess: () => {
-      setError(null);
-      void queryClient.invalidateQueries({ queryKey: ['operator-entitlements', orgId] });
-    },
-    onError: (e) =>
-      setError(String((e as { body?: { error?: string } }).body?.error ?? 'update failed')),
+    invalidate: [['operator-entitlements', orgId]],
+    success: 'Entitlement updated',
+    errorFallback: 'Update failed',
   });
 
   return (
     <div className="space-y-2">
-      {error && <p className="text-sm text-destructive">{error}</p>}
       {effective &&
         (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
           const draft = drafts[code] ?? effective[code]?.value ?? '';
           const dirty = draft !== effective[code]?.value;
           return (
             <div key={code} className="flex items-center gap-2 text-sm">
-              <span className="w-56 text-muted-foreground">{code}</span>
+              <span className="w-56 text-muted-foreground" title={code}>
+                {entitlementLabel(code)}
+              </span>
               <Input
                 className="h-8 w-32"
                 value={draft}

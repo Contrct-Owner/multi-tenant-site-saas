@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Badge, Button, cn, Input, Label } from '@premise/ui';
+import { Badge, Button, cn, Input, Label, Toaster } from '@premise/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useState, type ReactNode } from 'react';
@@ -105,6 +105,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-8">{children}</main>
+      <Toaster />
     </div>
   );
 }

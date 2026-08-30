@@ -1,6 +1,7 @@
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
+import { entitlementLabel } from '../lib/format';
 import { useMe } from '../session';
 
 type Effective = Record<string, { value: string; shape: string; policy: string }>;
@@ -25,7 +26,9 @@ export function DashboardPage() {
             {entitlements &&
               (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => (
                 <div key={code} className="flex justify-between border-b py-1.5">
-                  <dt className="text-muted-foreground">{code}</dt>
+                  <dt className="text-muted-foreground" title={code}>
+                    {entitlementLabel(code)}
+                  </dt>
                   <dd className="font-medium">{entitlements[code]?.value}</dd>
                 </div>
               ))}

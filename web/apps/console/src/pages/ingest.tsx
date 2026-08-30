@@ -1,10 +1,12 @@
 import { api } from '@premise/api';
 import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHeader,
-  CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
+  CardTitle, ConfirmButton, FormDialog, Input, Label,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { fmtDateTime } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
-import { Input, Label } from '@premise/ui';
 
 type Counts = { create: number; update: number; close: number; unchanged: number; invalid: number };
 type Batch = { id: string; source: string; status: string; counts: Counts; createdAt: string };
@@ -23,6 +25,7 @@ export function IngestPage() {
   const queryClient = useQueryClient();
   const [batchId, setBatchId] = useState<string | null>(null);
   const [phase, setPhase] = useState<string>('');
+  const csvInput = useRef<HTMLInputElement>(null);
 
   const stage = useMutation({
     mutationFn: async (file: File) => {
@@ -56,11 +59,12 @@ export function IngestPage() {
     queryKey: ['ingest-batches'],
     queryFn: () => api.get<Batch[]>('/api/ingest/batches'),
   });
-  const discard = useMutation({
+  const discard = useApiMutation({
     mutationFn: (id: string) => api.post(`/api/ingest/batches/${id}/discard`),
+    invalidate: [['ingest-batches']],
+    success: 'Batch discarded',
     onSuccess: (_, id) => {
       if (id === batchId) setBatchId(null);
-      void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] });
     },
   });
 
@@ -77,14 +81,19 @@ export function IngestPage() {
             until you review the diff and commit.
           </p>
           <input
+            ref={csvInput}
             type="file"
             accept=".csv,text/csv"
-            className="text-sm"
+            className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) stage.mutate(file);
+              e.target.value = '';
             }}
           />
+          <Button disabled={stage.isPending} onClick={() => csvInput.current?.click()}>
+            Choose CSV…
+          </Button>
           {phase && <p className="text-sm text-muted-foreground">{phase}</p>}
           {stage.isError && (
             <Alert variant="destructive">
@@ -158,9 +167,7 @@ export function IngestPage() {
                 {batches.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell>{b.source}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(b.createdAt).toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{fmtDateTime(b.createdAt)}</TableCell>
                     <TableCell className="text-muted-foreground">{b.status}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       +{b.counts.create} ~{b.counts.update} −{b.counts.close} ·{' '}
@@ -172,14 +179,13 @@ export function IngestPage() {
                           <Button variant="ghost" size="sm" onClick={() => setBatchId(b.id)}>
                             Review
                           </Button>
-                          <Button
-                            variant="ghost"
+                          <ConfirmButton
                             size="sm"
                             disabled={discard.isPending}
-                            onClick={() => discard.mutate(b.id)}
+                            onConfirm={() => discard.mutate(b.id)}
                           >
                             Discard
-                          </Button>
+                          </ConfirmButton>
                         </>
                       )}
                     </TableCell>
@@ -199,7 +205,6 @@ export function IngestPage() {
 }
 
 function ConnectorsCard() {
-  const queryClient = useQueryClient();
   const { data: connectors } = useQuery({
     queryKey: ['connectors'],
     queryFn: () => api.get<Connector[]>('/api/connectors'),
@@ -207,9 +212,25 @@ function ConnectorsCard() {
   const empty = { name: '', url: '', apiKey: '', interval: '' };
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState<string | null>(null);
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['connectors'] });
+  const [open, setOpen] = useState(false);
 
-  const save = useMutation({
+  const openCreate = () => {
+    setEditing(null);
+    setForm(empty);
+    setOpen(true);
+  };
+  const openEdit = (c: Connector) => {
+    setEditing(c.id);
+    setForm({
+      name: c.name,
+      url: c.url,
+      apiKey: '',
+      interval: c.syncIntervalHours?.toString() ?? '',
+    });
+    setOpen(true);
+  };
+
+  const save = useApiMutation({
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
@@ -221,33 +242,81 @@ function ConnectorsCard() {
         ? api.put(`/api/connectors/${editing}`, body)
         : api.post('/api/connectors', { ...body, apiKey: form.apiKey });
     },
-    onSuccess: () => {
-      setForm(empty);
-      setEditing(null);
-      refresh();
-    },
+    invalidate: [['connectors']],
+    success: 'Connector saved',
+    onSuccess: () => setOpen(false),
   });
-  const sync = useMutation({
+  const sync = useApiMutation({
     mutationFn: (id: string) => api.post(`/api/connectors/${id}/sync`),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] }),
+    invalidate: [['ingest-batches']],
+    success: 'Sync queued - the batch lands under Batches',
   });
-  const remove = useMutation({
+  const remove = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/connectors/${id}`),
-    onSuccess: refresh,
+    invalidate: [['connectors']],
+    success: 'Connector deleted',
   });
 
   return (
     <Card>
-      <CardHeader><CardTitle>Connectors</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        {connectors && connectors.length > 0 && (
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          Connectors
+          <FormDialog
+            open={open}
+            onOpenChange={setOpen}
+            trigger={
+              <Button variant="outline" size="sm" onClick={openCreate}>
+                Add connector
+              </Button>
+            }
+            title={editing ? 'Edit connector' : 'Add connector'}
+            description="A pull source your sites sync from. Credentials are envelope-encrypted at rest."
+          >
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="conn-name">Name</Label>
+                <Input id="conn-name" value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conn-url">URL</Label>
+                <Input id="conn-url" value={form.url}
+                  onChange={(e) => setForm({ ...form, url: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conn-key">
+                  API key{editing ? ' (leave blank to keep current)' : ''}
+                </Label>
+                <Input id="conn-key" type="password" value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conn-interval">Sync every N hours (blank = manual)</Label>
+                <Input id="conn-interval" type="number" min="1" value={form.interval}
+                  onChange={(e) => setForm({ ...form, interval: e.target.value })} />
+              </div>
+              <Button className="w-full"
+                disabled={
+                  !form.name.trim() || !form.url.trim() || (!editing && !form.apiKey)
+                  || save.isPending
+                }
+                onClick={() => save.mutate()}>
+                {editing ? 'Save changes' : 'Add connector'}
+              </Button>
+            </div>
+          </FormDialog>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {connectors && connectors.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Schedule</TableHead>
                 <TableHead>Last sync</TableHead>
-                <TableHead />
+                <TableHead className="w-52" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -261,84 +330,30 @@ function ConnectorsCard() {
                     {c.syncIntervalHours ? `every ${c.syncIntervalHours}h` : 'manual'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {c.lastSyncedAt ? new Date(c.lastSyncedAt).toLocaleString() : 'never'}
+                    {c.lastSyncedAt ? fmtDateTime(c.lastSyncedAt) : 'never'}
                   </TableCell>
                   <TableCell className="space-x-1 text-right">
                     <Button variant="ghost" size="sm" disabled={sync.isPending}
                       onClick={() => sync.mutate(c.id)}>
                       Sync now
                     </Button>
-                    <Button variant="ghost" size="sm"
-                      onClick={() => {
-                        setEditing(c.id);
-                        setForm({
-                          name: c.name,
-                          url: c.url,
-                          apiKey: '',
-                          interval: c.syncIntervalHours?.toString() ?? '',
-                        });
-                      }}>
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
                       Edit
                     </Button>
-                    <Button variant="ghost" size="sm" disabled={remove.isPending}
-                      onClick={() => {
-                        if (window.confirm(`Delete connector ${c.name}?`)) remove.mutate(c.id);
-                      }}>
+                    <ConfirmButton size="sm" disabled={remove.isPending}
+                      onConfirm={() => remove.mutate(c.id)}>
                       Delete
-                    </Button>
+                    </ConfirmButton>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No connectors yet. Add one to pull sites from an external source.
+          </p>
         )}
-        <div className="space-y-2 rounded-md border p-3">
-          <p className="text-sm font-medium">{editing ? 'Edit connector' : 'Add connector'}</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="conn-name">Name</Label>
-              <Input id="conn-name" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="conn-url">URL</Label>
-              <Input id="conn-url" value={form.url}
-                onChange={(e) => setForm({ ...form, url: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="conn-key">
-                API key{editing ? ' (leave blank to keep current)' : ''}
-              </Label>
-              <Input id="conn-key" type="password" value={form.apiKey}
-                onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="conn-interval">Sync every N hours (blank = manual)</Label>
-              <Input id="conn-interval" type="number" min="1" value={form.interval}
-                onChange={(e) => setForm({ ...form, interval: e.target.value })} />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={
-                !form.name.trim() || !form.url.trim() || (!editing && !form.apiKey) || save.isPending
-              }
-              onClick={() => save.mutate()}
-            >
-              {editing ? 'Save' : 'Add'}
-            </Button>
-            {editing && (
-              <Button variant="ghost" size="sm"
-                onClick={() => {
-                  setEditing(null);
-                  setForm(empty);
-                }}>
-                Cancel
-              </Button>
-            )}
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

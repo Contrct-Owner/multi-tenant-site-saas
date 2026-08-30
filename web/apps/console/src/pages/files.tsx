@@ -1,8 +1,10 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead,
-  TableHeader, TableRow } from '@premise/ui';
+import { Button, Card, CardContent, ConfirmButton, Table, TableBody, TableCell,
+  TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { fmtDateTime } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
@@ -32,17 +34,19 @@ export function FilesPage() {
       refresh();
     },
   });
-  const hold = useMutation({
+  const hold = useApiMutation({
     mutationFn: (input: { id: string; hold: boolean }) =>
       api.post(`/api/files/${input.id}/hold`, { hold: input.hold }),
-    onSuccess: refresh,
+    invalidate: [['files']],
+    success: 'Legal hold updated',
   });
-  const erase = useMutation({
+  const erase = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/files/${id}`),
-    onSuccess: refresh,
-    onError: (e) =>
-      alert(String((e as { body?: { error?: string } }).body?.error ?? 'erase failed')),
+    invalidate: [['files']],
+    success: 'File erased',
+    errorFallback: 'Erase failed',
   });
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const download = async (id: string) => {
     const { url } = await api.get<{ url: string }>(`/api/files/${id}/download`);
@@ -51,24 +55,30 @@ export function FilesPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-semibold">Files</h1>
-      {manage && (
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            className="text-sm"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) upload.mutate(file);
-              e.target.value = '';
-            }}
-          />
-          {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
-          {upload.isError && (
-            <span className="text-sm text-destructive">{String(upload.error)}</span>
-          )}
-        </div>
-      )}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Files</h1>
+        {manage && (
+          <div className="flex items-center gap-3">
+            {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
+            {upload.isError && (
+              <span className="text-sm text-destructive">{String(upload.error)}</span>
+            )}
+            <input
+              ref={fileInput}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) upload.mutate(file);
+                e.target.value = '';
+              }}
+            />
+            <Button disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
+              Upload file
+            </Button>
+          </div>
+        )}
+      </div>
       <Card>
         <CardContent className="pt-4">
           <Table>
@@ -93,9 +103,7 @@ export function FilesPage() {
                       <span className="ml-2 text-xs text-muted-foreground">⚖ hold</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(f.createdAt).toLocaleString()}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{fmtDateTime(f.createdAt)}</TableCell>
                   <TableCell className="space-x-1 text-right">
                     {f.status === 'Clean' && (
                       <Button variant="ghost" size="sm" onClick={() => void download(f.id)}>
@@ -108,10 +116,10 @@ export function FilesPage() {
                           onClick={() => hold.mutate({ id: f.id, hold: !f.legalHold })}>
                           {f.legalHold ? 'Release hold' : 'Hold'}
                         </Button>
-                        <Button variant="ghost" size="sm" disabled={erase.isPending}
-                          onClick={() => erase.mutate(f.id)}>
+                        <ConfirmButton size="sm" disabled={erase.isPending}
+                          onConfirm={() => erase.mutate(f.id)}>
                           Erase
-                        </Button>
+                        </ConfirmButton>
                       </>
                     )}
                   </TableCell>
@@ -120,7 +128,7 @@ export function FilesPage() {
               {files?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No files yet.
+                    No files yet.{manage && ' Upload one to get started.'}
                   </TableCell>
                 </TableRow>
               )}

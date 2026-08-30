@@ -1,25 +1,24 @@
 import { api } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@premise/ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
 
 export function SettingsPage() {
   const { data: me } = useMe();
-  const queryClient = useQueryClient();
   const activeOrg =
     me?.tier === 'user' ? me.organizations.find((o) => o.id === me.activeOrg) : undefined;
   const [name, setName] = useState<string | null>(null);
 
-  const rename = useMutation({
+  const rename = useApiMutation({
     mutationFn: (value: string) => api.put('/api/org', { name: value }),
-    onSuccess: () => {
-      setName(null);
-      void queryClient.invalidateQueries({ queryKey: ['me'] });
-    },
+    invalidate: [['me']],
+    success: 'Organization renamed',
+    onSuccess: () => setName(null),
   });
-  const exportData = useMutation({
+  const exportData = useApiMutation({
     mutationFn: () => api.post('/api/org/export'),
+    success: 'Export queued - check Files shortly',
   });
 
   if (!activeOrg) return null;
@@ -44,11 +43,6 @@ export function SettingsPage() {
           >
             Save
           </Button>
-          {rename.isError && (
-            <p className="text-sm text-destructive">
-              {String((rename.error as { body?: { error?: string } }).body?.error ?? rename.error)}
-            </p>
-          )}
         </CardContent>
       </Card>
       <Card>

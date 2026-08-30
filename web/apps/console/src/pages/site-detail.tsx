@@ -1,9 +1,11 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label,
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
+import { fmtDayInZone, fmtTimeInZone } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 import { weeklySchedule, type DayCode } from '../lib/schedule';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
@@ -25,8 +27,11 @@ function describeRule(rrule: string): string {
   const byday = /BYDAY=([A-Z,]+)/.exec(rrule)?.[1];
   if (rrule.includes('FREQ=DAILY')) return 'Every day';
   if (byday) {
-    const labels = byday.split(',')
-      .map((code) => DAYS.find((d) => d.code === code)?.label ?? code);
+    const codes = byday.split(',');
+    if (codes.length === 7) return 'Every day';
+    if (codes.join(',') === 'MO,TU,WE,TH,FR') return 'Weekdays';
+    if (codes.join(',') === 'SA,SU') return 'Weekends';
+    const labels = codes.map((code) => DAYS.find((d) => d.code === code)?.label ?? code);
     return labels.join(', ');
   }
   return rrule;
@@ -61,18 +66,20 @@ export function SiteDetailPage() {
     );
   };
 
-  const update = useMutation({
+  const update = useApiMutation({
     mutationFn: (body: Partial<{ name: string; timeZone: string; status: string }>) =>
       api.post(`/api/sites/${siteId}`, body),
     onSuccess: invalidate,
   });
-  const addSchedule = useMutation({
+  const addSchedule = useApiMutation({
     mutationFn: (body: object) => api.post(`/api/sites/${siteId}/schedules`, body),
+    success: 'Hours added',
     onSuccess: invalidate,
   });
-  const removeSchedule = useMutation({
+  const removeSchedule = useApiMutation({
     mutationFn: (scheduleId: string) =>
       api.del(`/api/sites/${siteId}/schedules/${scheduleId}`),
+    success: 'Hours removed',
     onSuccess: invalidate,
   });
 
@@ -86,6 +93,9 @@ export function SiteDetailPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Link to="/sites" className="text-sm text-muted-foreground hover:underline">
+        ← All sites
+      </Link>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{site.name}</h1>
@@ -113,7 +123,7 @@ export function SiteDetailPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Days</TableHead>
                 <TableHead>Hours (local)</TableHead>
-                {manage && <TableHead />}
+                {manage && <TableHead className="w-28" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,11 +133,11 @@ export function SiteDetailPage() {
                   <TableCell className="text-muted-foreground">{describeRule(s.rRule)}</TableCell>
                   <TableCell>{s.opens.slice(0, 5)} – {s.closes.slice(0, 5)}</TableCell>
                   {manage && (
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" disabled={removeSchedule.isPending}
-                        onClick={() => removeSchedule.mutate(s.id)}>
+                    <TableCell className="w-28 text-right">
+                      <ConfirmButton size="sm" disabled={removeSchedule.isPending}
+                        onConfirm={() => removeSchedule.mutate(s.id)}>
                         Remove
-                      </Button>
+                      </ConfirmButton>
                     </TableCell>
                   )}
                 </TableRow>
@@ -190,12 +200,6 @@ export function SiteDetailPage() {
                   Add hours
                 </Button>
               </div>
-              {addSchedule.isError && (
-                <p className="text-sm text-destructive">
-                  {String((addSchedule.error as { body?: { error?: string } })
-                    .body?.error ?? addSchedule.error)}
-                </p>
-              )}
             </div>
           )}
         </CardContent>
@@ -212,13 +216,12 @@ export function SiteDetailPage() {
             <ul className="space-y-1 text-sm">
               {windows?.map((w) => (
                 <li key={w.startsAtUtc} className="flex justify-between">
-                  <span>{w.localDate}</span>
+                  <span>{fmtDayInZone(w.startsAtUtc, site.timeZone)}</span>
                   <span className="text-muted-foreground">
-                    {new Date(w.startsAtUtc).toLocaleTimeString([], {
-                      hour: '2-digit', minute: '2-digit' })}
+                    {/* the SITE's clock, not the viewer's (UX review P0) */}
+                    {fmtTimeInZone(w.startsAtUtc, site.timeZone)}
                     {' – '}
-                    {new Date(w.endsAtUtc).toLocaleTimeString([], {
-                      hour: '2-digit', minute: '2-digit' })}
+                    {fmtTimeInZone(w.endsAtUtc, site.timeZone)}
                   </span>
                 </li>
               ))}

@@ -1,13 +1,14 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+  Input, Label, Select } from '@premise/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useApiMutation } from '../lib/mutation';
 
 type Node = { id: string; parentId?: string; name: string; depth: number; path: string };
 type Hierarchy = { id: string; name: string; levels: string[]; nodes: Node[] };
 
 export function HierarchyPage() {
-  const queryClient = useQueryClient();
   const { data, isError } = useQuery({
     queryKey: ['hierarchy'],
     queryFn: () => api.get<Hierarchy>('/api/hierarchy'),
@@ -16,38 +17,40 @@ export function HierarchyPage() {
   const [levels, setLevels] = useState('Region, Market');
   const [nodeName, setNodeName] = useState('');
   const [parentId, setParentId] = useState('');
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+  const [adding, setAdding] = useState(false);
 
-  const provision = useMutation({
+  const provision = useApiMutation({
     mutationFn: () =>
       api.post('/api/hierarchy', {
         name: 'Organization',
         levels: levels.split(',').map((l) => l.trim()).filter(Boolean),
       }),
-    onSuccess: invalidate,
+    invalidate: [['hierarchy']],
+    success: 'Hierarchy created',
   });
-  const addNode = useMutation({
+  const addNode = useApiMutation({
     mutationFn: () => api.post('/api/hierarchy/nodes', { parentId, name: nodeName }),
+    invalidate: [['hierarchy']],
+    success: 'Node added',
     onSuccess: () => {
       setNodeName('');
-      void invalidate();
+      setAdding(false);
     },
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const rename = useMutation({
+  const rename = useApiMutation({
     mutationFn: (input: { id: string; name: string }) =>
       api.put(`/api/hierarchy/nodes/${input.id}`, { name: input.name }),
-    onSuccess: () => {
-      setEditingId(null);
-      void invalidate();
-    },
+    invalidate: [['hierarchy']],
+    success: 'Node renamed',
+    onSuccess: () => setEditingId(null),
   });
-  const removeNode = useMutation({
+  const removeNode = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/hierarchy/nodes/${id}`),
-    onSuccess: invalidate,
-    onError: (e) =>
-      alert(String((e as { body?: { error?: string } }).body?.error ?? 'delete failed')),
+    invalidate: [['hierarchy']],
+    success: 'Node deleted',
+    errorFallback: 'Delete failed',
   });
 
   if (isError || !data) {
@@ -77,7 +80,40 @@ export function HierarchyPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Hierarchy</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Hierarchy</h1>
+        <FormDialog
+          open={adding}
+          onOpenChange={setAdding}
+          trigger={<Button>Add node</Button>}
+          title="Add node"
+          description="A new branch under an existing node."
+        >
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="node-name">Name</Label>
+              <Input id="node-name" value={nodeName}
+                onChange={(e) => setNodeName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="node-parent">Parent</Label>
+              <Select id="node-parent" value={parentId}
+                onChange={(e) => setParentId(e.target.value)}>
+                <option value="">Choose…</option>
+                {data.nodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {' '.repeat(n.depth * 2)}{n.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button className="w-full" disabled={!nodeName || !parentId || addNode.isPending}
+              onClick={() => addNode.mutate()}>
+              Add node
+            </Button>
+          </div>
+        </FormDialog>
+      </div>
       <p className="text-sm text-muted-foreground">Levels: {data.levels.join(' → ')}</p>
       <Card>
         <CardContent className="pt-4">
@@ -131,18 +167,14 @@ export function HierarchyPage() {
                           Rename
                         </Button>
                         {isLeaf && (
-                          <Button
-                            variant="ghost"
+                          <ConfirmButton
                             size="sm"
                             className="h-6 px-2 text-xs"
                             disabled={removeNode.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Delete node ${n.name}?`))
-                                removeNode.mutate(n.id);
-                            }}
+                            onConfirm={() => removeNode.mutate(n.id)}
                           >
                             Delete
-                          </Button>
+                          </ConfirmButton>
                         )}
                       </span>
                     </>
@@ -151,32 +183,6 @@ export function HierarchyPage() {
               );
             })}
           </ul>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Add node</CardTitle></CardHeader>
-        <CardContent className="flex items-end gap-3">
-          <div className="flex-1 space-y-1">
-            <Label htmlFor="node-name">Name</Label>
-            <Input id="node-name" value={nodeName} onChange={(e) => setNodeName(e.target.value)} />
-          </div>
-          <div className="flex-1 space-y-1">
-            <Label htmlFor="node-parent">Parent</Label>
-            <select
-              id="node-parent"
-              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {data.nodes.map((n) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-            </select>
-          </div>
-          <Button disabled={!nodeName || !parentId || addNode.isPending} onClick={() => addNode.mutate()}>
-            Add
-          </Button>
         </CardContent>
       </Card>
     </div>

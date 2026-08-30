@@ -1,7 +1,10 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input,
+  Label } from '@premise/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { fmtDateTime } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
 
 type Session = { id: string; userAgent: string | null; createdAt: string; current: boolean };
@@ -9,7 +12,6 @@ type Session = { id: string; userAgent: string | null; createdAt: string; curren
 /** The user acting on themselves: profile, credentials entry points, sessions, deletion. */
 export function AccountPage() {
   const { data: me } = useMe();
-  const queryClient = useQueryClient();
   const [name, setName] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -18,33 +20,44 @@ export function AccountPage() {
     queryFn: () => api.get<Session[]>('/auth/sessions'),
   });
 
-  const rename = useMutation({
+  const rename = useApiMutation({
     mutationFn: (value: string) => api.put('/auth/profile', { name: value }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['me'] }),
+    invalidate: [['me']],
+    success: 'Name updated',
   });
-  const passwordReset = useMutation({
+  const passwordReset = useApiMutation({
     mutationFn: () => api.post('/auth/password-reset'),
+    success: 'Reset email sent',
   });
-  const revoke = useMutation({
+  const revoke = useApiMutation({
     mutationFn: (id: string) => api.del(`/auth/sessions/${id}`),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['sessions'] }),
+    invalidate: [['sessions']],
+    success: 'Session revoked',
   });
-  const revokeOthers = useMutation({
+  const revokeOthers = useApiMutation({
     mutationFn: () => api.post('/auth/sessions/revoke-others'),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['sessions'] }),
+    invalidate: [['sessions']],
+    success: 'Other sessions signed out',
   });
-  const deleteAccount = useMutation({
-    mutationFn: () => api.del('/auth/account'),
+  // stays on useMutation semantics via wrapper except the rich 409 body:
+  // last-manager refusal needs the org list, so it renders inline
+  const deleteAccount = useApiMutation({
+    mutationFn: async () => {
+      try {
+        return await api.del('/auth/account');
+      } catch (e) {
+        const body = (e as { body?: { code?: string; organizations?: string[] } }).body;
+        setDeleteError(
+          body?.code === 'last_manager'
+            ? `You are the last manager of: ${(body.organizations ?? []).join(', ')}. Transfer management or offboard first.`
+            : null,
+        );
+        throw e;
+      }
+    },
+    errorFallback: 'Deletion failed',
     onSuccess: () => {
       location.href = '/';
-    },
-    onError: (e) => {
-      const body = (e as { body?: { code?: string; organizations?: string[] } }).body;
-      setDeleteError(
-        body?.code === 'last_manager'
-          ? `You are the last manager of: ${(body.organizations ?? []).join(', ')}. Transfer management or offboard first.`
-          : 'Deletion failed.',
-      );
     },
   });
 
@@ -95,23 +108,23 @@ export function AccountPage() {
               <div className="min-w-0">
                 <div className="truncate">{s.userAgent ?? 'Unknown browser'}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(s.createdAt).toLocaleString()}
+                  {fmtDateTime(s.createdAt)}
                   {s.current && ' · this session'}
                 </div>
               </div>
               {!s.current && (
-                <Button variant="ghost" size="sm" disabled={revoke.isPending}
-                  onClick={() => revoke.mutate(s.id)}>
+                <ConfirmButton size="sm" disabled={revoke.isPending}
+                  onConfirm={() => revoke.mutate(s.id)}>
                   Revoke
-                </Button>
+                </ConfirmButton>
               )}
             </div>
           ))}
           {sessions && sessions.length > 1 && (
-            <Button variant="outline" size="sm" disabled={revokeOthers.isPending}
-              onClick={() => revokeOthers.mutate()}>
+            <ConfirmButton variant="outline" size="sm" disabled={revokeOthers.isPending}
+              onConfirm={() => revokeOthers.mutate()}>
               Sign out other sessions
-            </Button>
+            </ConfirmButton>
           )}
         </CardContent>
       </Card>
@@ -123,16 +136,14 @@ export function AccountPage() {
             record. Organizations you manage alone must be handed over or offboarded first.
           </p>
           {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
-          <Button
+          <ConfirmButton
             variant="destructive"
+            confirmLabel="Permanently delete?"
             disabled={deleteAccount.isPending}
-            onClick={() => {
-              if (window.confirm('Delete your account? This cannot be undone.'))
-                deleteAccount.mutate();
-            }}
+            onConfirm={() => deleteAccount.mutate()}
           >
             Delete account
-          </Button>
+          </ConfirmButton>
         </CardContent>
       </Card>
     </div>
