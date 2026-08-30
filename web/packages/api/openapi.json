@@ -1014,6 +1014,96 @@
         }
       }
     },
+    "/api/hierarchy/nodes/{id}": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "PUT_api_hierarchy_nodes_id",
+        "description": "PUT_api_hierarchy_nodes_id",
+        "operationId": "PUT_api_hierarchy_nodes_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameNodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "DELETE_api_hierarchy_nodes_id",
+        "description": "DELETE_api_hierarchy_nodes_id",
+        "operationId": "DELETE_api_hierarchy_nodes_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/hierarchy/nodes/{id}/move": {
       "post": {
         "tags": [
@@ -3367,6 +3457,17 @@
         "type": "object",
         "properties": {
           "value": {
+            "type": "string"
+          }
+        }
+      },
+      "RenameNodeRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
             "type": "string"
           }
         }

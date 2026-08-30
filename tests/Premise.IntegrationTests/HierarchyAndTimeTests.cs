@@ -373,4 +373,96 @@ public class HierarchyAndTimeTests(ApiFixture fixture) : IClassFixture<ApiFixtur
         );
         return final;
     }
+
+    [Fact]
+    public async Task Node_rename_is_display_only_and_paths_hold()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var node = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "Renameable" }
+        );
+        var nodeId = node.GetProperty("id").GetGuid();
+        var pathBefore = node.GetProperty("path").GetString();
+
+        var renamed = await client.PutAsJsonAsync(
+            $"/api/hierarchy/nodes/{nodeId}",
+            new { name = "Renamed Region" }
+        );
+        Assert.Equal(HttpStatusCode.NoContent, renamed.StatusCode);
+
+        var tree = await client.GetFromJsonAsync<JsonElement>("/api/hierarchy");
+        var after = tree.GetProperty("nodes")
+            .EnumerateArray()
+            .First(n => n.GetProperty("id").GetGuid() == nodeId);
+        Assert.Equal("Renamed Region", after.GetProperty("name").GetString());
+        // paths are id-labeled: display names never leak into structure
+        Assert.Equal(pathBefore, after.GetProperty("path").GetString());
+    }
+
+    [Fact]
+    public async Task Node_delete_takes_only_empty_leaves()
+    {
+        var (client, rootId) = await SetupHierarchy();
+
+        // the root is untouchable
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await client.DeleteAsync($"/api/hierarchy/nodes/{rootId}")).StatusCode
+        );
+
+        // a node with children refuses
+        var parent = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = rootId, name = "DeleteParent" }
+        );
+        var parentNodeId = parent.GetProperty("id").GetGuid();
+        var child = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = parentNodeId, name = "DeleteChild" }
+        );
+        var childId = child.GetProperty("id").GetGuid();
+        var withChildren = await client.DeleteAsync($"/api/hierarchy/nodes/{parentNodeId}");
+        Assert.Equal(HttpStatusCode.Conflict, withChildren.StatusCode);
+
+        // a node with sites refuses - sites close, they never orphan (ADR 25)
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = childId,
+                name = "Anchored Site",
+                timeZone = "Etc/UTC",
+            }
+        );
+        var withSites = await client.DeleteAsync($"/api/hierarchy/nodes/{childId}");
+        Assert.Equal(HttpStatusCode.Conflict, withSites.StatusCode);
+        Assert.Equal(
+            1,
+            (await withSites.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("sites")
+                .GetInt32()
+        );
+
+        // an empty leaf deletes; the tree no longer knows it
+        var leaf = await PostJson(
+            client,
+            "/api/hierarchy/nodes",
+            new { parentId = parentNodeId, name = "EmptyLeaf" }
+        );
+        var leafId = leaf.GetProperty("id").GetGuid();
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await client.DeleteAsync($"/api/hierarchy/nodes/{leafId}")).StatusCode
+        );
+        var tree = await client.GetFromJsonAsync<JsonElement>("/api/hierarchy");
+        Assert.DoesNotContain(
+            tree.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("id").GetGuid() == leafId
+        );
+    }
 }

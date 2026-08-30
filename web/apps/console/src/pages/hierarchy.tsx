@@ -33,6 +33,22 @@ export function HierarchyPage() {
       void invalidate();
     },
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const rename = useMutation({
+    mutationFn: (input: { id: string; name: string }) =>
+      api.put(`/api/hierarchy/nodes/${input.id}`, { name: input.name }),
+    onSuccess: () => {
+      setEditingId(null);
+      void invalidate();
+    },
+  });
+  const removeNode = useMutation({
+    mutationFn: (id: string) => api.del(`/api/hierarchy/nodes/${id}`),
+    onSuccess: invalidate,
+    onError: (e) =>
+      alert(String((e as { body?: { error?: string } }).body?.error ?? 'delete failed')),
+  });
 
   if (isError || !data) {
     return (
@@ -65,12 +81,75 @@ export function HierarchyPage() {
       <p className="text-sm text-muted-foreground">Levels: {data.levels.join(' → ')}</p>
       <Card>
         <CardContent className="pt-4">
-          <ul className="space-y-1 font-mono text-sm">
-            {data.nodes.map((n) => (
-              <li key={n.id} style={{ paddingLeft: `${n.depth * 1.25}rem` }}>
-                {n.depth > 0 ? '└ ' : ''}{n.name}
-              </li>
-            ))}
+          <ul className="space-y-1 text-sm">
+            {data.nodes.map((n) => {
+              const isLeaf =
+                !data.nodes.some((c) => c.parentId === n.id) && n.depth > 0;
+              return (
+                <li
+                  key={n.id}
+                  className="group flex items-center gap-2"
+                  style={{ paddingLeft: `${n.depth * 1.25}rem` }}
+                >
+                  {editingId === n.id ? (
+                    <>
+                      <Input
+                        className="h-7 w-48"
+                        value={editName}
+                        autoFocus
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && editName.trim())
+                            rename.mutate({ id: n.id, name: editName.trim() });
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!editName.trim() || rename.isPending}
+                        onClick={() => rename.mutate({ id: n.id, name: editName.trim() })}
+                      >
+                        Save
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono">
+                        {n.depth > 0 ? '└ ' : ''}{n.name}
+                      </span>
+                      <span className="invisible flex gap-1 group-hover:visible">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            setEditingId(n.id);
+                            setEditName(n.name);
+                          }}
+                        >
+                          Rename
+                        </Button>
+                        {isLeaf && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            disabled={removeNode.isPending}
+                            onClick={() => {
+                              if (window.confirm(`Delete node ${n.name}?`))
+                                removeNode.mutate(n.id);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </span>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </CardContent>
       </Card>

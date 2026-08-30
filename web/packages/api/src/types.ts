@@ -440,6 +440,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hierarchy/nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_hierarchy_nodes_id
+         * @description PUT_api_hierarchy_nodes_id
+         */
+        put: operations["PUT_api_hierarchy_nodes_id"];
+        post?: never;
+        /**
+         * DELETE_api_hierarchy_nodes_id
+         * @description DELETE_api_hierarchy_nodes_id
+         */
+        delete: operations["DELETE_api_hierarchy_nodes_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hierarchy/nodes/{id}/move": {
         parameters: {
             query?: never;
@@ -1827,6 +1851,9 @@ export interface components {
         PutSettingRequest: {
             value: string;
         };
+        RenameNodeRequest: {
+            name: string;
+        };
         RenameOrgRequest: {
             name: string;
         };
@@ -2658,6 +2685,72 @@ export interface operations {
                 "application/json": components["schemas"]["CreateNodeRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_hierarchy_nodes_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_hierarchy_nodes_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

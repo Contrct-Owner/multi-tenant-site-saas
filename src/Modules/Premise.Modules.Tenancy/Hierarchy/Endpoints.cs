@@ -14,6 +14,8 @@ public sealed record CreateNodeRequest(Guid ParentId, string Name);
 
 public sealed record MoveNodeRequest(Guid NewParentId);
 
+public sealed record RenameNodeRequest(string Name);
+
 public sealed record NodeResponse(Guid Id, Guid? ParentId, string Name, int Depth, string Path);
 
 public static class HierarchyEndpoints
@@ -114,6 +116,131 @@ public static class HierarchyEndpoints
         await db.SaveChangesAsync(ct);
         return Results.Ok(
             new NodeResponse(node.Id, node.ParentId, node.Name, node.Depth, node.Path.ToString())
+        );
+    }
+
+    /// <summary>
+    /// Names are display-only: paths use id-derived labels (never the name),
+    /// so a rename touches one row and no path, site, or stamped fact.
+    /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverinePut("/api/hierarchy/nodes/{id}")]
+    public static async Task<IResult> RenameNode(
+        Guid id,
+        RenameNodeRequest request,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        Wolverine.IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            return Results.BadRequest(new { error = "name must be 1-200 characters" });
+        var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == id, ct);
+        if (node is null)
+            return Results.NotFound();
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.HierarchyManage, ct);
+        if (!scope.Covers(node.Path.ToString()))
+            return Results.Forbid();
+
+        var previous = node.Name;
+        node.Name = request.Name.Trim();
+        await db.SaveChangesAsync(ct);
+        await PublishNodeAudit(
+            bus,
+            accessor,
+            node,
+            "hierarchy.node_renamed",
+            new
+            {
+                nodeId = node.Id,
+                from = previous,
+                to = node.Name,
+            }
+        );
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Delete an EMPTY leaf: no child nodes, no sites hanging from it. Sites
+    /// are never orphaned (they close, never delete - ADR 25) and subtrees
+    /// are dismantled deliberately, bottom-up. A role scoped to the deleted
+    /// path simply covers nothing from now on - the module ladder keeps
+    /// Tenancy from reading Identity's assignments, and grant evaluation is
+    /// monotonic, so a dangling scope is inert, not dangerous.
+    /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverineDelete("/api/hierarchy/nodes/{id}")]
+    public static async Task<IResult> DeleteNode(
+        Guid id,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        Wolverine.IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == id, ct);
+        if (node is null)
+            return Results.NotFound();
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.HierarchyManage, ct);
+        if (!scope.Covers(node.Path.ToString()))
+            return Results.Forbid();
+        if (node.ParentId is null)
+            return Results.BadRequest(new { error = "the root cannot be deleted" });
+
+        var children = await db.HierarchyNodes.CountAsync(n => n.ParentId == id, ct);
+        if (children > 0)
+            return Results.Conflict(
+                new { error = "node has child nodes - move or delete them first", children }
+            );
+        var sites = await db.Sites.CountAsync(s => s.NodeId == id, ct);
+        if (sites > 0)
+            return Results.Conflict(
+                new { error = "sites are attached to this node - move them first", sites }
+            );
+
+        db.HierarchyNodes.Remove(node);
+        await db.SaveChangesAsync(ct);
+        await PublishNodeAudit(
+            bus,
+            accessor,
+            node,
+            "hierarchy.node_deleted",
+            new
+            {
+                nodeId = node.Id,
+                node.Name,
+                path = node.Path.ToString(),
+            }
+        );
+        return Results.NoContent();
+    }
+
+    private static async Task PublishNodeAudit(
+        Wolverine.IMessageBus bus,
+        IPrincipalAccessor accessor,
+        HierarchyNode node,
+        string eventName,
+        object payload
+    )
+    {
+        var actor = accessor.Current as Principal.User;
+        await bus.PublishAsync(
+            new Premise.Contracts.RecordDomainAudit(
+                eventName,
+                System.Text.Json.JsonSerializer.Serialize(payload)
+            ),
+            new Wolverine.DeliveryOptions
+            {
+                TenantId = node.OrgId.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = actor?.UserId.ToString() ?? "",
+                },
+            }
         );
     }
 
