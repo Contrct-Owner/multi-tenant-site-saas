@@ -9,8 +9,13 @@ namespace Premise.Modules.Storage;
 
 public static class StorageModule
 {
-    public static IServiceCollection AddStorageModule(this IServiceCollection services)
+    public static IServiceCollection AddStorageModule(
+        this IServiceCollection services,
+        bool runBackgroundWork = false
+    )
     {
+        if (runBackgroundWork)
+            services.AddHostedService<FileTrashService>();
         services.AddDbContextWithWolverineIntegration<StorageDbContext>(
             (sp, options) =>
             {

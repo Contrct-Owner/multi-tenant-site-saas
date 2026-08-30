@@ -22,6 +22,9 @@ public sealed class FileObject : IOrgScoped
     public required Guid CreatedBy { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ScannedAt { get; set; }
+
+    /// <summary>UTC instant (ADR 26): when it entered the trash; null unless Status is Deleted.</summary>
+    public DateTimeOffset? DeletedAt { get; set; }
 }
 
 public enum FileStatus
@@ -31,4 +34,7 @@ public enum FileStatus
     Clean,
     Quarantined,
     Erased,
+
+    /// <summary>In the trash (ADR 25 tier 2): bytes retained, restorable until the window closes.</summary>
+    Deleted,
 }

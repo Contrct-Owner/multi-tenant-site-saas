@@ -11,8 +11,8 @@ import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
 
 type StoredFile = {
-  id: string; name: string; contentType: string;
-  status: string; legalHold: boolean; hasPreview: boolean; createdAt: string;
+  id: string; name: string; contentType: string; status: string;
+  legalHold: boolean; hasPreview: boolean; createdAt: string; deletedAt: string | null;
 };
 
 export function FilesPage() {
@@ -20,11 +20,12 @@ export function FilesPage() {
   const queryClient = useQueryClient();
   const manage = can(me, 'files:manage');
   const [phase, setPhase] = useState('');
+  const [trash, setTrash] = useState(false);
 
   const filesQuery = useInfiniteQuery({
-    queryKey: ['files', 'list'],
+    queryKey: ['files', 'list', trash],
     queryFn: ({ pageParam }) =>
-      api.get<Page<StoredFile>>(`/api/files?limit=50&offset=${pageParam}`),
+      api.get<Page<StoredFile>>(`/api/files?limit=50&offset=${pageParam}${trash ? '&trash=true' : ''}`),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
@@ -48,8 +49,13 @@ export function FilesPage() {
   const erase = useApiMutation({
     mutationFn: (id: string) => api.del(`/api/files/${id}`),
     invalidate: [['files']],
-    success: 'File erased',
-    errorFallback: 'Erase failed',
+    success: 'Moved to trash - restorable for 30 days',
+    errorFallback: 'Delete failed',
+  });
+  const restore = useApiMutation({
+    mutationFn: (id: string) => api.post(`/api/files/${id}/restore`),
+    invalidate: [['files']],
+    success: 'File restored',
   });
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -61,7 +67,13 @@ export function FilesPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Files</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Files</h1>
+          <Button variant={trash ? 'default' : 'ghost'} size="sm"
+            onClick={() => setTrash(!trash)}>
+            Trash
+          </Button>
+        </div>
         {manage && (
           <div className="flex items-center gap-3">
             {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
@@ -115,7 +127,13 @@ export function FilesPage() {
                         Download
                       </Button>
                     )}
-                    {manage && f.status !== 'Erased' && (
+                    {manage && f.status === 'Deleted' && (
+                      <Button variant="outline" size="sm" disabled={restore.isPending}
+                        onClick={() => restore.mutate(f.id)}>
+                        Restore
+                      </Button>
+                    )}
+                    {manage && f.status !== 'Erased' && f.status !== 'Deleted' && (
                       <>
                         <Button variant="ghost" size="sm" disabled={hold.isPending}
                           onClick={() => hold.mutate({ id: f.id, hold: !f.legalHold })}>
@@ -123,7 +141,7 @@ export function FilesPage() {
                         </Button>
                         <ConfirmButton size="sm" disabled={erase.isPending}
                           onConfirm={() => erase.mutate(f.id)}>
-                          Erase
+                          Delete
                         </ConfirmButton>
                       </>
                     )}

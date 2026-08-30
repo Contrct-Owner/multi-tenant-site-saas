@@ -31,6 +31,7 @@ public sealed class StorageDbContext(
                 .HasConversion<string>()
                 .HasMaxLength(20);
             b.Property(f => f.LegalHold).HasColumnName("legal_hold");
+            b.Property(f => f.DeletedAt).HasColumnName("deleted_at");
             b.Property(f => f.PreviewKey).HasColumnName("preview_key").HasMaxLength(520);
             b.Property(f => f.CreatedBy).HasColumnName("created_by");
             b.Property(f => f.CreatedAt).HasColumnName("created_at");

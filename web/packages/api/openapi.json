@@ -3192,6 +3192,13 @@
               ],
               "format": "int32"
             }
+          },
+          {
+            "name": "trash",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -3357,6 +3364,47 @@
         "summary": "DELETE_api_files_id",
         "description": "DELETE_api_files_id",
         "operationId": "DELETE_api_files_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/{id}/restore": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Storage.FileEndpoints"
+        ],
+        "summary": "POST_api_files_id_restore",
+        "description": "POST_api_files_id_restore",
+        "operationId": "POST_api_files_id_restore",
         "parameters": [
           {
             "name": "id",

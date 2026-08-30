@@ -1440,6 +1440,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/files/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_files_id_restore
+         * @description POST_api_files_id_restore
+         */
+        post: operations["POST_api_files_id_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/uploads": {
         parameters: {
             query?: never;
@@ -4960,6 +4980,7 @@ export interface operations {
                 q?: string;
                 limit?: number | string;
                 offset?: number | string;
+                trash?: boolean;
             };
             header?: never;
             path?: never;
@@ -5118,6 +5139,37 @@ export interface operations {
         };
     };
     DELETE_api_files_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_files_id_restore: {
         parameters: {
             query?: never;
             header?: never;

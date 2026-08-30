@@ -119,7 +119,7 @@ builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
 builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
 builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
-builder.Services.AddStorageModule();
+builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 
 // Platform infra context (idempotency, ADR 29)

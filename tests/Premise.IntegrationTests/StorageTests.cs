@@ -99,7 +99,7 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
-    public async Task Legal_hold_blocks_erasure_and_erasure_is_audited()
+    public async Task Legal_hold_blocks_deletion_and_deletion_is_audited()
     {
         var (client, fileId) = await Upload("evidence.txt", "hold me");
         await PollStatus(client, fileId, "Clean");
@@ -113,16 +113,16 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         (
             await client.PostAsJsonAsync($"/api/files/{fileId}/hold", new { hold = false })
         ).EnsureSuccessStatusCode();
-        var erased = await client.DeleteAsync($"/api/files/{fileId}");
-        Assert.Equal(HttpStatusCode.NoContent, erased.StatusCode);
+        var deleted = await client.DeleteAsync($"/api/files/{fileId}");
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
 
-        // bytes gone: even a fresh signing attempt has nothing to sign
+        // in the trash (tier 2): not downloadable, but restorable
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await client.GetAsync($"/api/files/{fileId}/download")).StatusCode
         );
 
-        // the act is a domain event (ADR 19: AUDITABLE erasure)
+        // the act is a domain event (ADR 19: AUDITABLE deletion)
         List<Premise.Modules.Audit.Data.DomainLogEntry> events = [];
         for (var i = 0; i < 50 && events.Count == 0; i++)
         {
@@ -133,7 +133,7 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                         .EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(
                             db.DomainEvents
                         )
-                        .Where(a => a.EventName == "file.erased")
+                        .Where(a => a.EventName == "file.deleted")
                 )
             )
                 .Where(a => a.Payload.Contains("evidence.txt")) // jsonb: filter in memory

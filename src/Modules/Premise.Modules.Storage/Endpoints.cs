@@ -103,12 +103,15 @@ public static class FileEndpoints
         string? q,
         int? limit,
         int? offset,
+        bool? trash,
         CancellationToken ct
     )
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesRead, ct))
             return Results.Unauthorized();
-        var query = db.Files.Where(f => f.Status != FileStatus.Erased);
+        var query = trash is true
+            ? db.Files.Where(f => f.Status == FileStatus.Deleted)
+            : db.Files.Where(f => f.Status != FileStatus.Erased && f.Status != FileStatus.Deleted);
         if (!string.IsNullOrWhiteSpace(q))
             query = query.Where(f => EF.Functions.ILike(f.Name, $"%{q.Trim()}%"));
         var total = await query.CountAsync(ct);
@@ -125,6 +128,7 @@ public static class FileEndpoints
                 f.Name,
                 f.ContentType,
                 status = f.Status.ToString(),
+                f.DeletedAt,
                 f.LegalHold,
                 hasPreview = f.PreviewKey != null,
                 f.CreatedAt,
@@ -192,12 +196,14 @@ public static class FileEndpoints
     }
 
     /// <summary>
-    /// Auditable erasure (ADR 19): bytes and derivatives go, the row stays as
-    /// a tombstone, and the act is a domain event. Legal hold blocks it.
+    /// Tier-2 deletion, as ADR 25 promises: into the TRASH with bytes
+    /// retained, restorable until the window closes (Storage:TrashRetentionDays,
+    /// default 30). The sweep erases bytes after that; the row stays as a
+    /// tombstone either way. Legal hold blocks even the trash.
     /// </summary>
     [Transactional(typeof(StorageDbContext))]
     [WolverineDelete("/api/files/{id}")]
-    public static async Task<IResult> Erase(
+    public static async Task<IResult> Delete(
         Guid id,
         StorageDbContext db,
         IObjectStore store,
@@ -210,21 +216,63 @@ public static class FileEndpoints
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return Results.Unauthorized();
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
-        if (file is null || file.Status == FileStatus.Erased)
+        if (file is null || file.Status is FileStatus.Erased or FileStatus.Deleted)
             return Results.NotFound();
         if (file.LegalHold)
             return Results.Conflict(new { error = "file is under legal hold" });
 
-        await store.DeleteAsync(file.Key, ct);
-        if (file.PreviewKey is { } previewKey)
-            await store.DeleteAsync(previewKey, ct);
-        file.Status = FileStatus.Erased;
-        file.PreviewKey = null;
+        // only CLEAN content earns the restore window; anything else
+        // (quarantined, never-scanned) erases immediately - a trash
+        // round-trip must never launder a quarantined file back to Clean
+        if (file.Status != FileStatus.Clean)
+        {
+            await store.DeleteAsync(file.Key, ct);
+            if (file.PreviewKey is { } previewKey)
+                await store.DeleteAsync(previewKey, ct);
+            file.Status = FileStatus.Erased;
+            file.PreviewKey = null;
+        }
+        else
+        {
+            file.Status = FileStatus.Deleted;
+            file.DeletedAt = DateTimeOffset.UtcNow;
+        }
         await db.SaveChangesAsync(ct);
 
         await bus.PublishAsync(
             new Premise.Contracts.RecordDomainAudit(
-                "file.erased",
+                file.Status == FileStatus.Deleted ? "file.deleted" : "file.erased",
+                System.Text.Json.JsonSerializer.Serialize(new { file.Id, file.Name })
+            ),
+            new DeliveryOptions { TenantId = file.OrgId.Value.ToString() }
+        );
+        return Results.NoContent();
+    }
+
+    [Transactional(typeof(StorageDbContext))]
+    [WolverinePost("/api/files/{id}/restore")]
+    public static async Task<IResult> Restore(
+        Guid id,
+        StorageDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
+            return Results.Unauthorized();
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
+        if (file is null || file.Status != FileStatus.Deleted)
+            return Results.NotFound();
+
+        file.Status = FileStatus.Clean; // only Clean files can enter the trash
+        file.DeletedAt = null;
+        await db.SaveChangesAsync(ct);
+
+        await bus.PublishAsync(
+            new Premise.Contracts.RecordDomainAudit(
+                "file.restored",
                 System.Text.Json.JsonSerializer.Serialize(new { file.Id, file.Name })
             ),
             new DeliveryOptions { TenantId = file.OrgId.Value.ToString() }
