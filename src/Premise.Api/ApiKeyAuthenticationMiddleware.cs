@@ -28,8 +28,12 @@ public sealed class ApiKeyAuthenticationMiddleware(RequestDelegate next)
         {
             var token = header["Bearer ".Length..];
             var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+            var now = DateTimeOffset.UtcNow;
             var key = await db.ApiKeys.FirstOrDefaultAsync(
-                k => k.SecretHash == hash && k.RevokedAt == null,
+                k =>
+                    k.SecretHash == hash
+                    && k.RevokedAt == null
+                    && (k.ExpiresAt == null || k.ExpiresAt > now),
                 context.RequestAborted
             );
             if (key is null)

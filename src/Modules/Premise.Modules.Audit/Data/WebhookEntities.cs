@@ -13,12 +13,23 @@ public sealed class WebhookEndpoint : IOrgScoped
     public required Guid Id { get; init; }
     public required OrgId OrgId { get; init; }
     public required string Url { get; init; }
-    public required byte[] EncryptedSecret { get; init; }
+    public required byte[] EncryptedSecret { get; set; }
 
     /// <summary>Event names to deliver; "prefix.*" wildcards allowed; empty = everything.</summary>
     public string[] Events { get; set; } = [];
 
     public bool Active { get; set; } = true;
+
+    /// <summary>
+    /// Rotation's dual-secret window: deliveries are signed with BOTH secrets
+    /// until the previous one expires, so the consumer swaps at their own
+    /// pace with zero rejected deliveries.
+    /// </summary>
+    public byte[]? PreviousEncryptedSecret { get; set; }
+
+    /// <summary>UTC instant (ADR 26): when the previous secret stops signing.</summary>
+    public DateTimeOffset? PreviousSecretExpiresAt { get; set; }
+
     public required Guid CreatedBy { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 

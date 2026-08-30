@@ -60,6 +60,7 @@ public sealed class IdentityDbContext(
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.LastUsedAt).HasColumnName("last_used_at");
             b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.HasIndex(x => x.SecretHash).IsUnique();
             b.HasIndex(x => x.OrgId);
         });

@@ -63,6 +63,15 @@ function ApiKeysCard() {
     invalidate: [['api-keys']],
     success: 'Key revoked',
   });
+  const rotate = useApiMutation({
+    mutationFn: (id: string) =>
+      api.post<{ id: string; secret: string }>(`/api/api-keys/${id}/rotate`, {}),
+    invalidate: [['api-keys']],
+    onSuccess: ({ secret: revealed }) => {
+      setSecret(revealed);
+      setOpen(true); // the reveal lives in the dialog - open it to show the new secret
+    },
+  });
 
   return (
     <Card>
@@ -134,12 +143,19 @@ function ApiKeysCard() {
                   <TableCell className="text-muted-foreground">
                     {k.revoked ? 'Revoked' : k.lastUsedAt ? fmtDateTime(k.lastUsedAt) : 'never'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="space-x-1 text-right">
                     {!k.revoked && (
-                      <ConfirmButton size="sm" disabled={revoke.isPending}
-                        onConfirm={() => revoke.mutate(k.id)}>
-                        Revoke
-                      </ConfirmButton>
+                      <>
+                        <ConfirmButton variant="ghost" size="sm" disabled={rotate.isPending}
+                          confirmLabel="Rotate? Old key gets 24h"
+                          onConfirm={() => rotate.mutate(k.id)}>
+                          Rotate
+                        </ConfirmButton>
+                        <ConfirmButton size="sm" disabled={revoke.isPending}
+                          onConfirm={() => revoke.mutate(k.id)}>
+                          Revoke
+                        </ConfirmButton>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
@@ -187,6 +203,14 @@ function WebhooksCard() {
     mutationFn: (id: string) => api.del(`/api/webhooks/${id}`),
     invalidate: [['webhooks']],
     success: 'Webhook deleted',
+  });
+  const rotateSecret = useApiMutation({
+    mutationFn: (id: string) => api.post<{ secret: string }>(`/api/webhooks/${id}/rotate-secret`),
+    invalidate: [['webhooks']],
+    onSuccess: ({ secret: revealed }) => {
+      setSecret(revealed);
+      setOpen(true); // the reveal lives in the dialog - open it to show the new secret
+    },
   });
 
   return (
@@ -271,6 +295,11 @@ function WebhooksCard() {
                       onClick={() => ping.mutate(h.id)}>
                       Ping
                     </Button>
+                    <ConfirmButton variant="ghost" size="sm" disabled={rotateSecret.isPending}
+                      confirmLabel="Rotate? Old secret signs 24h"
+                      onConfirm={() => rotateSecret.mutate(h.id)}>
+                      Rotate secret
+                    </ConfirmButton>
                     <ConfirmButton size="sm" disabled={remove.isPending}
                       onConfirm={() => remove.mutate(h.id)}>
                       Delete

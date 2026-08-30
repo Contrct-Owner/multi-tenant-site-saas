@@ -114,6 +114,57 @@ public static class WebhookManagementEndpoints
         return Results.Ok(new { endpoint.Id, secret });
     }
 
+    /// <summary>
+    /// Zero-downtime secret rotation: deliveries sign with BOTH secrets for
+    /// the overlap window (an extra v1 entry in the signature header, the
+    /// Stripe convention), so the consumer swaps at their own pace and never
+    /// rejects a delivery.
+    /// </summary>
+    [Transactional(typeof(AuditDbContext))]
+    [WolverinePost("/api/webhooks/{id}/rotate-secret")]
+    public static async Task<IResult> RotateSecret(
+        Guid id,
+        AuditDbContext db,
+        IKeyWrapper kms,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
+            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
+        )
+            return Results.Unauthorized();
+        var endpoint = await db.WebhookEndpoints.FirstOrDefaultAsync(
+            w => w.Id == id && w.OrgId == org,
+            ct
+        );
+        if (endpoint is null)
+            return Results.NotFound();
+
+        var secret =
+            "whsec_"
+            + Convert
+                .ToBase64String(RandomNumberGenerator.GetBytes(24))
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .TrimEnd('=');
+        endpoint.PreviousEncryptedSecret = endpoint.EncryptedSecret;
+        endpoint.PreviousSecretExpiresAt = DateTimeOffset.UtcNow.AddHours(24);
+        endpoint.EncryptedSecret = await EnvelopeCrypto.EncryptAsync(secret, kms, ct);
+        await db.SaveChangesAsync(ct);
+        // the one and only time the new signing secret leaves the server
+        return Results.Ok(
+            new
+            {
+                endpoint.Id,
+                secret,
+                previousSecretExpiresAt = endpoint.PreviousSecretExpiresAt,
+            }
+        );
+    }
+
     [Transactional(typeof(AuditDbContext))]
     [WolverineDelete("/api/webhooks/{id}")]
     public static async Task<IResult> Delete(

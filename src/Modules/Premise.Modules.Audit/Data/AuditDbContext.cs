@@ -100,6 +100,8 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
             b.Property(x => x.EncryptedSecret).HasColumnName("encrypted_secret");
             b.Property(x => x.Events).HasColumnName("events");
             b.Property(x => x.Active).HasColumnName("active");
+            b.Property(x => x.PreviousEncryptedSecret).HasColumnName("previous_encrypted_secret");
+            b.Property(x => x.PreviousSecretExpiresAt).HasColumnName("previous_secret_expires_at");
             b.Property(x => x.CreatedBy).HasColumnName("created_by");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => x.OrgId);

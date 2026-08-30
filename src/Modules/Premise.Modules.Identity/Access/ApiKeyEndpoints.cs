@@ -11,7 +11,14 @@ using Wolverine.Http;
 
 namespace Premise.Modules.Identity.Access;
 
-public sealed record CreateApiKeyRequest(string Name, Guid RoleId, string? ScopePath = null);
+public sealed record CreateApiKeyRequest(
+    string Name,
+    Guid RoleId,
+    string? ScopePath = null,
+    int? ExpiresInDays = null
+);
+
+public sealed record RotateApiKeyRequest(int? OverlapHours = null);
 
 /// <summary>
 /// API-key custody (ADR 40): create shows the secret ONCE, the list shows
@@ -49,6 +56,7 @@ public static class ApiKeyEndpoints
                 key.ScopePath,
                 key.CreatedAt,
                 key.LastUsedAt,
+                key.ExpiresAt,
                 revoked = key.RevokedAt != null,
             }
         ).ToListAsync(ct);
@@ -76,6 +84,8 @@ public static class ApiKeyEndpoints
             return Results.BadRequest(new { error = "name must be 1-120 characters" });
         if (!await db.Roles.AnyAsync(r => r.Id == request.RoleId && r.OrgId == org, ct))
             return Results.NotFound(new { error = "unknown role" });
+        if (request.ExpiresInDays is < 1 or > 3650)
+            return Results.BadRequest(new { error = "expiresInDays must be 1-3650" });
 
         var secret =
             "premise_"
@@ -94,6 +104,9 @@ public static class ApiKeyEndpoints
             RoleId = request.RoleId,
             ScopePath = request.ScopePath,
             CreatedBy = userId,
+            ExpiresAt = request.ExpiresInDays is { } days
+                ? DateTimeOffset.UtcNow.AddDays(days)
+                : null,
         };
         db.ApiKeys.Add(key);
         await db.SaveChangesAsync(ct);
@@ -105,6 +118,76 @@ public static class ApiKeyEndpoints
                 key.Id,
                 secret,
                 key.Prefix,
+            }
+        );
+    }
+
+    /// <summary>
+    /// Zero-downtime rotation: a NEW key (same name, role, scope) is minted
+    /// and the old one gets an overlap window instead of dying instantly -
+    /// swap the consumer at leisure, the old credential retires itself.
+    /// </summary>
+    [Transactional(typeof(IdentityDbContext))]
+    [WolverinePost("/api/api-keys/{id}/rotate")]
+    public static async Task<IResult> Rotate(
+        Guid id,
+        RotateApiKeyRequest request,
+        IdentityDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
+            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
+        )
+            return Results.Unauthorized();
+        if (request.OverlapHours is < 0 or > 168)
+            return Results.BadRequest(new { error = "overlapHours must be 0-168" });
+        var old = await db.ApiKeys.FirstOrDefaultAsync(
+            k => k.Id == id && k.OrgId == org && k.RevokedAt == null,
+            ct
+        );
+        if (old is null)
+            return Results.NotFound();
+
+        var secret =
+            "premise_"
+            + Convert
+                .ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .TrimEnd('=');
+        var replacement = new ApiKey
+        {
+            Id = Guid.CreateVersion7(),
+            OrgId = org,
+            Name = old.Name,
+            SecretHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret))),
+            Prefix = secret[..16],
+            RoleId = old.RoleId,
+            ScopePath = old.ScopePath,
+            CreatedBy = userId,
+            ExpiresAt = old.ExpiresAt is { } lifetime
+                ? DateTimeOffset.UtcNow + (lifetime - old.CreatedAt) // same lifetime as the original
+                : null,
+        };
+        db.ApiKeys.Add(replacement);
+        var overlap = DateTimeOffset.UtcNow.AddHours(request.OverlapHours ?? 24);
+        old.ExpiresAt = old.ExpiresAt is { } existing && existing < overlap ? existing : overlap;
+        await db.SaveChangesAsync(ct);
+        await PublishAudit(bus, org, userId, "apikey.rotated", replacement.Id, replacement.Name);
+        // the one and only time the new secret leaves the server
+        return Results.Ok(
+            new
+            {
+                replacement.Id,
+                secret,
+                replacement.Prefix,
+                oldKeyExpiresAt = old.ExpiresAt,
             }
         );
     }

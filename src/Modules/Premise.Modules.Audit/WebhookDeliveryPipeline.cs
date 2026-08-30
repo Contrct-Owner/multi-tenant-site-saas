@@ -71,12 +71,17 @@ public static class DeliverWebhookHandler
         );
         var secret = await EnvelopeCrypto.DecryptAsync(endpoint.EncryptedSecret, kms, ct);
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signature = Convert.ToHexStringLower(
-            HMACSHA256.HashData(
-                Encoding.UTF8.GetBytes(secret),
-                Encoding.UTF8.GetBytes($"{timestamp}.{body}")
-            )
-        );
+        var signatureHeader = $"t={timestamp},v1={Sign(secret, timestamp, body)}";
+        // rotation's dual-secret window: a second v1 entry signed with the
+        // OLD secret, so consumers verifying against either one succeed
+        if (
+            endpoint.PreviousEncryptedSecret is { } previousCiphertext
+            && endpoint.PreviousSecretExpiresAt > DateTimeOffset.UtcNow
+        )
+        {
+            var previous = await EnvelopeCrypto.DecryptAsync(previousCiphertext, kms, ct);
+            signatureHeader += $",v1={Sign(previous, timestamp, body)}";
+        }
 
         int? statusCode = null;
         var ok = false;
@@ -87,7 +92,7 @@ public static class DeliverWebhookHandler
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
-            request.Headers.Add("X-Premise-Signature", $"t={timestamp},v1={signature}");
+            request.Headers.Add("X-Premise-Signature", signatureHeader);
             request.Headers.Add("X-Premise-Event", message.EventName);
             using var response = await http.SendAsync(request, ct);
             statusCode = (int)response.StatusCode;
@@ -125,4 +130,12 @@ public static class DeliverWebhookHandler
             );
         }
     }
+
+    private static string Sign(string secret, long timestamp, string body) =>
+        Convert.ToHexStringLower(
+            HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(secret),
+                Encoding.UTF8.GetBytes($"{timestamp}.{body}")
+            )
+        );
 }

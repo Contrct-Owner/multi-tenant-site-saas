@@ -1873,6 +1873,57 @@
         }
       }
     },
+    "/api/api-keys/{id}/rotate": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ApiKeyEndpoints"
+        ],
+        "summary": "POST_api_api_keys_id_rotate",
+        "description": "POST_api_api_keys_id_rotate",
+        "operationId": "POST_api_api_keys_id_rotate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/api-keys/{id}": {
       "delete": {
         "tags": [
@@ -2878,6 +2929,47 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "POST_api_webhooks_id_rotate_secret",
+        "description": "POST_api_webhooks_id_rotate_secret",
+        "operationId": "POST_api_webhooks_id_rotate_secret",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -4221,6 +4313,15 @@
               "null",
               "string"
             ]
+          },
+          "expiresInDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -4594,6 +4695,20 @@
         "properties": {
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "RotateApiKeyRequest": {
+        "type": "object",
+        "properties": {
+          "overlapHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

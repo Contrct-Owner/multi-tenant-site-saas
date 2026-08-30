@@ -111,8 +111,12 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
         if (_memo.TryGetValue((service.KeyId, service.Org, action), out var cached))
             return cached;
         var (domain, verb) = Split(action);
+        var now = DateTimeOffset.UtcNow;
         var key = await db.ApiKeys.FirstOrDefaultAsync(
-            k => k.Id == service.KeyId && k.RevokedAt == null,
+            k =>
+                k.Id == service.KeyId
+                && k.RevokedAt == null
+                && (k.ExpiresAt == null || k.ExpiresAt > now),
             ct
         );
         NodeScope scope = NodeScope.Nothing;

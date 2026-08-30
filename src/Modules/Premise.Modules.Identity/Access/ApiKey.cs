@@ -29,4 +29,7 @@ public sealed class ApiKey
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastUsedAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
+
+    /// <summary>UTC instant (ADR 26); null = non-expiring. Rotation sets it on the OLD key: the overlap window.</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
 }

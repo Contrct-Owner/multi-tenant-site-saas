@@ -796,6 +796,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/api-keys/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_api_keys_id_rotate
+         * @description POST_api_api_keys_id_rotate
+         */
+        post: operations["POST_api_api_keys_id_rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/api-keys/{id}": {
         parameters: {
             query?: never;
@@ -1230,6 +1250,26 @@ export interface paths {
          * @description POST_api_webhooks
          */
         post: operations["POST_api_webhooks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/{id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_webhooks_id_rotate_secret
+         * @description POST_api_webhooks_id_rotate_secret
+         */
+        post: operations["POST_api_webhooks_id_rotate_secret"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2301,6 +2341,8 @@ export interface components {
             /** Format: uuid */
             roleId: string;
             scopePath?: null | string;
+            /** Format: int32 */
+            expiresInDays?: null | number | string;
         };
         CreateConnectorRequest: {
             name: string;
@@ -2398,6 +2440,10 @@ export interface components {
         };
         RenameOrgRequest: {
             name: string;
+        };
+        RotateApiKeyRequest: {
+            /** Format: int32 */
+            overlapHours?: null | number | string;
         };
         SetAuditConfigRequest: {
             logGrants: boolean;
@@ -3924,6 +3970,41 @@ export interface operations {
             };
         };
     };
+    POST_api_api_keys_id_rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     DELETE_api_api_keys_id: {
         parameters: {
             query?: never;
@@ -4724,6 +4805,37 @@ export interface operations {
                 "application/json": components["schemas"]["CreateWebhookRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_webhooks_id_rotate_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
