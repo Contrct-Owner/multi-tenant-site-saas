@@ -9,7 +9,11 @@ namespace Premise.Modules.Identity.Auth;
 /// Lets the template run and its test suites authenticate with no external
 /// account. Program blocks it in Production.
 /// </summary>
-public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory, IUserProvisioning
+public sealed class LocalAuthProvider
+    : IAuthProvider,
+        IOrganizationDirectory,
+        IUserProvisioning,
+        IUserLifecycle
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<
         string,
@@ -21,6 +25,25 @@ public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory, I
 
     public Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default) =>
         Task.FromResult($"local_org_{Interlocked.Increment(ref _sequence):D6}");
+
+    public Task UpdateUserNameAsync(
+        string externalUserId,
+        string name,
+        CancellationToken ct = default
+    ) => Task.CompletedTask;
+
+    public Task<Uri?> BeginPasswordResetAsync(string email, CancellationToken ct = default) =>
+        Task.FromResult<Uri?>(
+            new Uri($"http://localhost/reset?email={Uri.EscapeDataString(email)}")
+        );
+
+    public Task DeleteUserAsync(string externalUserId, CancellationToken ct = default) =>
+        Task.CompletedTask;
+
+    public Task RevokeProviderSessionsAsync(
+        string externalUserId,
+        CancellationToken ct = default
+    ) => Task.CompletedTask;
 
     public Task DeleteOrganizationAsync(string externalOrgId, CancellationToken ct = default) =>
         Task.CompletedTask;

@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { Shell } from './shell';
+import { AccountPage } from './pages/account';
 import { AuditPage } from './pages/audit';
 import { DashboardPage } from './pages/dashboard';
 import { HierarchyPage } from './pages/hierarchy';
@@ -30,6 +31,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: '/audit', component: AuditPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/operator', component: OperatorPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/account', component: AccountPage }),
 ];
 
 export const router = createRouter({ routeTree: rootRoute.addChildren(routes) });

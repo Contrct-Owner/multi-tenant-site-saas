@@ -226,6 +226,7 @@ var app = builder.Build();
 if (role == "api")
 {
     app.UseAuthentication();
+    app.UseMiddleware<SessionValidationMiddleware>();
     app.UseMiddleware<GuestSessionMiddleware>();
     app.UseMiddleware<GuestOrgMiddleware>();
     app.UseRateLimiter();
@@ -236,6 +237,7 @@ if (role == "api")
 
     app.MapOpenApi();
     app.MapIdentityEndpoints();
+    app.MapAccountEndpoints();
     app.MapContactLinkEndpoints();
     app.MapWolverineEndpoints();
     app.MapGet(

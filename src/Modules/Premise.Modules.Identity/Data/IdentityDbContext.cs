@@ -21,6 +21,7 @@ public sealed class IdentityDbContext(
     public DbSet<MembershipRole> MembershipRoles => Set<MembershipRole>();
     public DbSet<GrantException> GrantExceptions => Set<GrantException>();
     public DbSet<InvitedRole> InvitedRoles => Set<InvitedRole>();
+    public DbSet<UserSession> Sessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,18 @@ public sealed class IdentityDbContext(
             b.Property(u => u.CreatedAt).HasColumnName("created_at");
             b.HasIndex(u => new { u.Provider, u.Subject }).IsUnique();
             b.HasIndex(u => u.Email);
+        });
+
+        modelBuilder.Entity<UserSession>(b =>
+        {
+            b.ToTable("user_sessions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.UserAgent).HasColumnName("user_agent").HasMaxLength(200);
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            b.HasIndex(x => x.UserId);
         });
 
         modelBuilder.Entity<Membership>(b =>

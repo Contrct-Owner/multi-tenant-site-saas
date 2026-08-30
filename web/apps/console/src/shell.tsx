@@ -84,7 +84,12 @@ export function Shell({ children }: { children: ReactNode }) {
             </select>
           )}
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs text-muted-foreground">{me.email}</span>
+            <Link
+              to="/account"
+              className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {me.email}
+            </Link>
             <Button
               variant="ghost"
               size="sm"

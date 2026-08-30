@@ -96,6 +96,26 @@ public interface IUserProvisioning
     Task EnsureUserAsync(string email, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Optional capability (ADR 14): the provider-side half of account self
+/// service. Name changes sync so AuthKit greets the user correctly; password
+/// resets are MINTED by the provider (we only deliver the link); deletion is
+/// the GDPR path - the provider's user record goes with ours. Provider
+/// session revocation is best-effort defense in depth: OUR cookie sessions
+/// are the enforcement point.
+/// </summary>
+public interface IUserLifecycle
+{
+    Task UpdateUserNameAsync(string externalUserId, string name, CancellationToken ct = default);
+
+    /// <summary>Returns the reset URL to deliver, or null when the provider handles delivery itself.</summary>
+    Task<Uri?> BeginPasswordResetAsync(string email, CancellationToken ct = default);
+
+    Task DeleteUserAsync(string externalUserId, CancellationToken ct = default);
+
+    Task RevokeProviderSessionsAsync(string externalUserId, CancellationToken ct = default);
+}
+
 public sealed record PendingInvitation(
     string Id,
     string Email,

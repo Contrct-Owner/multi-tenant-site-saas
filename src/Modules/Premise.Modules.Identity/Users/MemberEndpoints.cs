@@ -82,7 +82,11 @@ public static class MemberEndpoints
                 .Cookies
                 .CookieAuthenticationDefaults
                 .AuthenticationScheme,
-            Auth.AuthEndpoints.BuildClaimsPrincipal(user, nextOrg)
+            Auth.AuthEndpoints.BuildClaimsPrincipal(
+                user,
+                nextOrg,
+                Auth.AuthEndpoints.GetSessionId(http.User)
+            )
         );
         return Results.NoContent();
     }

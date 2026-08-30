@@ -23,7 +23,11 @@ public sealed class WorkOSOptions
 /// lifecycle. Grants, entitlements, and audit stay internal (ADRs 6/10/12) -
 /// WorkOS is identity and org directory only.
 /// </summary>
-public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory, IUserProvisioning
+public sealed class WorkOSAuthProvider
+    : IAuthProvider,
+        IOrganizationDirectory,
+        IUserProvisioning,
+        IUserLifecycle
 {
     private readonly WorkOSClient _client;
     private readonly string _clientId;
@@ -100,6 +104,45 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory, 
         }
         catch (ApiException) // already exists: sign-up is idempotent
         { }
+    }
+
+    public async Task UpdateUserNameAsync(
+        string externalUserId,
+        string name,
+        CancellationToken ct = default
+    ) =>
+        await _client.UserManagement.UpdateAsync(
+            externalUserId,
+            new UserManagementUpdateOptions { Name = name },
+            cancellationToken: ct
+        );
+
+    public async Task<Uri?> BeginPasswordResetAsync(string email, CancellationToken ct = default)
+    {
+        var reset = await _client.UserManagement.ResetPasswordAsync(
+            new UserManagementResetPasswordOptions { Email = email },
+            cancellationToken: ct
+        );
+        return reset.PasswordResetUrl is { } url ? new Uri(url) : null;
+    }
+
+    public async Task DeleteUserAsync(string externalUserId, CancellationToken ct = default) =>
+        await _client.UserManagement.DeleteAsync(externalUserId, cancellationToken: ct);
+
+    public async Task RevokeProviderSessionsAsync(
+        string externalUserId,
+        CancellationToken ct = default
+    )
+    {
+        var sessions = await _client.UserManagement.ListSessionsAsync(
+            externalUserId,
+            cancellationToken: ct
+        );
+        foreach (var session in sessions.Data ?? [])
+            await _client.UserManagement.RevokeSessionAsync(
+                new UserManagementRevokeSessionOptions { SessionId = session.Id },
+                cancellationToken: ct
+            );
     }
 
     public async Task DeleteOrganizationAsync(

@@ -64,6 +64,39 @@ public class WorkOSAdapterTests(WorkOSEmulatorFixture fixture)
     : IClassFixture<WorkOSEmulatorFixture>
 {
     [Fact]
+    public async Task User_lifecycle_capability_runs_against_the_emulator()
+    {
+        var lifecycle = (Premise.Platform.Auth.IUserLifecycle)
+            fixture.Factory.Services.GetRequiredService<Premise.Platform.Auth.IAuthProvider>();
+        var provisioning = (Premise.Platform.Auth.IUserProvisioning)
+            fixture.Factory.Services.GetRequiredService<Premise.Platform.Auth.IAuthProvider>();
+
+        await provisioning.EnsureUserAsync("lifecycle@smoke.test");
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Authorization = new("Bearer", "sk_test_default");
+        var users = await http.GetFromJsonAsync<JsonElement>(
+            $"{fixture.EmulatorUrl}/user_management/users?email=lifecycle@smoke.test"
+        );
+        var externalId = users.GetProperty("data")[0].GetProperty("id").GetString()!;
+
+        // rename syncs to the provider
+        await lifecycle.UpdateUserNameAsync(externalId, "Smoke Renamed");
+
+        // the provider MINTS the password reset. Real WorkOS returns the
+        // reset URL; the emulator returns only the token, so null (meaning
+        // "the provider handles delivery") is a valid outcome here - the
+        // point is the create call round-trips.
+        await lifecycle.BeginPasswordResetAsync("lifecycle@smoke.test");
+
+        // GDPR: the provider record goes too
+        await lifecycle.DeleteUserAsync(externalId);
+        var after = await http.GetFromJsonAsync<JsonElement>(
+            $"{fixture.EmulatorUrl}/user_management/users?email=lifecycle@smoke.test"
+        );
+        Assert.Equal(0, after.GetProperty("data").GetArrayLength());
+    }
+
+    [Fact]
     public async Task Directory_capability_runs_against_the_emulator()
     {
         var provider = (Premise.Platform.Auth.IOrganizationDirectory)

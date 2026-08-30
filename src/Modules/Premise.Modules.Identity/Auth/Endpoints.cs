@@ -177,9 +177,19 @@ public static class AuthEndpoints
                     .Select(m => (OrgId?)m.OrgId)
                     .FirstOrDefaultAsync(ct);
 
+                // server-side session record: the cookie's revocation authority
+                var session = new Users.UserSession
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = user.Id,
+                    UserAgent = Truncate(http.Request.Headers.UserAgent.ToString(), 200),
+                };
+                db.Sessions.Add(session);
+                await db.SaveChangesAsync(ct);
+
                 await http.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
-                    BuildClaimsPrincipal(user, activeOrg)
+                    BuildClaimsPrincipal(user, activeOrg, session.Id)
                 );
                 return Results.Redirect(returnUrl);
             }
@@ -187,8 +197,15 @@ public static class AuthEndpoints
 
         app.MapPost(
             "/auth/logout",
-            async (HttpContext http) =>
+            async (HttpContext http, IdentityDbContext db, CancellationToken ct) =>
             {
+                if (GetSessionId(http.User) is { } sid)
+                    await db
+                        .Sessions.Where(x => x.Id == sid && x.RevokedAt == null)
+                        .ExecuteUpdateAsync(
+                            u => u.SetProperty(x => x.RevokedAt, DateTimeOffset.UtcNow),
+                            ct
+                        );
                 await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                 return Results.NoContent();
             }
@@ -216,7 +233,7 @@ public static class AuthEndpoints
                 var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
                 await http.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
-                    BuildClaimsPrincipal(user, target)
+                    BuildClaimsPrincipal(user, target, GetSessionId(http.User))
                 );
                 return Results.NoContent();
             }
@@ -302,7 +319,11 @@ public static class AuthEndpoints
         return app;
     }
 
-    public static ClaimsPrincipal BuildClaimsPrincipal(AppUser user, OrgId? activeOrg)
+    public static ClaimsPrincipal BuildClaimsPrincipal(
+        AppUser user,
+        OrgId? activeOrg,
+        Guid? sessionId
+    )
     {
         var claims = new List<Claim>
         {
@@ -314,6 +335,8 @@ public static class AuthEndpoints
             claims.Add(new Claim(PremiseClaims.DisplayName, name));
         if (activeOrg is { } org)
             claims.Add(new Claim(PremiseClaims.ActiveOrg, org.Value.ToString()));
+        if (sessionId is { } sid)
+            claims.Add(new Claim(PremiseClaims.SessionId, sid.ToString()));
         return new ClaimsPrincipal(
             new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)
         );
@@ -321,6 +344,14 @@ public static class AuthEndpoints
 
     private static Guid? GetUserId(ClaimsPrincipal user) =>
         Guid.TryParse(user.FindFirstValue(PremiseClaims.UserId), out var id) ? id : null;
+
+    internal static Guid? GetSessionId(ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(PremiseClaims.SessionId), out var id) ? id : null;
+
+    private static string? Truncate(string? value, int max) =>
+        string.IsNullOrEmpty(value) ? null
+        : value.Length <= max ? value
+        : value[..max];
 
     private static string CallbackUri(HttpContext http) =>
         $"{http.Request.Scheme}://{http.Request.Host}/auth/callback";
