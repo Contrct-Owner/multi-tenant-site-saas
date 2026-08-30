@@ -574,6 +574,36 @@
         }
       }
     },
+    "/api/listings/feed": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ListingsFeedEndpoint"
+        ],
+        "summary": "GET_api_listings_feed",
+        "description": "GET_api_listings_feed",
+        "operationId": "GET_api_listings_feed",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/public/org": {
       "get": {
         "tags": [
@@ -5283,6 +5313,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.ListingsFeedEndpoint"
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"

@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-The 43 settled decisions for this template, from the design brainstorm of
+The 44 settled decisions for this template, from the design brainstorm of
 2026-08-29. The human-readable register (same content, with the three-gates
 overview and build sequence) is published from `design-decisions.html`.
 
@@ -60,3 +60,4 @@ confirmation on edits under this directory.
 - [0041. Enterprise SSO self-service and directory sync](0041-enterprise-sso-directory-sync.md)
 - [0042. Support impersonation](0042-support-impersonation.md)
 - [0043. Locator: geo search, map, embed](0043-locator-geo-map-embed.md)
+- [0044. Listings foundation: canonical feed + change webhooks](0044-listings-foundation.md)
