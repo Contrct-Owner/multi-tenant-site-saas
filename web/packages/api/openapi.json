@@ -1352,6 +1352,36 @@
         }
       }
     },
+    "/auth/directory/webhook": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Users.DirectoryWebhookEndpoint"
+        ],
+        "summary": "POST_auth_directory_webhook",
+        "description": "POST_auth_directory_webhook",
+        "operationId": "POST_auth_directory_webhook",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/members/leave": {
       "post": {
         "tags": [
@@ -1572,6 +1602,76 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/sso": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Users.SsoEndpoints"
+        ],
+        "summary": "GET_api_org_sso",
+        "description": "GET_api_org_sso",
+        "operationId": "GET_api_org_sso",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/sso/portal": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Users.SsoEndpoints"
+        ],
+        "summary": "POST_api_org_sso_portal",
+        "description": "POST_api_org_sso_portal",
+        "operationId": "POST_api_org_sso_portal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoPortalRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4396,6 +4496,24 @@
           null
         ]
       },
+      "SsoPortalRequest": {
+        "required": [
+          "intent",
+          "returnPath"
+        ],
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string"
+          },
+          "returnPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "StageUploadRequest": {
         "required": [
           "fileId"
@@ -4545,7 +4663,13 @@
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
     },
     {
+      "name": "Premise.Modules.Identity.Users.DirectoryWebhookEndpoint"
+    },
+    {
       "name": "Premise.Modules.Identity.Users.MemberEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Users.SsoEndpoints"
     },
     {
       "name": "Premise.Modules.Identity.Auth.ContactManagementEndpoints"

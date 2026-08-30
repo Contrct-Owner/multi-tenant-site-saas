@@ -55,6 +55,9 @@ public static class EntitlementCatalog
     /// <summary>Whether the plan includes read/access logging at all (the entitlement half of the audit policy).</summary>
     public const string AuditReadLogging = "audit.read_logging";
 
+    /// <summary>Enterprise SSO + directory sync self-service (ADR 41's boolean gate on the admin portal).</summary>
+    public const string SsoEnabled = "sso.enabled";
+
     public static readonly IReadOnlyDictionary<string, EntitlementDescriptor> Definitions =
         new Dictionary<string, EntitlementDescriptor>
         {
@@ -90,6 +93,7 @@ public static class EntitlementCatalog
                 LimitPolicy.Block,
                 "true"
             ),
+            [SsoEnabled] = new(SsoEnabled, EntitlementShape.Boolean, LimitPolicy.Block, "false"),
         };
 
     /// <summary>Grace allows this fraction over the ceiling before blocking (ADR 9).</summary>

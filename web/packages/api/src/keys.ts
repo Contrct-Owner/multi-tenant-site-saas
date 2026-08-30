@@ -27,6 +27,7 @@ export const ENTITLEMENTS = {
   'contact_links.monthly': { shape: 'Metered', policy: 'Grace', defaultValue: '1000' },
   'hierarchy.depth': { shape: 'Limit', policy: 'Block', defaultValue: '4' },
   'sites.max': { shape: 'Limit', policy: 'Block', defaultValue: '100' },
+  'sso.enabled': { shape: 'Boolean', policy: 'Block', defaultValue: 'false' },
 } as const;
 
 export type EntitlementCode = keyof typeof ENTITLEMENTS;

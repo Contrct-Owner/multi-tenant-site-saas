@@ -16,7 +16,7 @@ namespace Premise.IntegrationTests;
 /// a faithful API implementation. Non-interactive mode auto-issues the code,
 /// so the whole AuthKit dance runs headless.
 /// </summary>
-public sealed class WorkOSEmulatorFixture : ApiFixture
+public class WorkOSEmulatorFixture : ApiFixture
 {
     private IContainer _emulator = null!;
     public string EmulatorUrl { get; private set; } = null!;
@@ -114,6 +114,23 @@ public class WorkOSAdapterTests(WorkOSEmulatorFixture fixture)
         await provider.RevokeInvitationAsync(invitationId);
         var after = await provider.ListInvitationsAsync(externalOrgId);
         Assert.DoesNotContain(after, i => i.Id == invitationId && i.State == "pending");
+    }
+
+    [Fact]
+    public async Task Admin_portal_capability_runs_against_the_emulator()
+    {
+        var provider =
+            fixture.Factory.Services.GetRequiredService<Premise.Platform.Auth.IAuthProvider>();
+        var directory = (Premise.Platform.Auth.IOrganizationDirectory)provider;
+        var portal = Assert.IsAssignableFrom<Premise.Platform.Auth.IAdminPortal>(provider);
+
+        var externalOrgId = await directory.CreateOrganizationAsync("Portal Smoke Org");
+        var link = await portal.GeneratePortalLinkAsync(
+            externalOrgId,
+            Premise.Platform.Auth.AdminPortalIntent.SingleSignOn,
+            "http://localhost/settings"
+        );
+        Assert.StartsWith(fixture.EmulatorUrl, link.ToString());
     }
 
     [Fact]

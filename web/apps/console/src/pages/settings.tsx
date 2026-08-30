@@ -6,6 +6,8 @@ import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
 
+type SsoStatus = { available: boolean; entitled: boolean };
+
 type Billing = {
   provider: string;
   planId: string | null;
@@ -45,6 +47,17 @@ export function SettingsPage() {
   });
   const portal = useApiMutation({
     mutationFn: () => api.post<{ url: string }>('/api/billing/portal', { returnPath: '/settings' }),
+    onSuccess: ({ url }) => {
+      location.href = url;
+    },
+  });
+  const { data: sso } = useQuery({
+    queryKey: ['sso'],
+    queryFn: () => api.get<SsoStatus>('/api/org/sso'),
+  });
+  const ssoPortal = useApiMutation({
+    mutationFn: (intent: 'sso' | 'dsync') =>
+      api.post<{ url: string }>('/api/org/sso/portal', { intent, returnPath: '/settings' }),
     onSuccess: ({ url }) => {
       location.href = url;
     },
@@ -117,6 +130,41 @@ export function SettingsPage() {
                 Checkout and billing management are hosted by your payment provider
                 ({billing.provider}). Plan changes apply automatically.
               </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Single sign-on</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {!sso ? null : !sso.available ? (
+            <p className="text-sm text-muted-foreground">
+              Enterprise SSO and directory sync are not supported by this
+              installation&apos;s auth provider.
+            </p>
+          ) : !sso.entitled ? (
+            <p className="text-sm text-muted-foreground">
+              Connect your identity provider and sync your employee directory
+              automatically. Available on the Scale plan - upgrade under Billing above.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Configuration is hosted by the auth provider: connect your identity
+                provider, or sync your employee directory so joiners and leavers are
+                provisioned automatically.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" disabled={ssoPortal.isPending}
+                  onClick={() => ssoPortal.mutate('sso')}>
+                  Configure SSO
+                </Button>
+                <Button variant="outline" size="sm" disabled={ssoPortal.isPending}
+                  onClick={() => ssoPortal.mutate('dsync')}>
+                  Configure directory sync
+                </Button>
+              </div>
             </>
           )}
         </CardContent>

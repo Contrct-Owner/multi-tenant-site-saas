@@ -311,6 +311,9 @@ public class ApiFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>Superuser connection for test ARRANGE steps (RLS does not gate the superuser).</summary>
+    public string PostgresConnectionString => _postgres.GetConnectionString();
+
     public async Task DeleteWindows(Guid siteId)
     {
         await using var db = CreateTenancyContext(_postgres.GetConnectionString());

@@ -21,7 +21,8 @@ public sealed class LocalAuthProvider
     > _invitations = new();
     private int _sequence;
 
-    public Task EnsureUserAsync(string email, CancellationToken ct = default) => Task.CompletedTask; // local logins accept any email already
+    public Task<string> EnsureUserAsync(string email, CancellationToken ct = default) =>
+        Task.FromResult($"local_{email}"); // local logins accept any email already
 
     public Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default) =>
         Task.FromResult($"local_org_{Interlocked.Increment(ref _sequence):D6}");

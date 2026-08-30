@@ -45,6 +45,7 @@ public static class PlanCatalog
                 [EntitlementCatalog.ContactLinksMonthly] = "100000",
                 [EntitlementCatalog.AuditRetentionDays] = "730",
                 [EntitlementCatalog.ApiRequestsPerMinute] = "10000",
+                [EntitlementCatalog.SsoEnabled] = "true",
             }
         ),
     ];

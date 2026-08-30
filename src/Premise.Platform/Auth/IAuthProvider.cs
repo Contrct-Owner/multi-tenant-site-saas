@@ -92,8 +92,8 @@ public interface IOrganizationDirectory
 /// </summary>
 public interface IUserProvisioning
 {
-    /// <summary>Idempotent: an existing user is not an error.</summary>
-    Task EnsureUserAsync(string email, CancellationToken ct = default);
+    /// <summary>Idempotent: an existing user is not an error. Returns the provider-side user id (ADR 41 needs it to create the local user before first login).</summary>
+    Task<string> EnsureUserAsync(string email, CancellationToken ct = default);
 }
 
 /// <summary>
