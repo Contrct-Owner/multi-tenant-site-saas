@@ -90,6 +90,14 @@ export function SettingsPage() {
       <Card>
         <CardHeader><CardTitle>Billing</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          {billing?.status === 'PastDue' && (
+            <div className="rounded-md bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
+              <span className="font-semibold">Payment failed.</span> Your features continue
+              while the charge retries
+              {billing.currentPeriodEnd && ` until ${fmtDate(billing.currentPeriodEnd)}`} — update
+              your card via Manage billing below.
+            </div>
+          )}
           {billing && (
             <>
               <div className="text-sm">

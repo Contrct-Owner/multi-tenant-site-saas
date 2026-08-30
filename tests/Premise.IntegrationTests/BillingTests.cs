@@ -166,4 +166,60 @@ public class BillingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             (await viewer.GetAsync("/api/billing")).StatusCode
         );
     }
+
+    [Fact]
+    public async Task Past_due_transition_emails_the_org_managers_once()
+    {
+        var catcher =
+            Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Premise.Platform.Notifications.LocalMailCatcher>(
+                fixture.Factory.Services
+            );
+        // a FRESH org: OrgA and OrgB belong to the other billing tests
+        var owner = await fixture.LoginAsync("dunning-owner@premise.local");
+        var created = await owner.PostAsJsonAsync(
+            "/api/orgs",
+            new { name = "Dunning Co", slug = "dunning-co" }
+        );
+        created.EnsureSuccessStatusCode();
+        var orgId = (await created.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("orgId")
+            .GetGuid();
+        for (var i = 0; i < 100; i++)
+        {
+            var me = await owner.GetFromJsonAsync<JsonElement>("/me");
+            if (me.GetProperty("organizations").GetArrayLength() > 0)
+                break;
+            await Task.Delay(100);
+        }
+        (await owner.PostAsJsonAsync("/auth/switch-org", new { orgId })).EnsureSuccessStatusCode();
+
+        await PostWebhook(orgId, "growth", "Active");
+        await WaitForPlan(owner, "growth");
+        await PostWebhook(orgId, "growth", "PastDue");
+
+        Premise.Platform.Notifications.EmailMessage? mail = null;
+        for (var i = 0; i < 200 && mail is null; i++)
+        {
+            mail = catcher.Sent.FirstOrDefault(m =>
+                m.To == "dunning-owner@premise.local" && m.Subject.Contains("payment failed")
+            );
+            if (mail is null)
+                await Task.Delay(100);
+        }
+        Assert.NotNull(mail);
+        Assert.Contains("Manage billing", mail!.TextBody);
+
+        // a REPEAT webhook for the same state stays quiet; only transitions speak
+        await PostWebhook(orgId, "growth", "PastDue");
+        // and the console has the fact to render the warning from
+        var billing = await owner.GetFromJsonAsync<JsonElement>("/api/billing");
+        Assert.Equal("PastDue", billing.GetProperty("status").GetString());
+        await Task.Delay(500);
+        Assert.Equal(
+            1,
+            catcher.Sent.Count(m =>
+                m.To == "dunning-owner@premise.local" && m.Subject.Contains("payment failed")
+            )
+        );
+    }
 }

@@ -61,6 +61,7 @@ public static class BillingSubscriptionChangedHandler
             );
 
         var subscription = await db.Subscriptions.FirstOrDefaultAsync(s => s.OrgId == org, ct);
+        var previousStatus = subscription?.Status;
         if (subscription is null)
         {
             subscription = new OrgSubscription
@@ -115,6 +116,34 @@ public static class BillingSubscriptionChangedHandler
             }
 
         await db.SaveChangesAsync(ct);
+
+        // dunning (operability item 4): status TRANSITIONS notify the people
+        // who can fix them - repeat webhooks for the same state stay quiet
+        if (previousStatus != message.Status && message.Status == SubscriptionStatus.PastDue)
+            await bus.PublishAsync(
+                new SendOrgNotice(
+                    "Action needed: your payment failed",
+                    [
+                        "The latest payment for your subscription did not go through.",
+                        message.CurrentPeriodEnd is { } graceEnd
+                            ? $"Your plan's features continue while we retry, but the subscription ends {graceEnd:MMMM d, yyyy} unless the payment method is fixed."
+                            : "Your plan's features continue while we retry, but the subscription will end unless the payment method is fixed.",
+                        "Update your card from Settings -> Billing -> Manage billing in the console.",
+                    ]
+                ),
+                new DeliveryOptions { TenantId = org.Value.ToString() }
+            );
+        if (previousStatus != message.Status && message.Status == SubscriptionStatus.Canceled)
+            await bus.PublishAsync(
+                new SendOrgNotice(
+                    "Your subscription has ended",
+                    [
+                        "Your subscription is canceled and your organization is back on the free tier's limits.",
+                        "Your data is untouched. Resubscribe any time from Settings -> Billing.",
+                    ]
+                ),
+                new DeliveryOptions { TenantId = org.Value.ToString() }
+            );
         await bus.PublishAsync(
             new RecordDomainAudit(
                 "billing.subscription_changed",
