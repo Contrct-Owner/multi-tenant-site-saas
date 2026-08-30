@@ -22,7 +22,10 @@ public static class TenancyModule
     )
     {
         if (runBackgroundWork)
+        {
             services.AddHostedService<HorizonRollService>();
+            services.AddHostedService<Organizations.OrgClosureService>();
+        }
 
         services.AddDbContextWithWolverineIntegration<TenancyDbContext>(
             (sp, options) =>

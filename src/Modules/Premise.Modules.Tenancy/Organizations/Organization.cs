@@ -26,6 +26,14 @@ public sealed class Organization
     public bool IsPlatform { get; init; }
 
     public OrganizationStatus Status { get; set; } = OrganizationStatus.Active;
+
+    /// <summary>
+    /// UTC instant (ADR 26): a manager asked to close the org. The org stays
+    /// ACTIVE (cancelable) through the grace window; the sweep offboards it
+    /// after Organizations:CloseGraceDays. Null = no closure pending.
+    /// </summary>
+    public DateTimeOffset? CloseRequestedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }
 

@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@premise/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
@@ -54,6 +54,21 @@ export function SettingsPage() {
   const { data: sso } = useQuery({
     queryKey: ['sso'],
     queryFn: () => api.get<SsoStatus>('/api/org/sso'),
+  });
+  const { data: closure } = useQuery({
+    queryKey: ['closure'],
+    queryFn: () =>
+      api.get<{ requestedAt: string | null; purgesAt: string | null }>('/api/org/closure'),
+  });
+  const requestClose = useApiMutation({
+    mutationFn: () => api.post('/api/org/close'),
+    invalidate: [['closure']],
+    success: 'Closure scheduled - every manager has been notified',
+  });
+  const cancelClose = useApiMutation({
+    mutationFn: () => api.post('/api/org/close/cancel'),
+    invalidate: [['closure']],
+    success: 'Closure canceled',
   });
   const ssoPortal = useApiMutation({
     mutationFn: (intent: 'sso' | 'dsync') =>
@@ -192,6 +207,38 @@ export function SettingsPage() {
           >
             {exportData.isSuccess ? 'Queued - check Files shortly' : 'Export org data'}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Close this organization</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {closure?.requestedAt ? (
+            <>
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Closure scheduled: all data is permanently deleted on{' '}
+                <span className="font-semibold">{fmtDate(closure.purgesAt!)}</span>. Everything
+                keeps working until then.
+              </p>
+              <Button variant="outline" disabled={cancelClose.isPending}
+                onClick={() => cancelClose.mutate()}>
+                Cancel closure
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Schedules permanent deletion of this organization and all its data after a
+                30-day grace window. Every manager is notified, everything keeps working
+                until the deadline, and any manager can cancel. Export your data first.
+              </p>
+              <ConfirmButton variant="destructive" confirmLabel="Schedule permanent deletion?"
+                disabled={requestClose.isPending}
+                onConfirm={() => requestClose.mutate()}>
+                Close organization
+              </ConfirmButton>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

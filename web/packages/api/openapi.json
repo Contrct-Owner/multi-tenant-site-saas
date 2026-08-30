@@ -1103,6 +1103,96 @@
         }
       }
     },
+    "/api/org/closure": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OrgClosureEndpoints"
+        ],
+        "summary": "GET_api_org_closure",
+        "description": "GET_api_org_closure",
+        "operationId": "GET_api_org_closure",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/close": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OrgClosureEndpoints"
+        ],
+        "summary": "POST_api_org_close",
+        "description": "POST_api_org_close",
+        "operationId": "POST_api_org_close",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/close/cancel": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.OrgClosureEndpoints"
+        ],
+        "summary": "POST_api_org_close_cancel",
+        "description": "POST_api_org_close_cancel",
+        "operationId": "POST_api_org_close_cancel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/hierarchy": {
       "post": {
         "tags": [
@@ -5070,6 +5160,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.OperatorOrgEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Organizations.OrgClosureEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
