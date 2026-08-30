@@ -9,6 +9,34 @@ import { useMe } from '../session';
 
 type Session = { id: string; userAgent: string | null; createdAt: string; current: boolean };
 
+/** Best-effort browser/OS from the UA - a label, not a fingerprint. */
+function describeAgent(ua: string | null): string {
+  if (!ua) return 'Unknown browser';
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /OPR\//.test(ua)
+      ? 'Opera'
+      : /Firefox\//.test(ua)
+        ? 'Firefox'
+        : /Chrome\//.test(ua)
+          ? 'Chrome'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : 'Browser';
+  const os = /Windows/.test(ua)
+    ? 'Windows'
+    : /Mac OS X|Macintosh/.test(ua)
+      ? 'macOS'
+      : /iPhone|iPad/.test(ua)
+        ? 'iOS'
+        : /Android/.test(ua)
+          ? 'Android'
+          : /Linux/.test(ua)
+            ? 'Linux'
+            : null;
+  return os ? `${browser} on ${os}` : browser;
+}
+
 /** The user acting on themselves: profile, credentials entry points, sessions, deletion. */
 export function AccountPage() {
   const { data: me } = useMe();
@@ -106,7 +134,9 @@ export function AccountPage() {
           {sessions?.map((s) => (
             <div key={s.id} className="flex items-center justify-between gap-2 text-sm">
               <div className="min-w-0">
-                <div className="truncate">{s.userAgent ?? 'Unknown browser'}</div>
+                <div className="truncate" title={s.userAgent ?? undefined}>
+                  {describeAgent(s.userAgent)}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {fmtDateTime(s.createdAt)}
                   {s.current && ' · this session'}

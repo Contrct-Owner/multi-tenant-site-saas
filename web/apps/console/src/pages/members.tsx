@@ -157,6 +157,13 @@ export function MembersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {members === undefined && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
               {members?.map((m) => (
                 <TableRow key={m.userId}>
                   <TableCell>

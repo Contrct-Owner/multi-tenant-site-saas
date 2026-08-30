@@ -25,6 +25,7 @@ export function SitesPage() {
   const [timeZone, setTimeZone] = useState('America/New_York');
   const [nodeId, setNodeId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState('');
 
   const create = useApiMutation({
     mutationFn: () => api.post('/api/sites', { nodeId, name, timeZone }),
@@ -38,6 +39,12 @@ export function SitesPage() {
 
   const nodeName = (id: string) =>
     hierarchy?.nodes.find((n) => n.id === id)?.name ?? '—';
+  const visible = sites?.filter(
+    (s) =>
+      !filter ||
+      s.name.toLowerCase().includes(filter.toLowerCase()) ||
+      nodeName(s.nodeId).toLowerCase().includes(filter.toLowerCase()),
+  );
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -83,6 +90,14 @@ export function SitesPage() {
       </div>
       <Card>
         <CardContent className="pt-4">
+          {sites && sites.length > 5 && (
+            <Input
+              className="mb-3 max-w-xs"
+              placeholder="Filter by name or node…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          )}
           <Table>
             <TableHeader>
               <TableRow>
@@ -93,7 +108,7 @@ export function SitesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sites?.map((s) => (
+              {visible?.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -109,10 +124,19 @@ export function SitesPage() {
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                 </TableRow>
               ))}
-              {sites?.length === 0 && (
+              {sites === undefined && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No sites in scope. {can(me, 'sites:manage') && 'Create one with "New site".'}
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
+              {sites && visible?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    {filter
+                      ? 'No sites match the filter.'
+                      : `No sites in scope. ${can(me, 'sites:manage') ? 'Create one with "New site".' : ''}`}
                   </TableCell>
                 </TableRow>
               )}

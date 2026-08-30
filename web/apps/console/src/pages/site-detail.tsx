@@ -1,6 +1,7 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+  Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  TimeZoneSelect } from '@premise/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -69,6 +70,7 @@ export function SiteDetailPage() {
   const update = useApiMutation({
     mutationFn: (body: Partial<{ name: string; timeZone: string; status: string }>) =>
       api.post(`/api/sites/${siteId}`, body),
+    success: 'Site updated',
     onSuccess: invalidate,
   });
   const addSchedule = useApiMutation({
@@ -83,6 +85,9 @@ export function SiteDetailPage() {
     onSuccess: invalidate,
   });
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editZone, setEditZone] = useState('');
   const [days, setDays] = useState<string[]>(['MO', 'TU', 'WE', 'TH', 'FR']);
   const [opens, setOpens] = useState('09:00');
   const [closes, setCloses] = useState('17:00');
@@ -102,14 +107,58 @@ export function SiteDetailPage() {
           <StatusBadge status={site.status} />
         </div>
         {manage && (
-          <Button
-            variant={closed ? 'default' : 'destructive'}
-            size="sm"
-            disabled={update.isPending}
-            onClick={() => update.mutate({ status: closed ? 'Open' : 'Closed' })}
-          >
-            {closed ? 'Reopen site' : 'Close site'}
-          </Button>
+          <div className="flex gap-2">
+            <FormDialog
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditName(site.name);
+                    setEditZone(site.timeZone);
+                  }}
+                >
+                  Edit
+                </Button>
+              }
+              title="Edit site"
+              description="Changing the time zone re-anchors the hours projection."
+            >
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-site-name">Name</Label>
+                  <Input id="edit-site-name" value={editName}
+                    onChange={(e) => setEditName(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-site-tz">Time zone</Label>
+                  <TimeZoneSelect id="edit-site-tz" value={editZone}
+                    onChange={(e) => setEditZone(e.target.value)} />
+                </div>
+                <Button className="w-full"
+                  disabled={!editName.trim() || update.isPending}
+                  onClick={() =>
+                    update.mutate(
+                      { name: editName.trim(), timeZone: editZone },
+                      { onSuccess: () => setEditOpen(false) },
+                    )
+                  }>
+                  Save
+                </Button>
+              </div>
+            </FormDialog>
+            <ConfirmButton
+              variant={closed ? 'default' : 'destructive'}
+              size="sm"
+              confirmLabel={closed ? 'Reopen?' : 'Close to the public?'}
+              disabled={update.isPending}
+              onConfirm={() => update.mutate({ status: closed ? 'Open' : 'Closed' })}
+            >
+              {closed ? 'Reopen site' : 'Close site'}
+            </ConfirmButton>
+          </div>
         )}
       </div>
       <p className="text-sm text-muted-foreground">Time zone: {site.timeZone}</p>

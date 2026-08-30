@@ -5,17 +5,32 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import { useState, type ReactNode } from 'react';
 import { can, useMe, type Me } from './session';
 
-const NAV = [
-  { to: '/', label: 'Dashboard', capability: null },
-  { to: '/sites', label: 'Sites', capability: 'sites:read' },
-  { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage' },
-  { to: '/files', label: 'Files', capability: 'files:read' },
-  { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
-  { to: '/members', label: 'Members', capability: 'roles:manage' },
-  { to: '/roles', label: 'Roles', capability: 'roles:manage' },
-  { to: '/settings', label: 'Settings', capability: 'org:manage' },
-  { to: '/audit', label: 'Audit', capability: 'audit:read' },
-  { to: '/operator', label: 'Operator', capability: 'platform:operate' },
+// grouped by rhythm of use: daily operations, then org administration,
+// then the operator wall (UX review P2)
+const NAV_GROUPS = [
+  {
+    label: null,
+    items: [
+      { to: '/', label: 'Dashboard', capability: null },
+      { to: '/sites', label: 'Sites', capability: 'sites:read' },
+      { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage' },
+      { to: '/files', label: 'Files', capability: 'files:read' },
+      { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
+    ],
+  },
+  {
+    label: 'Administer',
+    items: [
+      { to: '/members', label: 'Members', capability: 'roles:manage' },
+      { to: '/roles', label: 'Roles', capability: 'roles:manage' },
+      { to: '/settings', label: 'Settings', capability: 'org:manage' },
+      { to: '/audit', label: 'Audit', capability: 'audit:read' },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [{ to: '/operator', label: 'Operator', capability: 'platform:operate' }],
+  },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -53,19 +68,34 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="font-semibold">Premise</div>
           <div className="text-xs text-muted-foreground">{activeOrg?.name ?? 'No organization'}</div>
         </div>
-        <nav className="flex-1 space-y-1 p-2">
-          {NAV.filter((n) => n.capability === null || can(me, n.capability)).map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className={cn(
-                'block rounded-md px-3 py-2 text-sm hover:bg-accent',
-                path === n.to && 'bg-accent font-medium',
-              )}
-            >
-              {n.label}
-            </Link>
-          ))}
+        <nav className="flex-1 space-y-4 p-2">
+          {NAV_GROUPS.map((group) => {
+            const items = group.items.filter(
+              (n) => n.capability === null || can(me, n.capability),
+            );
+            if (items.length === 0) return null;
+            return (
+              <div key={group.label ?? 'operate'} className="space-y-1">
+                {group.label && (
+                  <div className="px-3 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.label}
+                  </div>
+                )}
+                {items.map((n) => (
+                  <Link
+                    key={n.to}
+                    to={n.to}
+                    className={cn(
+                      'block rounded-md px-3 py-2 text-sm hover:bg-accent',
+                      path === n.to && 'bg-accent font-medium',
+                    )}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="space-y-2 border-t p-3">
           {me.organizations.length > 1 && (

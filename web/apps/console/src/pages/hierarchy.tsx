@@ -154,7 +154,7 @@ export function HierarchyPage() {
                       <span className="font-mono">
                         {n.depth > 0 ? '└ ' : ''}{n.name}
                       </span>
-                      <span className="invisible flex gap-1 group-hover:visible">
+                      <span className="flex gap-1 opacity-50 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                         <Button
                           variant="ghost"
                           size="sm"

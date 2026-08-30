@@ -2,7 +2,7 @@ import { api } from '@premise/api';
 import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
 
 const KINDS = ['events', 'changes', 'authz', 'access'] as const;
@@ -17,9 +17,11 @@ type Row = Record<string, unknown> & { id: string; occurredAt: string; actorTier
 
 export function AuditPage() {
   const [kind, setKind] = useState<Kind>('events');
+  const [limit, setLimit] = useState(50);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const { data: rows } = useQuery({
-    queryKey: ['audit', kind],
-    queryFn: () => api.get<Row[]>(`/api/audit/${kind}`),
+    queryKey: ['audit', kind, limit],
+    queryFn: () => api.get<Row[]>(`/api/audit/${kind}?limit=${limit}`),
   });
 
   const detail = (row: Row): string => {
@@ -40,7 +42,12 @@ export function AuditPage() {
       <h1 className="text-2xl font-semibold">Audit</h1>
       <div className="flex gap-2">
         {KINDS.map((k) => (
-          <Button key={k} size="sm" variant={k === kind ? 'default' : 'outline'} onClick={() => setKind(k)}>
+          <Button key={k} size="sm" variant={k === kind ? 'default' : 'outline'}
+            onClick={() => {
+              setKind(k);
+              setLimit(50);
+              setExpanded(null);
+            }}>
             {KIND_LABELS[k]}
           </Button>
         ))}
@@ -50,20 +57,43 @@ export function AuditPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-44">When</TableHead>
+                <TableHead className="w-40">When</TableHead>
                 <TableHead className="w-20">Actor</TableHead>
                 <TableHead>Detail</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows?.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {fmtDateTime(row.occurredAt)}
+              {rows === undefined && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    Loading…
                   </TableCell>
-                  <TableCell className="text-xs">{row.actorTier}</TableCell>
-                  <TableCell className="max-w-xl truncate font-mono text-xs">{detail(row)}</TableCell>
                 </TableRow>
+              )}
+              {rows?.map((row) => (
+                <Fragment key={row.id}>
+                  <TableRow
+                    className="cursor-pointer"
+                    onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+                  >
+                    <TableCell className="text-xs text-muted-foreground">
+                      {fmtDateTime(row.occurredAt)}
+                    </TableCell>
+                    <TableCell className="text-xs">{row.actorTier}</TableCell>
+                    <TableCell className="max-w-xl truncate font-mono text-xs">
+                      {detail(row)}
+                    </TableCell>
+                  </TableRow>
+                  {expanded === row.id && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="bg-muted/40">
+                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all p-1 font-mono text-xs">
+                          {JSON.stringify(row, null, 2)}
+                        </pre>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               ))}
               {rows?.length === 0 && (
                 <TableRow>
@@ -74,6 +104,13 @@ export function AuditPage() {
               )}
             </TableBody>
           </Table>
+          {rows && rows.length >= limit && limit < 500 && (
+            <div className="pt-3 text-center">
+              <Button variant="outline" size="sm" onClick={() => setLimit(limit + 100)}>
+                Load more
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

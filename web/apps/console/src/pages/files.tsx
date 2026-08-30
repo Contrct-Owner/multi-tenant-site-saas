@@ -125,6 +125,13 @@ export function FilesPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {files === undefined && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
               {files?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
