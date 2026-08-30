@@ -139,12 +139,15 @@ builder.Services.AddDbContext<PlatformDbContext>(
 if (role == "worker")
     builder.Services.AddHostedService<IdempotencyCleanupService>();
 
-// Object storage (ADR 19): local adapter by default; forks point
-// Storage:Adapter at s3 (Premise.Integrations.AmazonS3) or their own.
+// Object storage (ADR 19): local adapter by default; forks swap in
+// S3ObjectStore (Premise.Integrations.AmazonS3), AzureBlobObjectStore
+// (Premise.Integrations.AzureBlob), or their own - both cloud adapters are
+// smoke-tested against MinIO/Azurite in the integration suite.
 builder.Services.AddSingleton<IObjectStore, LocalObjectStore>();
 builder.Services.AddSingleton<IVirusScanner, EicarScanner>();
 
-// Secrets (ADR 31): local wrapper is DEV/TEST ONLY - Production must boot a KMS.
+// Secrets (ADR 31): local wrapper is DEV/TEST ONLY - Production must boot a
+// KMS (KmsKeyWrapper in Premise.Integrations.AmazonS3, LocalStack-tested).
 if (builder.Configuration["Secrets:LocalMasterKey"] is { } localKey)
 {
     if (builder.Environment.IsProduction())

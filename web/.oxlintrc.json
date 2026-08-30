@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "warn" },
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/components/ui/*", "@premise/ui/src/*"],
+            "message": "Import UI from the @premise/ui barrel, never components/ui/* directly (ADR 20)."
+          }
+        ]
+      }
+    ]
+  },
+  "ignorePatterns": ["**/dist/**", "**/routeTree.gen.ts", "**/generated/**", "packages/ui/src/**"]
+}

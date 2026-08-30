@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label,
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useState } from 'react';
+import { weeklySchedule, type DayCode } from '../lib/schedule';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
 
@@ -180,15 +181,7 @@ export function SiteDetailPage() {
                   onClick={() =>
                     addSchedule.mutate({
                       name: scheduleName,
-                      rrule: `FREQ=WEEKLY;BYDAY=${[...days].sort(
-                        (a, b) => DAYS.findIndex((d) => d.code === a)
-                          - DAYS.findIndex((d) => d.code === b)).join(',')}`,
-                      // anchor a week back: BYDAY picks the days, and a
-                      // UTC-"today" anchor is TOMORROW for an evening-US
-                      // admin - hours must start now, not after midnight UTC
-                      anchorDate: new Date(Date.now() - 7 * 86400_000)
-                        .toISOString()
-                        .slice(0, 10),
+                      ...weeklySchedule([...days] as DayCode[], Date.now()),
                       opens,
                       closes,
                     })

@@ -11,6 +11,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.Azurite" />
+    <PackageReference Include="Testcontainers.LocalStack" />
     <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit" />
@@ -24,5 +26,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Premise.Api\Premise.Api.csproj" />
     <ProjectReference Include="..\..\src\Integrations\Premise.Integrations.AmazonS3\Premise.Integrations.AmazonS3.csproj" />
+    <ProjectReference Include="..\..\src\Integrations\Premise.Integrations.AzureBlob\Premise.Integrations.AzureBlob.csproj" />
   </ItemGroup>
 </Project>

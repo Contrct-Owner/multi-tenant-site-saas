@@ -105,6 +105,12 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm typecheck
+      - name: Lint (ADR 20 barrel rule)
+        working-directory: web
+        run: pnpm lint
+      - name: Unit tests
+        working-directory: web
+        run: pnpm test
       - name: Build
         working-directory: web
         run: pnpm build

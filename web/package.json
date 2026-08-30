@@ -7,9 +7,12 @@
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
     "dev:console": "pnpm --filter @premise/console dev",
-    "dev:public": "pnpm --filter @premise/public dev"
+    "dev:public": "pnpm --filter @premise/public dev",
+    "lint": "oxlint apps packages/api/src",
+    "test": "pnpm -r --if-present test"
   },
   "devDependencies": {
+    "oxlint": "^1.80.0",
     "typescript": "^7.0.2"
   }
 }

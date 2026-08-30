@@ -73,8 +73,10 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
 
         modelBuilder.Entity<AccessLogEntry>(b =>
         {
+            // partitioned by month on occurred_at (ADR 38 follow-up): the
+            // partition key must be part of the primary key
             b.ToTable("access_log");
-            b.HasKey(a => a.Id);
+            b.HasKey(a => new { a.Id, a.OccurredAt });
             b.Property(a => a.Id).HasColumnName("id").ValueGeneratedNever();
             b.Property(a => a.OrgId).HasColumnName("org_id");
             b.Property(a => a.ActorTier).HasColumnName("actor_tier").HasMaxLength(20);
