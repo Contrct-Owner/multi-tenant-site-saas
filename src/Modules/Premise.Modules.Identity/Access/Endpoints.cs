@@ -37,9 +37,19 @@ public static class AccessEndpoints
             || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
         )
             return Results.Unauthorized();
+        // the editor's read: grants and reach, not just names
         var roles = await db
             .Roles.OrderBy(r => r.Name)
-            .Select(r => new { r.Id, r.Name })
+            .Select(r => new
+            {
+                r.Id,
+                r.Name,
+                grants = db
+                    .RoleGrants.Where(g => g.RoleId == r.Id)
+                    .Select(g => new { g.Domain, g.Action })
+                    .ToList(),
+                assignedCount = db.MembershipRoles.Count(mr => mr.RoleId == r.Id),
+            })
             .ToListAsync(ct);
         return Results.Ok(roles);
     }

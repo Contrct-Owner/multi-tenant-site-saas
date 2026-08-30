@@ -94,16 +94,28 @@ public class HygieneTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         );
         Assert.Equal(HttpStatusCode.NoContent, edit.StatusCode);
         var roles = await owner.GetFromJsonAsync<JsonElement>("/api/roles");
-        Assert.Contains(
-            roles.EnumerateArray(),
-            r => r.GetProperty("name").GetString() == "Temp Edited"
-        );
+        var edited = roles
+            .EnumerateArray()
+            .First(r => r.GetProperty("name").GetString() == "Temp Edited");
+        // the editor's read: the list carries each role's grants and reach
+        var grant = Assert.Single(edited.GetProperty("grants").EnumerateArray());
+        Assert.Equal("sites", grant.GetProperty("domain").GetString());
+        Assert.Equal("*", grant.GetProperty("action").GetString());
+        Assert.Equal(0, edited.GetProperty("assignedCount").GetInt32());
 
         // assigned roles cannot be deleted; unassigned ones can
         var viewerId = await fixture.CreateMemberAsync("roleuser@hygiene.local", fixture.OrgA);
         (
             await owner.PostAsJsonAsync($"/api/roles/{roleId}/assign", new { userId = viewerId })
         ).EnsureSuccessStatusCode();
+        Assert.Equal(
+            1,
+            (await owner.GetFromJsonAsync<JsonElement>("/api/roles"))
+                .EnumerateArray()
+                .First(r => r.GetProperty("id").GetGuid() == roleId)
+                .GetProperty("assignedCount")
+                .GetInt32()
+        );
         Assert.Equal(
             HttpStatusCode.Conflict,
             (await owner.DeleteAsync($"/api/roles/{roleId}")).StatusCode

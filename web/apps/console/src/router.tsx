@@ -7,6 +7,7 @@ import { HierarchyPage } from './pages/hierarchy';
 import { IngestPage } from './pages/ingest';
 import { MembersPage } from './pages/members';
 import { OperatorPage } from './pages/operator';
+import { RolesPage } from './pages/roles';
 import { SettingsPage } from './pages/settings';
 import { SiteDetailPage } from './pages/site-detail';
 import { FilesPage } from './pages/files';
@@ -28,6 +29,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: '/hierarchy', component: HierarchyPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/ingest', component: IngestPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/members', component: MembersPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/roles', component: RolesPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/audit', component: AuditPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/operator', component: OperatorPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage }),
