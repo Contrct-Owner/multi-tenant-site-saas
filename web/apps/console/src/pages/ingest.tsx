@@ -160,7 +160,7 @@ export function IngestPage() {
                   <TableHead>Staged</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Counts</TableHead>
-                  <TableHead />
+                  <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -316,7 +316,7 @@ function ConnectorsCard() {
                 <TableHead>Name</TableHead>
                 <TableHead>Schedule</TableHead>
                 <TableHead>Last sync</TableHead>
-                <TableHead className="w-52" />
+                <TableHead className="w-52"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

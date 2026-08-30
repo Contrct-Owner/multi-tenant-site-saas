@@ -116,7 +116,7 @@ export function DashboardPage() {
       <Card>
         <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             {entitlements &&
               (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
                 const entry = entitlements[code];
@@ -127,14 +127,14 @@ export function DashboardPage() {
                 return (
                   <div key={code} className="space-y-1 border-b py-1.5">
                     <div className="flex justify-between">
-                      <dt className="text-muted-foreground" title={code}>
+                      <span className="text-muted-foreground" title={code}>
                         {entitlementLabel(code)}
-                      </dt>
-                      <dd className="font-medium tabular-nums">
+                      </span>
+                      <span className="font-medium tabular-nums">
                         {entry?.usage != null
                           ? `${entry.usage} of ${entry.value}`
                           : entry?.value}
-                      </dd>
+                      </span>
                     </div>
                     {showBar && (
                       <div className="h-1 overflow-hidden rounded-full bg-muted">
@@ -147,7 +147,7 @@ export function DashboardPage() {
                   </div>
                 );
               })}
-          </dl>
+          </div>
         </CardContent>
       </Card>
     </div>

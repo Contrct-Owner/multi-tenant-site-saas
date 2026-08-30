@@ -141,7 +141,7 @@ function ApiKeysCard() {
                 <TableHead>Role</TableHead>
                 <TableHead>Last used</TableHead>
                 <TableHead>Expires</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-24"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -293,7 +293,7 @@ function WebhooksCard() {
                 <TableHead>URL</TableHead>
                 <TableHead>Events</TableHead>
                 <TableHead>Last delivery</TableHead>
-                <TableHead className="w-40" />
+                <TableHead className="w-40"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

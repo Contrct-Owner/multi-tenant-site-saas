@@ -98,8 +98,8 @@ export function SettingsPage() {
             <Input id="org-rename" value={draft} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>URL slug</Label>
-            <Input value={activeOrg.slug} disabled />
+            <Label htmlFor="org-slug">URL slug</Label>
+            <Input id="org-slug" value={activeOrg.slug} disabled />
           </div>
           <Button
             disabled={draft === activeOrg.name || !draft.trim() || rename.isPending}
@@ -215,7 +215,7 @@ export function SettingsPage() {
                 </a>
                 . Embed the locator on your own website with this snippet:
               </p>
-              <code className="block overflow-x-auto whitespace-pre rounded-md bg-muted p-3 text-xs">
+              <code tabIndex={0} className="block overflow-x-auto whitespace-pre rounded-md bg-muted p-3 text-xs">
                 {publicUrl.embedSnippet}
               </code>
             </>

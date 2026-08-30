@@ -158,7 +158,7 @@ export function MembersPage() {
                 <TableHead>Member</TableHead>
                 <TableHead>Roles</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead />
+                <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,7 +234,7 @@ export function MembersPage() {
                   <TableHead>Pending</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>State</TableHead>
-                  <TableHead />
+                  <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -276,7 +276,7 @@ export function MembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Since</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead />
+                  <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

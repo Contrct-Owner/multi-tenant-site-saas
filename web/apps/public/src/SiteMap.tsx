@@ -54,5 +54,5 @@ export function SiteMap({
   }, [JSON.stringify(located.map((s) => s.id)), onSelect]);
 
   if (located.length === 0) return null;
-  return <div ref={containerRef} className="h-72 w-full rounded-lg border" aria-label="Map of locations" />;
+  return <div ref={containerRef} role="region" className="h-72 w-full rounded-lg border" aria-label="Map of locations" />;
 }

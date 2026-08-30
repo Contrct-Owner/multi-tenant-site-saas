@@ -142,7 +142,7 @@ export function RolesPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Grants</TableHead>
                   <TableHead>Held by</TableHead>
-                  <TableHead className="w-40" />
+                  <TableHead className="w-40"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -368,7 +368,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
                 <TableHead>Grant</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Expires</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-24"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

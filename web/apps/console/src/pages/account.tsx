@@ -98,8 +98,8 @@ export function AccountPage() {
         <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
-            <Label>Email</Label>
-            <Input value={me.email} disabled />
+            <Label htmlFor="account-email">Email</Label>
+            <Input id="account-email" value={me.email} disabled />
           </div>
           <div className="space-y-1">
             <Label htmlFor="account-name">Name</Label>
