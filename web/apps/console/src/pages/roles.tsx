@@ -31,8 +31,9 @@ export function RolesPage() {
     queryFn: () => api.get<Role[]>('/api/roles'),
   });
   const { data: members } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => api.get<Member[]>('/api/members'),
+    queryKey: ['members', 'picker'],
+    queryFn: async () =>
+      (await api.get<{ items: Member[] }>('/api/members?limit=200')).items,
   });
   const { data: hierarchy } = useQuery({
     queryKey: ['hierarchy'],

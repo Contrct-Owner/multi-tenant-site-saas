@@ -48,7 +48,7 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         string? status = null;
         for (var i = 0; i < 60; i++)
         {
-            var files = await client.GetFromJsonAsync<JsonElement>("/api/files");
+            var files = await ApiFixture.GetItemsAsync(client, "/api/files");
             status = files
                 .EnumerateArray()
                 .FirstOrDefault(f => f.GetProperty("id").GetGuid() == fileId)
@@ -71,7 +71,7 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         // derivative: text head-preview generated async
         for (var i = 0; i < 50; i++)
         {
-            var files = await client.GetFromJsonAsync<JsonElement>("/api/files");
+            var files = await ApiFixture.GetItemsAsync(client, "/api/files");
             if (
                 files
                     .EnumerateArray()
@@ -178,7 +178,7 @@ public class StorageTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             HttpStatusCode.NotFound,
             (await clientB.GetAsync($"/api/files/{fileId}/download")).StatusCode
         );
-        var list = await clientB.GetFromJsonAsync<JsonElement>("/api/files");
+        var list = await ApiFixture.GetItemsAsync(clientB, "/api/files");
         Assert.DoesNotContain(
             list.EnumerateArray(),
             f => f.GetProperty("name").GetString() == "private-a.txt"

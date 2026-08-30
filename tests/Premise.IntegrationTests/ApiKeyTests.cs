@@ -59,7 +59,7 @@ public class ApiKeyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                 .GetProperty("rootNodeId")
                 .GetGuid();
         }
-        var sites = await owner.GetFromJsonAsync<JsonElement>("/api/sites");
+        var sites = await ApiFixture.GetItemsAsync(owner, "/api/sites");
         if (sites.GetArrayLength() == 0)
             (
                 await owner.PostAsJsonAsync(
@@ -108,7 +108,7 @@ public class ApiKeyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // the key reads what its role grants...
         var service = BearerClient(secret);
-        var sites = await service.GetFromJsonAsync<JsonElement>("/api/sites");
+        var sites = await ApiFixture.GetItemsAsync(service, "/api/sites");
         Assert.True(sites.GetArrayLength() > 0);
 
         // ...and nothing more (roles:manage is not in the grant)

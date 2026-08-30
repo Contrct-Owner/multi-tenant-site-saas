@@ -68,7 +68,7 @@ public class HygieneTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var me = await goer.GetFromJsonAsync<JsonElement>("/me");
         Assert.Equal(0, me.GetProperty("organizations").GetArrayLength());
         // and the roster shrank
-        var members = await founder.GetFromJsonAsync<JsonElement>("/api/members");
+        var members = await ApiFixture.GetItemsAsync(founder, "/api/members");
         Assert.Equal(1, members.GetArrayLength());
     }
 

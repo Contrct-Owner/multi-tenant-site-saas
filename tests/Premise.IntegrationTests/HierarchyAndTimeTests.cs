@@ -110,7 +110,8 @@ public class HierarchyAndTimeTests(ApiFixture fixture) : IClassFixture<ApiFixtur
         );
 
         // subtree filter follows the new location
-        var underWest = await client.GetFromJsonAsync<JsonElement>(
+        var underWest = await ApiFixture.GetItemsAsync(
+            client,
             $"/api/sites?under={west.GetProperty("id").GetGuid()}"
         );
         Assert.Contains(

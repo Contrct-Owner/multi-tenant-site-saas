@@ -141,7 +141,7 @@ public class PublicJourneyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await SeedSites();
         var guest = GuestFor("org-a");
         // the management surface stays dark for guests
-        var management = await guest.GetFromJsonAsync<JsonElement>("/api/sites");
+        var management = await ApiFixture.GetItemsAsync(guest, "/api/sites");
         Assert.Equal(0, management.GetArrayLength());
     }
 

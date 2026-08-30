@@ -113,7 +113,7 @@ public class TenantIsolationTests(ApiFixture fixture) : IClassFixture<ApiFixture
             (await clientB.GetAsync($"/api/sites/{siteId}")).StatusCode
         );
         // list: empty of org A's rows
-        var list = await clientB.GetFromJsonAsync<JsonElement>("/api/sites");
+        var list = await ApiFixture.GetItemsAsync(clientB, "/api/sites");
         Assert.DoesNotContain(
             list.EnumerateArray(),
             s => s.GetProperty("name").GetString() == "Isolated Store"

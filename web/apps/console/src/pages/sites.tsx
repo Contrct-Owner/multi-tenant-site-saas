@@ -1,10 +1,11 @@
 import { api } from '@premise/api';
 import { Button, Card, CardContent, FormDialog, Input, Label, Select,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TimeZoneSelect } from '@premise/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useApiMutation } from '../lib/mutation';
+import type { Page } from '../lib/paging';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
 
@@ -13,10 +14,18 @@ type Hierarchy = { id: string; nodes: { id: string; name: string; depth: number 
 
 export function SitesPage() {
   const { data: me } = useMe();
-  const { data: sites } = useQuery({
-    queryKey: ['sites'],
-    queryFn: () => api.get<Site[]>('/api/sites'),
+  const [filter, setFilter] = useState('');
+  const sitesQuery = useInfiniteQuery({
+    queryKey: ['sites', 'list', filter],
+    queryFn: ({ pageParam }) =>
+      api.get<Page<Site>>(
+        `/api/sites?limit=50&offset=${pageParam}${filter ? `&q=${encodeURIComponent(filter)}` : ''}`,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
+  const sites = sitesQuery.data?.pages.flatMap((p) => p.items);
+  const total = sitesQuery.data?.pages[0]?.total;
   const { data: hierarchy } = useQuery({
     queryKey: ['hierarchy'],
     queryFn: () => api.get<Hierarchy>('/api/hierarchy'),
@@ -25,7 +34,6 @@ export function SitesPage() {
   const [timeZone, setTimeZone] = useState('America/New_York');
   const [nodeId, setNodeId] = useState('');
   const [creating, setCreating] = useState(false);
-  const [filter, setFilter] = useState('');
 
   const create = useApiMutation({
     mutationFn: () => api.post('/api/sites', { nodeId, name, timeZone }),
@@ -39,12 +47,6 @@ export function SitesPage() {
 
   const nodeName = (id: string) =>
     hierarchy?.nodes.find((n) => n.id === id)?.name ?? '—';
-  const visible = sites?.filter(
-    (s) =>
-      !filter ||
-      s.name.toLowerCase().includes(filter.toLowerCase()) ||
-      nodeName(s.nodeId).toLowerCase().includes(filter.toLowerCase()),
-  );
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -90,10 +92,10 @@ export function SitesPage() {
       </div>
       <Card>
         <CardContent className="pt-4">
-          {sites && sites.length > 5 && (
+          {((total ?? 0) > 5 || filter) && (
             <Input
               className="mb-3 max-w-xs"
-              placeholder="Filter by name or node…"
+              placeholder="Search name or city…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -108,7 +110,7 @@ export function SitesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible?.map((s) => (
+              {sites?.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -131,17 +133,26 @@ export function SitesPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {sites && visible?.length === 0 && (
+              {sites && sites.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
                     {filter
-                      ? 'No sites match the filter.'
+                      ? 'No sites match the search.'
                       : `No sites in scope. ${can(me, 'sites:manage') ? 'Create one with "New site".' : ''}`}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          {sitesQuery.hasNextPage && (
+            <div className="pt-3 text-center">
+              <Button variant="outline" size="sm"
+                disabled={sitesQuery.isFetchingNextPage}
+                onClick={() => void sitesQuery.fetchNextPage()}>
+                Load more ({sites?.length} of {total})
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

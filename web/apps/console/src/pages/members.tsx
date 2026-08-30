@@ -2,10 +2,11 @@ import { api } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
   Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
   TableRow } from '@premise/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
+import type { Page } from '../lib/paging';
 import { useMe } from '../session';
 
 type Member = { userId: string; email: string; name?: string; joinedAt: string; roles: string[] };
@@ -15,10 +16,14 @@ type Contact = { id: string; email: string; createdAt: string; revoked: boolean 
 
 export function MembersPage() {
   const { data: me } = useMe();
-  const { data: members } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => api.get<Member[]>('/api/members'),
+  const membersQuery = useInfiniteQuery({
+    queryKey: ['members', 'list'],
+    queryFn: ({ pageParam }) =>
+      api.get<Page<Member>>(`/api/members?limit=50&offset=${pageParam}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
+  const members = membersQuery.data?.pages.flatMap((p) => p.items);
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: () => api.get<Role[]>('/api/roles'),
@@ -206,6 +211,15 @@ export function MembersPage() {
               ))}
             </TableBody>
           </Table>
+          {membersQuery.hasNextPage && (
+            <div className="pt-3 text-center">
+              <Button variant="outline" size="sm"
+                disabled={membersQuery.isFetchingNextPage}
+                onClick={() => void membersQuery.fetchNextPage()}>
+                Load more
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -100,15 +100,25 @@ public static class FileEndpoints
         StorageDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        string? q,
+        int? limit,
+        int? offset,
         CancellationToken ct
     )
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesRead, ct))
             return Results.Unauthorized();
-        var files = await db
-            .Files.Where(f => f.Status != FileStatus.Erased)
+        var query = db.Files.Where(f => f.Status != FileStatus.Erased);
+        if (!string.IsNullOrWhiteSpace(q))
+            query = query.Where(f => EF.Functions.ILike(f.Name, $"%{q.Trim()}%"));
+        var total = await query.CountAsync(ct);
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+        var skip = Math.Max(offset ?? 0, 0);
+        var files = await query
             .OrderByDescending(f => f.CreatedAt)
-            .Take(200)
+            .ThenByDescending(f => f.Id)
+            .Skip(skip)
+            .Take(take)
             .Select(f => new
             {
                 f.Id,
@@ -120,7 +130,14 @@ public static class FileEndpoints
                 f.CreatedAt,
             })
             .ToListAsync(ct);
-        return Results.Ok(files);
+        return Results.Ok(
+            new
+            {
+                items = files,
+                total,
+                nextOffset = skip + files.Count < total ? skip + files.Count : (int?)null,
+            }
+        );
     }
 
     /// <summary>Authorization happens HERE, before signing - the URL itself is unguarded (ADR 19).</summary>

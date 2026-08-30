@@ -1,10 +1,11 @@
 import { api } from '@premise/api';
 import { Button, Card, CardContent, ConfirmButton, Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow } from '@premise/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
+import type { Page } from '../lib/paging';
 import { uploadFile } from '../lib/uploads';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
@@ -20,10 +21,14 @@ export function FilesPage() {
   const manage = can(me, 'files:manage');
   const [phase, setPhase] = useState('');
 
-  const { data: files } = useQuery({
-    queryKey: ['files'],
-    queryFn: () => api.get<StoredFile[]>('/api/files'),
+  const filesQuery = useInfiniteQuery({
+    queryKey: ['files', 'list'],
+    queryFn: ({ pageParam }) =>
+      api.get<Page<StoredFile>>(`/api/files?limit=50&offset=${pageParam}`),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
+  const files = filesQuery.data?.pages.flatMap((p) => p.items);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['files'] });
 
   const upload = useMutation({
@@ -141,6 +146,15 @@ export function FilesPage() {
               )}
             </TableBody>
           </Table>
+          {filesQuery.hasNextPage && (
+            <div className="pt-3 text-center">
+              <Button variant="outline" size="sm"
+                disabled={filesQuery.isFetchingNextPage}
+                onClick={() => void filesQuery.fetchNextPage()}>
+                Load more
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

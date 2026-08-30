@@ -80,7 +80,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         // staging requires a Clean verdict
         for (var i = 0; i < 200; i++)
         {
-            var files = await client.GetFromJsonAsync<JsonElement>("/api/files");
+            var files = await ApiFixture.GetItemsAsync(client, "/api/files");
             if (
                 files
                     .EnumerateArray()
@@ -105,7 +105,7 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     {
         for (var i = 0; i < 200; i++)
         {
-            var sites = await client.GetFromJsonAsync<JsonElement>("/api/sites");
+            var sites = await ApiFixture.GetItemsAsync(client, "/api/sites");
             var match = sites
                 .EnumerateArray()
                 .FirstOrDefault(s => s.GetProperty("name").GetString() == name);

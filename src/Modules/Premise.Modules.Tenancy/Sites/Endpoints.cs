@@ -118,12 +118,21 @@ public static class SiteEndpoints
     }
 
     [Transactional(typeof(TenancyDbContext))]
+    /// <summary>
+    /// Fleet-scale list (UX gap: server paging/search): filtered by scope
+    /// FIRST, then searched, then paged. Offset paging on purpose - it
+    /// translates everywhere and is right at template scale; keyset is a
+    /// fork optimization past ~100k rows.
+    /// </summary>
     [WolverineGet("/api/sites")]
-    public static async Task<IReadOnlyList<SiteResponse>> List(
+    public static async Task<SiteListResponse> List(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         Guid? under,
+        string? q,
+        int? limit,
+        int? offset,
         CancellationToken ct
     )
     {
@@ -133,12 +142,29 @@ public static class SiteEndpoints
         {
             var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == nodeId, ct);
             if (node is null)
-                return [];
+                return new SiteListResponse([], 0, 0, null);
             var nodePath = node.Path;
             query = query.Where(s => s.Path.IsDescendantOf(nodePath));
         }
-        var sites = await query.OrderBy(s => s.Name).ToListAsync(ct);
-        return sites.Select(ToResponse).ToList();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var pattern = $"%{q.Trim()}%";
+            query = query.Where(s =>
+                EF.Functions.ILike(s.Name, pattern)
+                || (s.City != null && EF.Functions.ILike(s.City, pattern))
+            );
+        }
+        var total = await query.CountAsync(ct);
+        var openCount = await query.CountAsync(s => s.Status == SiteStatus.Open, ct);
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+        var skip = Math.Max(offset ?? 0, 0);
+        var sites = await query.OrderBy(s => s.Name).Skip(skip).Take(take).ToListAsync(ct);
+        return new SiteListResponse(
+            sites.Select(ToResponse).ToList(),
+            total,
+            openCount,
+            skip + sites.Count < total ? skip + sites.Count : null
+        );
     }
 
     [Transactional(typeof(TenancyDbContext))]
@@ -277,6 +303,13 @@ public static class SiteEndpoints
         await bus.PublishForOrgAsync(site.OrgId, new RebuildSiteOccurrences(site.Id.Value));
         return Results.Ok(new { schedule.Id });
     }
+
+    public sealed record SiteListResponse(
+        IReadOnlyList<SiteResponse> Items,
+        int Total,
+        int OpenCount,
+        int? NextOffset
+    );
 
     private static SiteResponse ToResponse(Site s) =>
         new(s.Id.Value, s.NodeId, s.Name, s.TimeZone, s.Status.ToString(), s.Path.ToString());

@@ -57,7 +57,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     {
         var (owner, rootId) = await Setup();
 
-        var existing = (await owner.GetFromJsonAsync<JsonElement>("/api/sites")).GetArrayLength();
+        var existing = (await ApiFixture.GetItemsAsync(owner, "/api/sites")).GetArrayLength();
         // custody: the OPERATOR sets the tenant's limit
         var op = await fixture.OperatorClient();
         var set = await op.PutAsJsonAsync(
@@ -200,7 +200,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         );
 
         // usage rides along where the system can know it (UX: "used X of Y")
-        var siteCount = (await owner.GetFromJsonAsync<JsonElement>("/api/sites")).GetArrayLength();
+        var siteCount = (await ApiFixture.GetItemsAsync(owner, "/api/sites")).GetArrayLength();
         Assert.Equal(
             siteCount,
             entitlements.GetProperty("sites.max").GetProperty("usage").GetInt64()
@@ -289,7 +289,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         await fixture.CreateMemberAsync("norole@premise.local", fixture.OrgA);
         var viewer = await fixture.LoginAsync("norole@premise.local");
-        var list = await viewer.GetFromJsonAsync<JsonElement>("/api/sites");
+        var list = await ApiFixture.GetItemsAsync(viewer, "/api/sites");
         Assert.Empty(list.EnumerateArray()); // scope None: filters, never errors
 
         var write = await viewer.PostAsJsonAsync(
@@ -330,7 +330,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.NoContent, assign.StatusCode);
 
         var viewer = await fixture.LoginAsync("eastmgr@premise.local");
-        var visible = await viewer.GetFromJsonAsync<JsonElement>("/api/sites");
+        var visible = await ApiFixture.GetItemsAsync(viewer, "/api/sites");
         var names = visible
             .EnumerateArray()
             .Select(s => s.GetProperty("name").GetString())
@@ -339,7 +339,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.DoesNotContain("West Store", names); // scope filters silently
 
         // id-addressed read outside the subtree scope: 404 (never confirm)
-        var westSites = await owner.GetFromJsonAsync<JsonElement>($"/api/sites?under={west.id}");
+        var westSites = await ApiFixture.GetItemsAsync(owner, $"/api/sites?under={west.id}");
         var westSiteId = westSites.EnumerateArray().First().GetProperty("id").GetGuid();
         Assert.Equal(
             HttpStatusCode.NotFound,

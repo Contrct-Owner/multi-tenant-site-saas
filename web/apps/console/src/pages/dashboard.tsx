@@ -6,7 +6,7 @@ import { entitlementLabel, fmtDateTime } from '../lib/format';
 import { can, useMe } from '../session';
 
 type Effective = Record<string, { value: string; shape: string; policy: string; usage: number | null }>;
-type Site = { id: string; name: string; status: string };
+type SitesSummary = { total: number; openCount: number };
 type Invitation = { id: string; state: string };
 type AuditEvent = { id: string; eventName: string; actorTier: string; occurredAt: string };
 
@@ -22,8 +22,8 @@ export function DashboardPage() {
     queryFn: () => api.get<Effective>('/api/entitlements'),
   });
   const { data: sites } = useQuery({
-    queryKey: ['sites'],
-    queryFn: () => api.get<Site[]>('/api/sites'),
+    queryKey: ['sites', 'summary'],
+    queryFn: () => api.get<SitesSummary>('/api/sites?limit=1'),
     enabled: seesSites,
   });
   const { data: invitations } = useQuery({
@@ -38,7 +38,7 @@ export function DashboardPage() {
   });
 
   if (me?.tier !== 'user') return null;
-  const open = sites?.filter((s) => s.status === 'Open').length ?? 0;
+
   const pending = invitations?.filter((i) => i.state === 'pending').length ?? 0;
 
   return (
@@ -51,10 +51,10 @@ export function DashboardPage() {
             <CardContent className="pt-5">
               <Link to="/sites" className="block">
                 <div className="text-3xl font-semibold tabular-nums">
-                  {sites === undefined ? '—' : sites.length}
+                  {sites === undefined ? '—' : sites.total}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  sites · {open} open
+                  sites · {sites?.openCount ?? 0} open
                 </div>
               </Link>
             </CardContent>

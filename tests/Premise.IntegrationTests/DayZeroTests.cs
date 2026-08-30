@@ -126,7 +126,7 @@ public class DayZeroTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(["sites:read"], capabilities); // exactly the intent, nothing more
 
         // members list shows both with roles
-        var members = await boss.GetFromJsonAsync<JsonElement>("/api/members");
+        var members = await ApiFixture.GetItemsAsync(boss, "/api/members");
         Assert.Equal(2, members.GetArrayLength());
         var analystRow = members
             .EnumerateArray()
@@ -136,7 +136,7 @@ public class DayZeroTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         // removal: analyst loses access, list shrinks
         var analystId = analystRow.GetProperty("userId").GetGuid();
         (await boss.DeleteAsync($"/api/members/{analystId}")).EnsureSuccessStatusCode();
-        var after = await boss.GetFromJsonAsync<JsonElement>("/api/members");
+        var after = await ApiFixture.GetItemsAsync(boss, "/api/members");
         Assert.Equal(1, after.GetArrayLength());
 
         // self-removal is refused

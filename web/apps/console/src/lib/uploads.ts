@@ -23,7 +23,11 @@ export async function uploadFile(
   await api.post(`/api/files/${created.fileId}/complete`);
   onPhase?.('Scanning…');
   for (let attempt = 0; attempt < 60; attempt++) {
-    const files = await api.get<{ id: string; status: string }[]>('/api/files');
+    const { items: files } = await api.get<{
+      items: { id: string; status: string }[];
+      total: number;
+      nextOffset: number | null;
+    }>('/api/files');
     const status = files.find((f) => f.id === created.fileId)?.status;
     if (status === 'Clean') return created.fileId;
     if (status === 'Quarantined') throw new Error('file was quarantined by the scanner');

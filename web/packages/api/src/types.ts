@@ -2163,6 +2163,15 @@ export interface components {
             key: string;
             value: string;
         };
+        SiteListResponse: {
+            items: components["schemas"]["SiteResponse"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            openCount: number | string;
+            /** Format: int32 */
+            nextOffset: null | number | string;
+        };
         SiteResponse: {
             /** Format: uuid */
             id: string;
@@ -2313,6 +2322,9 @@ export interface operations {
         parameters: {
             query?: {
                 under?: string;
+                q?: string;
+                limit?: number | string;
+                offset?: number | string;
             };
             header?: never;
             path?: never;
@@ -2326,7 +2338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SiteResponse"][];
+                    "application/json": components["schemas"]["SiteListResponse"];
                 };
             };
             /** @description Not Found */
@@ -3258,7 +3270,11 @@ export interface operations {
     };
     GET_api_members: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                limit?: number | string;
+                offset?: number | string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4358,7 +4374,11 @@ export interface operations {
     };
     GET_api_files: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                limit?: number | string;
+                offset?: number | string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

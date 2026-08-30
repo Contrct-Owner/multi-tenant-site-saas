@@ -331,6 +331,18 @@ public class ApiFixture : IAsyncLifetime
 
     public Task<HttpClient> OperatorClient() => LoginAsync(Operator);
 
+    /// <summary>Unwrap a paged list envelope ({ items, total, nextOffset }) to its items.</summary>
+    public static async Task<System.Text.Json.JsonElement> GetItemsAsync(
+        HttpClient client,
+        string url
+    ) =>
+        (
+            await System.Net.Http.Json.HttpClientJsonExtensions.GetFromJsonAsync<System.Text.Json.JsonElement>(
+                client,
+                url
+            )
+        ).GetProperty("items");
+
     /// <summary>A user with NO org at all - the day-zero starting state.</summary>
     public async Task<Guid> CreateUserOnly(string email)
     {

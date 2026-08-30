@@ -101,6 +101,9 @@ public static class MemberEndpoints
         IdentityDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        string? q,
+        int? limit,
+        int? offset,
         CancellationToken ct
     )
     {
@@ -110,7 +113,7 @@ public static class MemberEndpoints
         )
             return Results.Unauthorized();
 
-        var members = await (
+        var query =
             from membership in db.Memberships
             where membership.OrgId == org
             join user in db.Users on membership.UserId equals user.Id
@@ -121,8 +124,24 @@ public static class MemberEndpoints
                 user.Name,
                 membershipId = membership.Id,
                 joinedAt = membership.CreatedAt,
-            }
-        ).ToListAsync(ct);
+            };
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var pattern = $"%{q.Trim()}%";
+            query = query.Where(m =>
+                EF.Functions.ILike(m.Email, pattern)
+                || (m.Name != null && EF.Functions.ILike(m.Name, pattern))
+            );
+        }
+        var total = await query.CountAsync(ct);
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+        var skip = Math.Max(offset ?? 0, 0);
+        var members = await query
+            .OrderBy(m => m.joinedAt)
+            .ThenBy(m => m.membershipId)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(ct);
         var roleNames = await (
             from assignment in db.MembershipRoles
             join role in db.Roles on assignment.RoleId equals role.Id
@@ -130,17 +149,22 @@ public static class MemberEndpoints
         ).ToListAsync(ct);
 
         return Results.Ok(
-            members.Select(m => new
+            new
             {
-                m.userId,
-                email = m.Email,
-                name = m.Name,
-                m.joinedAt,
-                roles = roleNames
-                    .Where(r => r.MembershipId == m.membershipId)
-                    .Select(r => r.Name)
-                    .ToArray(),
-            })
+                items = members.Select(m => new
+                {
+                    m.userId,
+                    email = m.Email,
+                    name = m.Name,
+                    m.joinedAt,
+                    roles = roleNames
+                        .Where(r => r.MembershipId == m.membershipId)
+                        .Select(r => r.Name)
+                        .ToArray(),
+                }),
+                total,
+                nextOffset = skip + members.Count < total ? skip + members.Count : (int?)null,
+            }
         );
     }
 

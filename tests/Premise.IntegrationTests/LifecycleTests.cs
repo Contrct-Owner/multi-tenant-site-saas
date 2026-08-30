@@ -26,7 +26,7 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var found = false;
         for (var i = 0; i < 100 && !found; i++)
         {
-            var files = await owner.GetFromJsonAsync<JsonElement>("/api/files");
+            var files = await ApiFixture.GetItemsAsync(owner, "/api/files");
             foreach (var file in files.EnumerateArray())
             {
                 if (
@@ -194,10 +194,7 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // grants are gone: the scope gate filters reads to nothing (never an
         // error - ADR three-gate), and the grant gate slams writes shut
-        Assert.Equal(
-            0,
-            (await founder.GetFromJsonAsync<JsonElement>("/api/sites")).GetArrayLength()
-        );
+        Assert.Equal(0, (await ApiFixture.GetItemsAsync(founder, "/api/sites")).GetArrayLength());
         Assert.Equal(
             HttpStatusCode.Unauthorized,
             (
