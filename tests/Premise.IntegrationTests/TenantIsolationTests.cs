@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Premise.Modules.Tenancy.Data;
+using Premise.Platform.Kernel;
 
 namespace Premise.IntegrationTests;
 
@@ -123,4 +126,53 @@ public class TenantIsolationTests(ApiFixture fixture) : IClassFixture<ApiFixture
     }
 
     private sealed record SettingDto(Guid Id, string Key, string Value);
+
+    [Fact]
+    public async Task Pooled_connection_never_leaks_tenant_context_to_the_next_borrower()
+    {
+        // No Reset On Close disables the pool's DISCARD ALL - the exact
+        // configuration where a session GUC would survive into the next
+        // borrower. The interceptor sets the GUC on EVERY open (org or ''),
+        // so isolation holds by construction, not by pool behavior (ADR 38).
+        var cs = new Npgsql.NpgsqlConnectionStringBuilder(fixture.AppConnectionString)
+        {
+            NoResetOnClose = true,
+            MaxPoolSize = 1, // force reuse of the SAME physical connection
+        }.ConnectionString;
+
+        TenancyDbContext Make(TenantContext tenant) =>
+            new(
+                new DbContextOptionsBuilder<TenancyDbContext>()
+                    .UseNpgsql(cs)
+                    .AddInterceptors(Premise.Platform.Data.TenantSessionInterceptor.Instance)
+                    .Options,
+                tenant
+            );
+
+        // borrower 1: tenanted, warms the pool's one connection with org A
+        var tenanted = new TenantContext();
+        tenanted.Set(fixture.OrgA, RegionId.Default);
+        await using (var db = Make(tenanted))
+            Assert.True(
+                await db.OrganizationSettings.AnyAsync(),
+                "tenanted borrower should see its own org's settings"
+            );
+
+        // borrower 2: NO tenant, same physical connection - must see nothing
+        await using (var db = Make(new TenantContext()))
+        {
+            Assert.False(
+                await db.OrganizationSettings.IgnoreQueryFilters().AnyAsync(),
+                "a tenantless borrower inherited the previous borrower's tenant context"
+            );
+            var guc = (
+                await db
+                    .Database.SqlQueryRaw<string>(
+                        "select current_setting('app.org_id', true) as \"Value\""
+                    )
+                    .ToListAsync()
+            ).First();
+            Assert.Equal("", guc);
+        }
+    }
 }

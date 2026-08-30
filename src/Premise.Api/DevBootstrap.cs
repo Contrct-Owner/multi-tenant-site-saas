@@ -6,10 +6,12 @@ using Wolverine;
 namespace Premise.Api;
 
 /// <summary>
-/// Development-only boot: apply every module's migrations and seed the dev
-/// org/user matched to the WorkOS emulator's pinned ids
-/// (workos-emulate.config.yaml), so `aspire run` on a fresh clone gives a
-/// working login. Never registered outside Development.
+/// Development-only boot: seed the dev org/user matched to the WorkOS
+/// emulator's pinned ids (workos-emulate.config.yaml), so `aspire run` on a
+/// fresh clone gives a working login. Never registered outside Development.
+/// Migrations belong to the MIGRATE role (ADR 38); this service retries
+/// until that role has run. It connects as the unprivileged app role, so
+/// RLS-protected seed rows are written in per-org tenant scopes.
 /// </summary>
 public sealed class DevBootstrap(
     IServiceProvider services,
@@ -45,21 +47,6 @@ public sealed class DevBootstrap(
         await using var scope = services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
 
-        await sp.GetRequiredService<Premise.Modules.Tenancy.Data.TenancyDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Modules.Identity.Data.IdentityDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Modules.Entitlements.Data.EntitlementsDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Modules.Audit.Data.AuditDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Modules.Storage.Data.StorageDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Modules.Ingest.Data.IngestDbContext>()
-            .Database.MigrateAsync(ct);
-        await sp.GetRequiredService<Premise.Platform.Infra.PlatformDbContext>()
-            .Database.MigrateAsync(ct);
-
         // seed keyed to the emulator's PINNED ids - login just matches
         var tenancy = sp.GetRequiredService<Premise.Modules.Tenancy.Data.TenancyDbContext>();
         var org = await tenancy.Organizations.FirstOrDefaultAsync(o => o.Slug == "acme-dev", ct);
@@ -77,42 +64,18 @@ public sealed class DevBootstrap(
             await tenancy.SaveChangesAsync(ct);
         }
 
-        var identity = sp.GetRequiredService<Premise.Modules.Identity.Data.IdentityDbContext>();
-        if (!await identity.Users.AnyAsync(u => u.Subject == EmulatorUserId, ct))
-        {
-            var user = Premise.Modules.Identity.Users.AppUser.Create(
-                "workos",
-                EmulatorUserId,
-                "alice@acme.test",
-                "Alice Dev"
-            );
-            var membership = Premise.Modules.Identity.Users.Membership.Create(user.Id, org.Id);
-            var owner = Premise.Modules.Identity.Access.Role.Create(org.Id, "Owner");
-            identity.Users.Add(user);
-            identity.Memberships.Add(membership);
-            identity.Roles.Add(owner);
-            identity.RoleGrants.Add(
-                new Premise.Modules.Identity.Access.RoleGrant
-                {
-                    Id = Guid.CreateVersion7(),
-                    OrgId = org.Id,
-                    RoleId = owner.Id,
-                    Domain = "*",
-                    Action = "*",
-                }
-            );
-            identity.MembershipRoles.Add(
-                new Premise.Modules.Identity.Access.MembershipRole
-                {
-                    Id = Guid.CreateVersion7(),
-                    OrgId = org.Id,
-                    MembershipId = membership.Id,
-                    RoleId = owner.Id,
-                    ScopePath = null,
-                }
-            );
-            await identity.SaveChangesAsync(ct);
-        }
+        // RLS-protected rows (roles, grants, assignments) are seeded in the
+        // org's own tenant scope: the app role holds no bypass (ADR 38)
+        await SeedOwnerAsync(
+            sp,
+            org.Id,
+            "workos",
+            EmulatorUserId,
+            "alice@acme.test",
+            "Alice Dev",
+            "Owner",
+            ct
+        );
 
         // the vendor's own org: operators live here (platform:operate)
         var platformOrg = await tenancy.Organizations.FirstOrDefaultAsync(
@@ -132,47 +95,16 @@ public sealed class DevBootstrap(
             tenancy.Organizations.Add(platformOrg);
             await tenancy.SaveChangesAsync(ct);
         }
-        if (!await identity.Users.AnyAsync(u => u.Subject == EmulatorOperatorId, ct))
-        {
-            var operatorUser = Premise.Modules.Identity.Users.AppUser.Create(
-                "workos",
-                EmulatorOperatorId,
-                "operator@premise.local",
-                "Premise Operator"
-            );
-            var operatorMembership = Premise.Modules.Identity.Users.Membership.Create(
-                operatorUser.Id,
-                platformOrg.Id
-            );
-            var operatorRole = Premise.Modules.Identity.Access.Role.Create(
-                platformOrg.Id,
-                "Operator"
-            );
-            identity.Users.Add(operatorUser);
-            identity.Memberships.Add(operatorMembership);
-            identity.Roles.Add(operatorRole);
-            identity.RoleGrants.Add(
-                new Premise.Modules.Identity.Access.RoleGrant
-                {
-                    Id = Guid.CreateVersion7(),
-                    OrgId = platformOrg.Id,
-                    RoleId = operatorRole.Id,
-                    Domain = "*",
-                    Action = "*",
-                }
-            );
-            identity.MembershipRoles.Add(
-                new Premise.Modules.Identity.Access.MembershipRole
-                {
-                    Id = Guid.CreateVersion7(),
-                    OrgId = platformOrg.Id,
-                    MembershipId = operatorMembership.Id,
-                    RoleId = operatorRole.Id,
-                    ScopePath = null,
-                }
-            );
-            await identity.SaveChangesAsync(ct);
-        }
+        await SeedOwnerAsync(
+            sp,
+            platformOrg.Id,
+            "workos",
+            EmulatorOperatorId,
+            "operator@premise.local",
+            "Premise Operator",
+            "Operator",
+            ct
+        );
 
         // what every org-writing flow does: publish the event (org_directory)
         var bus = sp.GetRequiredService<IMessageBus>();
@@ -191,4 +123,58 @@ public sealed class DevBootstrap(
             )
         );
     }
+
+    private static Task SeedOwnerAsync(
+        IServiceProvider sp,
+        OrgId orgId,
+        string provider,
+        string subject,
+        string email,
+        string name,
+        string roleName,
+        CancellationToken ct
+    ) =>
+        TenantScope.RunAsAsync(
+            sp,
+            orgId,
+            async scoped =>
+            {
+                var identity =
+                    scoped.GetRequiredService<Premise.Modules.Identity.Data.IdentityDbContext>();
+                if (await identity.Users.AnyAsync(u => u.Subject == subject, ct))
+                    return;
+                var user = Premise.Modules.Identity.Users.AppUser.Create(
+                    provider,
+                    subject,
+                    email,
+                    name
+                );
+                var membership = Premise.Modules.Identity.Users.Membership.Create(user.Id, orgId);
+                var role = Premise.Modules.Identity.Access.Role.Create(orgId, roleName);
+                identity.Users.Add(user);
+                identity.Memberships.Add(membership);
+                identity.Roles.Add(role);
+                identity.RoleGrants.Add(
+                    new Premise.Modules.Identity.Access.RoleGrant
+                    {
+                        Id = Guid.CreateVersion7(),
+                        OrgId = orgId,
+                        RoleId = role.Id,
+                        Domain = "*",
+                        Action = "*",
+                    }
+                );
+                identity.MembershipRoles.Add(
+                    new Premise.Modules.Identity.Access.MembershipRole
+                    {
+                        Id = Guid.CreateVersion7(),
+                        OrgId = orgId,
+                        MembershipId = membership.Id,
+                        RoleId = role.Id,
+                        ScopePath = null,
+                    }
+                );
+                await identity.SaveChangesAsync(ct);
+            }
+        );
 }

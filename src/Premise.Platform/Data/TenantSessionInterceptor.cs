@@ -12,9 +12,14 @@ namespace Premise.Platform.Data;
 /// options-build time is a bug - DbContext options can be cached from the
 /// first (startup/codegen) scope, freezing an empty tenant forever.
 ///
-/// When no tenant is set the variable stays unset; current_setting(..., true)
-/// returns NULL and policies match nothing: fail closed. Npgsql's pool reset
-/// (DISCARD ALL) clears the variable when the connection is returned.
+/// The GUC is set on EVERY open - the tenant's org id, or '' when no tenant
+/// is resolved (NULLIF in the policies turns '' into match-nothing). Setting
+/// it unconditionally is the invariant: a pooled connection's previous
+/// borrower can never leak context into this one, by construction rather than
+/// by trusting the pool's reset behavior (ADR 38). Transaction-scoped
+/// SET LOCAL would be stronger still, but Wolverine's transactional frames
+/// own transaction lifecycles here - per-request ambient transactions would
+/// fight them, so the always-set session GUC is the deliberate mechanic.
 /// </summary>
 public sealed class TenantSessionInterceptor : DbConnectionInterceptor
 {
@@ -24,11 +29,8 @@ public sealed class TenantSessionInterceptor : DbConnectionInterceptor
 
     public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData)
     {
-        if (OrgIdOf(eventData) is { } orgId)
-        {
-            using var cmd = MakeCommand(connection, orgId);
-            cmd.ExecuteNonQuery();
-        }
+        using var cmd = MakeCommand(connection, OrgIdOf(eventData));
+        cmd.ExecuteNonQuery();
     }
 
     public override async Task ConnectionOpenedAsync(
@@ -37,22 +39,19 @@ public sealed class TenantSessionInterceptor : DbConnectionInterceptor
         CancellationToken cancellationToken = default
     )
     {
-        if (OrgIdOf(eventData) is { } orgId)
-        {
-            await using var cmd = MakeCommand(connection, orgId);
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
-        }
+        await using var cmd = MakeCommand(connection, OrgIdOf(eventData));
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static Guid? OrgIdOf(ConnectionEndEventData eventData) =>
         eventData.Context is ModuleDbContext { Tenant.OrgId: { } orgId } ? orgId.Value : null;
 
-    private static DbCommand MakeCommand(DbConnection connection, Guid orgId)
+    private static DbCommand MakeCommand(DbConnection connection, Guid? orgId)
     {
         var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT set_config('app.org_id', $1, false)";
         var p = cmd.CreateParameter();
-        p.Value = orgId.ToString();
+        p.Value = orgId?.ToString() ?? "";
         cmd.Parameters.Add(p);
         return cmd;
     }

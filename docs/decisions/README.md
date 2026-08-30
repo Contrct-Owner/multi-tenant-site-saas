@@ -54,3 +54,4 @@ confirmation on edits under this directory.
 ## Amendments
 
 - [0037. Contract direction and read models](0037-contract-direction-and-read-models.md)
+- [0038. Engineering standards: role split, migration round-trips, test tiers, CI gates](0038-engineering-standards-convergence.md)

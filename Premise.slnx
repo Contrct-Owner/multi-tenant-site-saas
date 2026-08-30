@@ -20,6 +20,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Premise.ArchitectureTests/Premise.ArchitectureTests.csproj" />
     <Project Path="tests/Premise.IntegrationTests/Premise.IntegrationTests.csproj" />
+    <Project Path="tests/Premise.Platform.UnitTests/Premise.Platform.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Premise.Tools.CodegenKeys/Premise.Tools.CodegenKeys.csproj" />

@@ -39,6 +39,7 @@ public class ApiFixture : IAsyncLifetime
         "premise-test-objects",
         Guid.NewGuid().ToString("N")
     );
+    public string AppConnectionString { get; private set; } = "";
     public OrgId OrgA { get; } = OrgId.New();
     public OrgId OrgB { get; } = OrgId.New();
     public const string UserA = "user-a@premise.local"; // member: OrgA
@@ -83,11 +84,12 @@ public class ApiFixture : IAsyncLifetime
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO app_user;
             """
         );
-        var appCs = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
+        AppConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
         {
             Username = "app_user",
             Password = "app_user",
         }.ConnectionString;
+        var appCs = AppConnectionString;
 
         await using (var seed = CreateTenancyContext(adminCs))
         {

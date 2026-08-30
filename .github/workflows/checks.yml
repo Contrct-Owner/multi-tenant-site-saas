@@ -1,0 +1,117 @@
+# The single required status is the `checks` gate job (ADR 38): adding a
+# shard or a job means editing this file, never the branch-protection list.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet tool restore || true
+      - run: dotnet build Premise.slnx -c Release
+      - name: Format check
+        run: dotnet csharpier check .
+      - name: Architecture tests
+        run: dotnet test tests/Premise.ArchitectureTests -c Release --no-build
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Unit tests (discovered by *.UnitTests.csproj - pure logic only)
+        run: |
+          found=0
+          for project in tests/*.UnitTests/*.UnitTests.csproj; do
+            found=1
+            dotnet test "$project" -c Release
+          done
+          [ "$found" = "1" ] || { echo "no unit-test projects found"; exit 1; }
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build tests/Premise.IntegrationTests -c Release
+      - name: Integration shard ${{ matrix.shard }}/2 (real PostgreSQL via Testcontainers)
+        run: CONFIGURATION=Release tools/run-integration-shard.sh ${{ matrix.shard }} 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-shard-${{ matrix.shard }}
+          path: tests/Premise.IntegrationTests/TestResults/*.trx
+
+  contract:
+    # the committed OpenAPI document and generated client must match the code:
+    # an API change is a reviewable diff in the same PR, or CI fails (ADR 38)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate contract snapshot
+        run: |
+          dotnet test tests/Premise.IntegrationTests -c Release \
+            --filter "FullyQualifiedName~OpenApiSnapshotTest"
+          dotnet run --project tools/Premise.Tools.CodegenKeys -c Release
+      - name: Regenerate typed client
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @premise/codegen generate
+      - name: Contract drift is a build failure
+        run: git diff --exit-code web/packages/api
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Typecheck
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+      - name: Build
+        working-directory: web
+        run: pnpm build
+
+  checks:
+    # the one status branch protection requires
+    needs: [architecture, unit, integration, contract, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "all checks green"

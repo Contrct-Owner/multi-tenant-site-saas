@@ -28,5 +28,10 @@ migration files; always add a new one.
    - UUIDv7 keys, never sequences/identity for entity ids (ADR 35)
    - timestamptz for instants; document which temporal kind each column is (ADR 26)
    - soft-delete tier entities: `deleted_at` + partial unique indexes where needed (ADR 25)
-5. Review generated SQL with `dotnet ef migrations script` before considering it done.
-6. Run the module's tests plus the tenant-isolation suite.
+5. **`Down()` is maintained, not decorative** (ADR 38): `MigrationRoundTripTests`
+   applies every migration, reverts to 0, and applies again — a `Down()` that
+   does not truly reverse `Up()` fails the build. Never drop the module's
+   schema in `Down()`; it holds the migration history table.
+6. Review generated SQL with `dotnet ef migrations script` before considering it done.
+7. Run the module's tests plus the tenant-isolation suite (the round-trip
+   test runs with the integration suite).

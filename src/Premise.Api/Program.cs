@@ -36,6 +36,24 @@ builder.Host.UseDefaultServiceProvider(o =>
 // Role flag (ADR 34): one image, run as "api" or "worker".
 var role = builder.Configuration["ROLE"] ?? "api";
 
+// The role split (ADR 38): api and worker connect as the unprivileged app
+// role; only the migrate role keeps the owner credentials the orchestrator
+// hands out. Rewritten HERE so every consumer of the connection string -
+// region sources, Wolverine, middleware - sees the same identity.
+if (role != "migrate" && builder.Configuration["Database:AppUser"] is { Length: > 0 } appUser)
+{
+    var ownerCs =
+        builder.Configuration.GetConnectionString("premise")
+        ?? throw new InvalidOperationException("Missing connection string 'premise'.");
+    builder.Configuration["ConnectionStrings:premise"] = new Npgsql.NpgsqlConnectionStringBuilder(
+        ownerCs
+    )
+    {
+        Username = appUser,
+        Password = builder.Configuration["Database:AppPassword"],
+    }.ConnectionString;
+}
+
 // No ambient connection string (ADR 35): everything resolves through the
 // region seam, single-region in v1.
 builder.Services.AddSingleton<IRegionDataSources, SingleRegionDataSources>();
@@ -206,6 +224,10 @@ builder.UseWolverine(opts =>
         builder.Configuration.GetConnectionString("premise")
         ?? throw new InvalidOperationException("Missing connection string 'premise'.");
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
+    // the migrate role owns DDL, not messaging: never let it provision or
+    // touch the envelope schema as the OWNER (the app role must own it)
+    if (role == "migrate")
+        opts.Durability.Mode = Wolverine.DurabilityMode.MediatorOnly;
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
@@ -216,10 +238,13 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(IngestModule).Assembly);
 });
 
+if (role == "migrate")
+    builder.Services.AddHostedService<MigrationRunner>(); // migrate, provision app role, exit
+
 var bootstraps = builder.Environment.IsDevelopment() && role == "api";
 builder.Services.AddSingleton(new ReadinessState(ready: !bootstraps));
 if (bootstraps)
-    builder.Services.AddHostedService<DevBootstrap>(); // migrate + seed for `aspire run`
+    builder.Services.AddHostedService<DevBootstrap>(); // seed for `aspire run` (migrations: the migrate role)
 
 var app = builder.Build();
 

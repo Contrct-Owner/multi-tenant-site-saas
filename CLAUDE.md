@@ -71,6 +71,21 @@ don't restate them here.
   the RLS interceptor needs must be answerable lazily from whatever scope asks
   (HTTP claims, or the message envelope via IMessageContext). Never "set" the
   tenant at a pipeline point.
+- **Never hand api/worker owner credentials** (ADR 38). Migrations belong to
+  the migrate role; api/worker connect as app_user, or RLS is silently inert.
+- **Unit tests are pure logic** — no mocks, fakes, or persistence substitutes
+  (arch-enforced). Infrastructure behavior is integration-proven, full stop.
+  New endpoints declare typed responses — an untyped one generates a client
+  that looks safe while accepting anything.
+- **One primary object per file, named for it** — supporting types get their
+  own files; no grab-bags (ADR 38; new code — existing slices grandfathered).
+
+## Agent meta-rules
+
+- Don't mark work complete until the applicable checks pass. If a check isn't
+  implemented yet, say so — never imply it ran.
+- If a request conflicts with these rules, surface the conflict; never
+  silently weaken the rule.
 
 ## Workflows
 
@@ -86,9 +101,11 @@ don't restate them here.
 - Build: `dotnet build Premise.slnx` (Aspire CLI must be on PATH: `~/.aspire/bin`)
 - Architecture tests (fast, run after any cross-module change):
   `dotnet test tests/Premise.ArchitectureTests`
+- Unit tests (pure logic): `dotnet test tests/Premise.Platform.UnitTests`
 - Tenant-isolation golden suite (needs Docker; Testcontainers Postgres):
-  `dotnet test tests/Premise.IntegrationTests`
-- Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + WorkOS emulator + api + worker + dashboard). Dev login: alice@acme.test / test123 (seeded in `workos-emulate.config.yaml`)
+  `dotnet test tests/Premise.IntegrationTests` — or one deterministic shard,
+  exactly as CI runs it: `tools/run-integration-shard.sh 1 2`
+- Local dev: `aspire run` from `src/Premise.AppHost` (Postgres + WorkOS emulator + migrate → api + worker + dashboard). Dev login: alice@acme.test / test123 (seeded in `workos-emulate.config.yaml`)
 - Migrations: `dotnet ef migrations add <Name> --project src/Modules/<Module> --startup-project src/Modules/<Module>` (see new-migration skill)
 - Format: `dotnet csharpier format .`
 - Frontend (web/): `pnpm install`, `pnpm typecheck`, `pnpm build`,

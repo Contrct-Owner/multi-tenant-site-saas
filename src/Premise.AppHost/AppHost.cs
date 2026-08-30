@@ -22,12 +22,27 @@ var workos = builder
 
 var workosEndpoint = workos.GetEndpoint("http");
 
+// The migrate role (ADR 38): owner credentials, applies migrations,
+// provisions the app role, exits. api/worker wait for it to COMPLETE and
+// then connect as the unprivileged app_user - never as the owner.
+var migrate = builder
+    .AddProject<Projects.Premise_Api>("migrate", launchProfileName: null)
+    // no launch profile -> no environment -> Production, where the local
+    // auth provider is (rightly) refused; this is dev orchestration
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+    .WithEnvironment("ASPNETCORE_URLS", "http://127.0.0.1:0")
+    .WithReference(postgres)
+    .WaitFor(postgres)
+    .WithEnvironment("ROLE", "migrate");
+
 var api = builder
     .AddProject<Projects.Premise_Api>("api")
     .WithReference(postgres)
-    .WaitFor(postgres)
+    .WaitForCompletion(migrate)
     .WaitFor(workos)
     .WithEnvironment("ROLE", "api")
+    .WithEnvironment("Database__AppUser", "app_user")
+    .WithEnvironment("Database__AppPassword", "app_user")
     .WithEnvironment("Auth__Provider", "workos")
     .WithEnvironment("Auth__WorkOS__ApiKey", "sk_test_default")
     .WithEnvironment("Auth__WorkOS__ClientId", "client_premise_dev")
@@ -54,9 +69,12 @@ builder
 // (whichever resource registers first wins the proxy).
 builder
     .AddProject<Projects.Premise_Api>("worker", launchProfileName: null)
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
     .WithEnvironment("ASPNETCORE_URLS", "http://127.0.0.1:0")
     .WithReference(postgres)
-    .WaitFor(postgres)
+    .WaitForCompletion(migrate)
+    .WithEnvironment("Database__AppUser", "app_user")
+    .WithEnvironment("Database__AppPassword", "app_user")
     .WithEnvironment("ROLE", "worker");
 
 builder.Build().Run();
