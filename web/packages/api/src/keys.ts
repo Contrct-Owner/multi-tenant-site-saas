@@ -2,6 +2,7 @@
 // Source: Premise.Platform Capabilities + EntitlementCatalog.
 
 export const CAPABILITIES = [
+  'public:read',
   'sites:read',
   'sites:manage',
   'hierarchy:manage',

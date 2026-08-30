@@ -37,6 +37,9 @@ public sealed class Site : IPathScoped
     public static string Label(SiteId id) => "s" + id.Value.ToString("N");
 }
 
+[System.Text.Json.Serialization.JsonConverter(
+    typeof(System.Text.Json.Serialization.JsonStringEnumConverter)
+)]
 public enum SiteStatus
 {
     ComingSoon,

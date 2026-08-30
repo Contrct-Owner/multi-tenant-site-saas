@@ -8,6 +8,9 @@ namespace Premise.Platform.Kernel;
 /// </summary>
 public static class Capabilities
 {
+    /// <summary>The guest tier's reach (ADR 7): public site info for the host-derived org.</summary>
+    public const string PublicRead = "public:read";
+
     public const string SitesRead = "sites:read";
     public const string SitesManage = "sites:manage";
     public const string HierarchyManage = "hierarchy:manage";
@@ -27,6 +30,7 @@ public static class Capabilities
 
     public static readonly IReadOnlyList<string> All =
     [
+        PublicRead,
         SitesRead,
         SitesManage,
         HierarchyManage,

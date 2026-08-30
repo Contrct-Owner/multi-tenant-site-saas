@@ -43,6 +43,12 @@ builder
     .WithEnvironment("PREMISE_API", api.GetEndpoint("http"))
     .WaitFor(api);
 
+builder
+    .AddNpmApp("public", "../../web/apps/public", "dev")
+    .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
+    .WithEnvironment("PREMISE_API", api.GetEndpoint("http"))
+    .WaitFor(api);
+
 // launchProfileName: null - the worker must NOT inherit launchSettings'
 // http port, or it races the api for 5293 and every API path 404s
 // (whichever resource registers first wins the proxy).

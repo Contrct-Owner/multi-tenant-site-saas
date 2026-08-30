@@ -155,6 +155,10 @@ function SignInScreen() {
 
 function CreateOrgScreen() {
   const queryClient = useQueryClient();
+  const signOut = async () => {
+    await api.post('/auth/logout');
+    await queryClient.invalidateQueries({ queryKey: ['me'] });
+  };
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -214,6 +218,13 @@ function CreateOrgScreen() {
           {creating ? 'Setting up…' : 'Create organization'}
         </Button>
         {error && <p className="text-sm text-destructive">{error}</p>}
+        <button
+          type="button"
+          className="w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </button>
       </div>
     </main>
   );

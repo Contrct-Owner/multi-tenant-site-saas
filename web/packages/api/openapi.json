@@ -407,6 +407,77 @@
         }
       }
     },
+    "/public/sites": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
+        ],
+        "summary": "GET_public_sites",
+        "description": "GET_public_sites",
+        "operationId": "GET_public_sites",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/sites/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
+        ],
+        "summary": "GET_public_sites_id",
+        "description": "GET_public_sites_id",
+        "operationId": "GET_public_sites_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -2917,7 +2988,13 @@
         }
       },
       "SiteStatus": {
-        "type": "integer"
+        "enum": [
+          "ComingSoon",
+          "Open",
+          "TemporarilyClosed",
+          "Closed",
+          null
+        ]
       },
       "StageUploadRequest": {
         "required": [
@@ -3001,6 +3078,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"

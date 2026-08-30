@@ -183,7 +183,12 @@ export function SiteDetailPage() {
                       rrule: `FREQ=WEEKLY;BYDAY=${[...days].sort(
                         (a, b) => DAYS.findIndex((d) => d.code === a)
                           - DAYS.findIndex((d) => d.code === b)).join(',')}`,
-                      anchorDate: new Date().toISOString().slice(0, 10),
+                      // anchor a week back: BYDAY picks the days, and a
+                      // UTC-"today" anchor is TOMORROW for an evening-US
+                      // admin - hours must start now, not after midnight UTC
+                      anchorDate: new Date(Date.now() - 7 * 86400_000)
+                        .toISOString()
+                        .slice(0, 10),
                       opens,
                       closes,
                     })

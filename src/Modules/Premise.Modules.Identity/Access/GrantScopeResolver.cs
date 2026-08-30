@@ -27,8 +27,17 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
         CancellationToken ct = default
     )
     {
+        // the guest/contact tiers ARE principals of their org (ADR 7): they
+        // hold exactly public:read over it, nothing else
+        switch (principal)
+        {
+            case Principal.Guest { Org: { } guestOrg } when action == Capabilities.PublicRead:
+                return new NodeScope.EntireOrg(guestOrg);
+            case Principal.Contact contact when action == Capabilities.PublicRead:
+                return new NodeScope.EntireOrg(contact.Org);
+        }
         if (principal is not Principal.User { ActiveOrg: { } org, UserId: var userId })
-            return NodeScope.Nothing; // guests/contacts hold no management grants (yet)
+            return NodeScope.Nothing;
 
         if (_memo.TryGetValue((userId, org, action), out var cached))
             return cached;
