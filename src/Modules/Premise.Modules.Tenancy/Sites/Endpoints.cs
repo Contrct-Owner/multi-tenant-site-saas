@@ -170,12 +170,24 @@ public static class SiteEndpoints
             : [];
     }
 
+    [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites/{id}")]
-    public static async Task<IResult> Get(Guid id, TenancyDbContext db, CancellationToken ct)
+    public static async Task<IResult> Get(
+        Guid id,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
     {
         var siteId = new SiteId(id);
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
-        return site is null ? Results.NotFound() : Results.Ok(ToResponse(site));
+        // the scope gate applies to id-addressed reads too: outside the
+        // grant's subtree is 404, same as outside the tenant
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
+        return site is null || !scope.Covers(site.Path.ToString())
+            ? Results.NotFound()
+            : Results.Ok(ToResponse(site));
     }
 
     [Transactional(typeof(TenancyDbContext))]
@@ -268,4 +280,120 @@ public static class SiteEndpoints
 
     private static SiteResponse ToResponse(Site s) =>
         new(s.Id.Value, s.NodeId, s.Name, s.TimeZone, s.Status.ToString(), s.Path.ToString());
+}
+
+public sealed record ScheduleResponse(
+    Guid Id,
+    string Name,
+    string RRule,
+    DateOnly AnchorDate,
+    TimeOnly Opens,
+    TimeOnly Closes,
+    DateOnly[] ExDates
+);
+
+/// <summary>Schedule listing/removal and the projection preview - the hours editor's backend.</summary>
+public static class ScheduleEndpoints
+{
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverineGet("/api/sites/{id}/schedules")]
+    public static async Task<IResult> List(
+        Guid id,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        var siteId = new SiteId(id);
+        var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
+        if (site is null || !scope.Covers(site.Path.ToString()))
+            return Results.NotFound();
+        var schedules = await db
+            .SiteSchedules.Where(s => s.SiteId == siteId)
+            .OrderBy(s => s.Name)
+            .ToListAsync(ct);
+        return Results.Ok(
+            schedules
+                .Select(s => new ScheduleResponse(
+                    s.Id,
+                    s.Name,
+                    s.RRule,
+                    s.AnchorDate,
+                    s.OpensLocal,
+                    s.ClosesLocal,
+                    s.ExDates
+                ))
+                .ToList()
+        );
+    }
+
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverineDelete("/api/sites/{id}/schedules/{scheduleId}")]
+    public static async Task<IResult> Delete(
+        Guid id,
+        Guid scheduleId,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        IMessageBus bus,
+        CancellationToken ct
+    )
+    {
+        var siteId = new SiteId(id);
+        var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
+        if (site is null)
+            return Results.NotFound();
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesManage, ct);
+        if (!scope.Covers(site.Path.ToString()))
+            return Results.Forbid();
+        var schedule = await db.SiteSchedules.FirstOrDefaultAsync(
+            s => s.Id == scheduleId && s.SiteId == siteId,
+            ct
+        );
+        if (schedule is null)
+            return Results.NotFound();
+
+        db.SiteSchedules.Remove(schedule);
+        await db.SaveChangesAsync(ct);
+        // a removed rule invalidates its windows (ADR 28 rebuild trigger)
+        await bus.PublishForOrgAsync(site.OrgId, new RebuildSiteOccurrences(site.Id.Value));
+        return Results.NoContent();
+    }
+
+    /// <summary>Upcoming open windows from the projection - "what these rules actually mean".</summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverineGet("/api/sites/{id}/windows")]
+    public static async Task<IResult> Windows(
+        Guid id,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        TimeProvider time,
+        int? days,
+        CancellationToken ct
+    )
+    {
+        var siteId = new SiteId(id);
+        var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == siteId, ct);
+        var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
+        if (site is null || !scope.Covers(site.Path.ToString()))
+            return Results.NotFound();
+        var now = time.GetUtcNow();
+        var horizon = now.AddDays(Math.Clamp(days ?? 7, 1, 60));
+        var windows = await db
+            .SiteOpenWindows.Where(w =>
+                w.SiteId == siteId && w.EndsAtUtc > now && w.StartsAtUtc < horizon
+            )
+            .OrderBy(w => w.StartsAtUtc)
+            .Select(w => new
+            {
+                w.StartsAtUtc,
+                w.EndsAtUtc,
+                w.LocalDate,
+            })
+            .ToListAsync(ct);
+        return Results.Ok(windows);
+    }
 }

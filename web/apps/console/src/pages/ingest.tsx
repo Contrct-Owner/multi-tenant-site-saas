@@ -3,8 +3,8 @@ import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHea
   CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { uploadFile } from '../lib/uploads';
 
-type Ticket = { url: string; method: string; headers: Record<string, string> };
 type Counts = { create: number; update: number; close: number; unchanged: number; invalid: number };
 type Preview = {
   id: string;
@@ -20,28 +20,9 @@ export function IngestPage() {
 
   const stage = useMutation({
     mutationFn: async (file: File) => {
-      // the full ticket flow (ADR 19): create -> direct PUT -> complete -> poll scan
-      setPhase('Requesting upload ticket…');
-      const created = await api.post<{ fileId: string; ticket: Ticket }>('/api/files', {
-        name: file.name,
-        contentType: 'text/csv',
-        sizeBytes: file.size,
-      });
-      setPhase('Uploading to storage…');
-      await fetch(created.ticket.url, { method: created.ticket.method, body: file, credentials: 'include' });
-      await api.post(`/api/files/${created.fileId}/complete`);
-      setPhase('Scanning…');
-      for (let attempt = 0; attempt < 60; attempt++) {
-        const files = await api.get<{ id: string; status: string }[]>('/api/files');
-        const status = files.find((f) => f.id === created.fileId)?.status;
-        if (status === 'Clean') break;
-        if (status === 'Quarantined') throw new Error('file was quarantined by the scanner');
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
+      const fileId = await uploadFile(file, 'text/csv', setPhase);
       setPhase('Computing diff…');
-      const staged = await api.post<{ batchId: string }>('/api/ingest/uploads', {
-        fileId: created.fileId,
-      });
+      const staged = await api.post<{ batchId: string }>('/api/ingest/uploads', { fileId });
       return staged.batchId;
     },
     onSuccess: (id) => {

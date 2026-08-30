@@ -2,6 +2,7 @@ import { api } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
@@ -48,7 +49,15 @@ export function SitesPage() {
             <TableBody>
               {sites?.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      to="/sites/$siteId"
+                      params={{ siteId: s.id }}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {s.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{s.timeZone}</TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                 </TableRow>

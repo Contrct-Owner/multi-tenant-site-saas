@@ -300,6 +300,60 @@ public class HierarchyAndTimeTests(ApiFixture fixture) : IClassFixture<ApiFixtur
         Assert.NotEmpty(restored);
     }
 
+    [Fact]
+    public async Task Schedules_are_listable_deletable_and_windows_preview_works()
+    {
+        var (client, rootId) = await SetupHierarchy();
+        var site = await PostJson(
+            client,
+            "/api/sites",
+            new
+            {
+                nodeId = rootId,
+                name = "Hours Store",
+                timeZone = "Etc/UTC",
+            }
+        );
+        var siteId = site.GetProperty("id").GetGuid();
+        var schedule = await PostJson(
+            client,
+            $"/api/sites/{siteId}/schedules",
+            new
+            {
+                name = "Weekdays",
+                rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+                anchorDate = "2026-01-05",
+                opens = "09:00",
+                closes = "17:00",
+            }
+        );
+        await PollWindows(siteId, minimum: 10);
+
+        var listed = await client.GetFromJsonAsync<System.Text.Json.JsonElement>(
+            $"/api/sites/{siteId}/schedules"
+        );
+        var row = Assert.Single(listed.EnumerateArray());
+        Assert.Equal("Weekdays", row.GetProperty("name").GetString());
+
+        var preview = await client.GetFromJsonAsync<System.Text.Json.JsonElement>(
+            $"/api/sites/{siteId}/windows?days=14"
+        );
+        Assert.True(preview.GetArrayLength() > 0, "windows preview empty");
+
+        // deleting the rule empties the projection (rebuild trigger)
+        var delete = await client.DeleteAsync(
+            $"/api/sites/{siteId}/schedules/{row.GetProperty("id").GetGuid()}"
+        );
+        delete.EnsureSuccessStatusCode();
+        for (var i = 0; i < 60; i++)
+        {
+            if ((await fixture.QueryWindows(siteId)).Count == 0)
+                return;
+            await Task.Delay(100);
+        }
+        Assert.Fail("windows survived schedule deletion");
+    }
+
     private async Task<List<(DateTimeOffset start, DateTimeOffset end)>> PollWindows(
         Guid siteId,
         int minimum

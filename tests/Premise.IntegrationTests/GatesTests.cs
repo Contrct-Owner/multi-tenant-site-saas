@@ -317,6 +317,14 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Contains("East Store", names);
         Assert.DoesNotContain("West Store", names); // scope filters silently
 
+        // id-addressed read outside the subtree scope: 404 (never confirm)
+        var westSites = await owner.GetFromJsonAsync<JsonElement>($"/api/sites?under={west.id}");
+        var westSiteId = westSites.EnumerateArray().First().GetProperty("id").GetGuid();
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await viewer.GetAsync($"/api/sites/{westSiteId}")).StatusCode
+        );
+
         // write inside the subtree: allowed; outside: 403
         var inside = await viewer.PostAsJsonAsync(
             "/api/sites",

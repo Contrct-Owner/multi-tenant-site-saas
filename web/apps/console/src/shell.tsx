@@ -9,6 +9,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', capability: null },
   { to: '/sites', label: 'Sites', capability: 'sites:read' },
   { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage' },
+  { to: '/files', label: 'Files', capability: 'files:read' },
   { to: '/ingest', label: 'Ingest', capability: 'ingest:manage' },
   { to: '/members', label: 'Members', capability: 'roles:manage' },
   { to: '/settings', label: 'Settings', capability: 'org:manage' },

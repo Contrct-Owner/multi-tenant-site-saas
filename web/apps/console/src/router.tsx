@@ -7,6 +7,8 @@ import { IngestPage } from './pages/ingest';
 import { MembersPage } from './pages/members';
 import { OperatorPage } from './pages/operator';
 import { SettingsPage } from './pages/settings';
+import { SiteDetailPage } from './pages/site-detail';
+import { FilesPage } from './pages/files';
 import { SitesPage } from './pages/sites';
 
 const rootRoute = createRootRoute({
@@ -20,6 +22,8 @@ const rootRoute = createRootRoute({
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/sites', component: SitesPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/sites/$siteId', component: SiteDetailPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/files', component: FilesPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/hierarchy', component: HierarchyPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/ingest', component: IngestPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/members', component: MembersPage }),

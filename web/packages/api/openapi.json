@@ -263,6 +263,148 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+        ],
+        "summary": "GET_api_sites_id_schedules",
+        "description": "GET_api_sites_id_schedules",
+        "operationId": "GET_api_sites_id_schedules",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}/schedules/{scheduleId}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+        ],
+        "summary": "DELETE_api_sites_id_schedules_scheduleId",
+        "description": "DELETE_api_sites_id_schedules_scheduleId",
+        "operationId": "DELETE_api_sites_id_schedules_scheduleId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "scheduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}/windows": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+        ],
+        "summary": "GET_api_sites_id_windows",
+        "description": "GET_api_sites_id_windows",
+        "operationId": "GET_api_sites_id_windows",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
       }
     },
     "/api/settings": {
@@ -2856,6 +2998,9 @@
   "tags": [
     {
       "name": "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
