@@ -48,6 +48,7 @@ export function OperatorPage() {
     <div className="max-w-4xl space-y-6">
       <h1 className="text-2xl font-semibold">Operator</h1>
       <PlatformOverview />
+      <CustomerSearch onPickOrg={(id) => setSelected(orgs?.find((o) => o.id === id) ?? null)} />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
         <Card>
           <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
@@ -153,6 +154,53 @@ export function OperatorPage() {
       </div>
       <DeadLetters />
     </div>
+  );
+}
+
+type FoundUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  orgs: { id: string; name: string; status: string }[];
+};
+
+function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
+  const [q, setQ] = useState('');
+  const { data: hits } = useQuery({
+    queryKey: ['operator-users', q],
+    queryFn: () => api.get<FoundUser[]>(`/api/operator/users?q=${encodeURIComponent(q)}`),
+    enabled: q.trim().length >= 2,
+  });
+  return (
+    <Card>
+      <CardHeader><CardTitle>Find a customer</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        <Input placeholder="Email or name from the ticket…" value={q}
+          onChange={(e) => setQ(e.target.value)} />
+        {q.trim().length >= 2 && hits?.length === 0 && (
+          <p className="text-sm text-muted-foreground">No people match.</p>
+        )}
+        {hits?.map((u) => (
+          <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+            <span>
+              <span className="font-medium">{u.email}</span>
+              {u.name && <span className="ml-2 text-muted-foreground">{u.name}</span>}
+            </span>
+            <span className="flex flex-wrap gap-1">
+              {u.orgs.length === 0 && <span className="text-muted-foreground">no orgs</span>}
+              {u.orgs.map((o) => (
+                <Button key={o.id} variant="outline" size="sm" onClick={() => onPickOrg(o.id)}>
+                  {o.name}
+                  {o.status !== 'Active' && (
+                    <span className="ml-1 text-muted-foreground">({o.status})</span>
+                  )}
+                </Button>
+              ))}
+            </span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
