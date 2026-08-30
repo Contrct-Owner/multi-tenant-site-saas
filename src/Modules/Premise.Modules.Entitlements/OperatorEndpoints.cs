@@ -47,15 +47,8 @@ public static class OperatorEntitlementEndpoints
             async sp =>
             {
                 var service = sp.GetRequiredService<EntitlementsService>();
-                var effective = new Dictionary<string, object>();
-                foreach (var (code, descriptor) in EntitlementCatalog.Definitions)
-                    effective[code] = new
-                    {
-                        value = await service.EffectiveValueAsync(target, code, ct),
-                        shape = descriptor.Shape.ToString(),
-                        policy = descriptor.Policy.ToString(),
-                    };
-                return Results.Ok(effective);
+                var probes = sp.GetServices<IEntitlementUsageProbe>();
+                return Results.Ok(await service.DescribeAllAsync(target, probes, ct));
             }
         );
     }

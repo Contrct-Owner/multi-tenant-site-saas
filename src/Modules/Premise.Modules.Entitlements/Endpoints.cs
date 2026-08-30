@@ -16,23 +16,17 @@ public sealed record AddExceptionRequest(string Value, string Reason, DateTimeOf
 public static class EntitlementEndpoints
 {
     /// <summary>Effective entitlements for the active org - part of the UI bootstrap.</summary>
+    [Transactional(typeof(EntitlementsDbContext))]
     [WolverineGet("/api/entitlements")]
     public static async Task<IResult> List(
         IPrincipalAccessor accessor,
         EntitlementsService service,
+        IEnumerable<IEntitlementUsageProbe> probes,
         CancellationToken ct
     )
     {
         if (accessor.Current is not Principal.User { ActiveOrg: { } org })
             return Results.Unauthorized();
-        var effective = new Dictionary<string, object>();
-        foreach (var (code, descriptor) in EntitlementCatalog.Definitions)
-            effective[code] = new
-            {
-                value = await service.EffectiveValueAsync(org, code, ct),
-                shape = descriptor.Shape.ToString(),
-                policy = descriptor.Policy.ToString(),
-            };
-        return Results.Ok(effective);
+        return Results.Ok(await service.DescribeAllAsync(org, probes, ct));
     }
 }

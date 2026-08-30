@@ -5,7 +5,7 @@ import { Link } from '@tanstack/react-router';
 import { entitlementLabel, fmtDateTime } from '../lib/format';
 import { can, useMe } from '../session';
 
-type Effective = Record<string, { value: string; shape: string; policy: string }>;
+type Effective = Record<string, { value: string; shape: string; policy: string; usage: number | null }>;
 type Site = { id: string; name: string; status: string };
 type Invitation = { id: string; state: string };
 type AuditEvent = { id: string; eventName: string; actorTier: string; occurredAt: string };
@@ -110,14 +110,35 @@ export function DashboardPage() {
         <CardContent>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             {entitlements &&
-              (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => (
-                <div key={code} className="flex justify-between border-b py-1.5">
-                  <dt className="text-muted-foreground" title={code}>
-                    {entitlementLabel(code)}
-                  </dt>
-                  <dd className="font-medium">{entitlements[code]?.value}</dd>
-                </div>
-              ))}
+              (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
+                const entry = entitlements[code];
+                const limit = Number(entry?.value);
+                const showBar =
+                  entry?.usage != null && Number.isFinite(limit) && limit > 0;
+                const ratio = showBar ? Math.min(entry.usage! / limit, 1) : 0;
+                return (
+                  <div key={code} className="space-y-1 border-b py-1.5">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground" title={code}>
+                        {entitlementLabel(code)}
+                      </dt>
+                      <dd className="font-medium tabular-nums">
+                        {entry?.usage != null
+                          ? `${entry.usage} of ${entry.value}`
+                          : entry?.value}
+                      </dd>
+                    </div>
+                    {showBar && (
+                      <div className="h-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={ratio >= 1 ? 'h-full bg-destructive' : 'h-full bg-primary'}
+                          style={{ width: `${Math.max(ratio * 100, 2)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </dl>
         </CardContent>
       </Card>

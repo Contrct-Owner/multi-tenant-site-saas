@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
@@ -97,6 +98,41 @@ public sealed class EntitlementsService(EntitlementsDbContext db, TimeProvider t
                 .SumAsync(e => (long?)e.Amount, ct)
             ?? 0;
         return rolled + live;
+    }
+
+    /// <summary>
+    /// The full tenant-facing picture: effective value, shape, policy, and -
+    /// where the system can know it - CURRENT USAGE (metered codes from the
+    /// period counter, limit codes from their registered probe). "You've used
+    /// 340 of 1,000" beats a bare "1000" (UX gap: usage visibility).
+    /// </summary>
+    public async Task<Dictionary<string, object>> DescribeAllAsync(
+        OrgId org,
+        IEnumerable<IEntitlementUsageProbe> probes,
+        CancellationToken ct
+    )
+    {
+        var probeByCode = probes.ToDictionary(p => p.Code);
+        var now = time.GetUtcNow();
+        var effective = new Dictionary<string, object>();
+        foreach (var (code, descriptor) in EntitlementCatalog.Definitions)
+        {
+            long? usage = descriptor.Shape switch
+            {
+                EntitlementShape.Metered => await CurrentPeriodUsageAsync(org, code, now, ct),
+                EntitlementShape.Limit when probeByCode.TryGetValue(code, out var probe) =>
+                    await probe.CurrentUsageAsync(org, ct),
+                _ => null,
+            };
+            effective[code] = new
+            {
+                value = await EffectiveValueAsync(org, code, ct),
+                shape = descriptor.Shape.ToString(),
+                policy = descriptor.Policy.ToString(),
+                usage,
+            };
+        }
+        return effective;
     }
 
     public async Task<string> EffectiveValueAsync(OrgId org, string code, CancellationToken ct)

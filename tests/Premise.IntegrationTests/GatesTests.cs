@@ -186,7 +186,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
-    public async Task Effective_entitlements_are_readable()
+    public async Task Effective_entitlements_are_readable_with_usage()
     {
         var owner = await fixture.LoginAsync(ApiFixture.UserA);
         var entitlements = await owner.GetFromJsonAsync<JsonElement>("/api/entitlements");
@@ -197,6 +197,25 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         Assert.Equal(
             "Tiered",
             entitlements.GetProperty("audit.retention_days").GetProperty("shape").GetString()
+        );
+
+        // usage rides along where the system can know it (UX: "used X of Y")
+        var siteCount = (await owner.GetFromJsonAsync<JsonElement>("/api/sites")).GetArrayLength();
+        Assert.Equal(
+            siteCount,
+            entitlements.GetProperty("sites.max").GetProperty("usage").GetInt64()
+        );
+        Assert.True(
+            entitlements.GetProperty("contact_links.monthly").GetProperty("usage").GetInt64() >= 0
+        );
+        // shapes with no meaningful counter say so honestly
+        Assert.Equal(
+            JsonValueKind.Null,
+            entitlements.GetProperty("contact_links.enabled").GetProperty("usage").ValueKind
+        );
+        Assert.Equal(
+            JsonValueKind.Null,
+            entitlements.GetProperty("api.requests_per_minute").GetProperty("usage").ValueKind
         );
     }
 
