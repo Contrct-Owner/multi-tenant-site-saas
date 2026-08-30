@@ -27,11 +27,13 @@ public sealed class SuspensionMiddleware(RequestDelegate next)
                 .OrgDirectory.Where(d => d.OrgId == org)
                 .Select(d => d.Status)
                 .FirstOrDefaultAsync(context.RequestAborted);
-            if (status == "Suspended")
+            if (status is "Suspended" or "Offboarding")
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(
-                    new { error = "organization suspended", code = "org_suspended" }
+                    status == "Suspended"
+                        ? new { error = "organization suspended", code = "org_suspended" }
+                        : new { error = "organization offboarded", code = "org_offboarded" }
                 );
                 return;
             }

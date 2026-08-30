@@ -38,6 +38,7 @@ public static class EntitlementsModule
         // both by TYPE: Wolverine codegen inlines type registrations (no service location)
         services.AddScoped<EntitlementsService>();
         services.AddScoped<IEntitlements, EntitlementsService>();
+        services.AddScoped<Premise.Contracts.IOrgDataExporter, EntitlementsExporter>();
         if (runBackgroundWork)
             services.AddHostedService<MeterCompactionService>();
         return services;

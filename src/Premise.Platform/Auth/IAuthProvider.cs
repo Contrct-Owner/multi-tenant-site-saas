@@ -55,6 +55,8 @@ public interface IOrganizationDirectory
 {
     Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default);
 
+    Task DeleteOrganizationAsync(string externalOrgId, CancellationToken ct = default);
+
     Task UpdateOrganizationNameAsync(
         string externalOrgId,
         string name,

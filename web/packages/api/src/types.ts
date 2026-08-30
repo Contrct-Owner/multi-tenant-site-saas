@@ -79,13 +79,97 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET_api_sites_id_schedules
+         * @description GET_api_sites_id_schedules
+         */
+        get: operations["GET_api_sites_id_schedules"];
         put?: never;
         /**
          * POST_api_sites_id_schedules
          * @description POST_api_sites_id_schedules
          */
         post: operations["POST_api_sites_id_schedules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}/schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_sites_id_schedules_scheduleId
+         * @description DELETE_api_sites_id_schedules_scheduleId
+         */
+        delete: operations["DELETE_api_sites_id_schedules_scheduleId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}/windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_sites_id_windows
+         * @description GET_api_sites_id_windows
+         */
+        get: operations["GET_api_sites_id_windows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_public_sites
+         * @description GET_public_sites
+         */
+        get: operations["GET_public_sites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/sites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_public_sites_id
+         * @description GET_public_sites_id
+         */
+        get: operations["GET_public_sites_id"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -146,6 +230,166 @@ export interface paths {
          */
         put: operations["PUT_api_settings_key"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/org/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_org_export
+         * @description POST_api_org_export
+         */
+        post: operations["POST_api_org_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs/{orgId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_operator_orgs_orgId_export
+         * @description POST_api_operator_orgs_orgId_export
+         */
+        post: operations["POST_api_operator_orgs_orgId_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs/{orgId}/offboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_operator_orgs_orgId_offboard
+         * @description POST_api_operator_orgs_orgId_offboard
+         */
+        post: operations["POST_api_operator_orgs_orgId_offboard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_orgs
+         * @description POST_api_orgs
+         */
+        post: operations["POST_api_orgs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/org": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_org
+         * @description PUT_api_org
+         */
+        put: operations["PUT_api_org"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_operator_orgs
+         * @description GET_api_operator_orgs
+         */
+        get: operations["GET_api_operator_orgs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs/{orgId}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_operator_orgs_orgId_suspend
+         * @description POST_api_operator_orgs_orgId_suspend
+         */
+        post: operations["POST_api_operator_orgs_orgId_suspend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs/{orgId}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_operator_orgs_orgId_reactivate
+         * @description POST_api_operator_orgs_orgId_reactivate
+         */
+        post: operations["POST_api_operator_orgs_orgId_reactivate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -216,7 +460,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/roles": {
+    "/api/members/leave": {
         parameters: {
             query?: never;
             header?: never;
@@ -224,6 +468,114 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
+        /**
+         * POST_api_members_leave
+         * @description POST_api_members_leave
+         */
+        post: operations["POST_api_members_leave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_members
+         * @description GET_api_members
+         */
+        get: operations["GET_api_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_members_invitations
+         * @description GET_api_members_invitations
+         */
+        get: operations["GET_api_members_invitations"];
+        put?: never;
+        /**
+         * POST_api_members_invitations
+         * @description POST_api_members_invitations
+         */
+        post: operations["POST_api_members_invitations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_members_invitations_invitationId
+         * @description DELETE_api_members_invitations_invitationId
+         */
+        delete: operations["DELETE_api_members_invitations_invitationId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_members_userId
+         * @description DELETE_api_members_userId
+         */
+        delete: operations["DELETE_api_members_userId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_roles
+         * @description GET_api_roles
+         */
+        get: operations["GET_api_roles"];
         put?: never;
         /**
          * POST_api_roles
@@ -263,7 +615,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET_api_grant_exceptions
+         * @description GET_api_grant_exceptions
+         */
+        get: operations["GET_api_grant_exceptions"];
         put?: never;
         /**
          * POST_api_grant_exceptions
@@ -271,6 +627,70 @@ export interface paths {
          */
         post: operations["POST_api_grant_exceptions"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_roles_id
+         * @description PUT_api_roles_id
+         */
+        put: operations["PUT_api_roles_id"];
+        post?: never;
+        /**
+         * DELETE_api_roles_id
+         * @description DELETE_api_roles_id
+         */
+        delete: operations["DELETE_api_roles_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{id}/assign/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_roles_id_assign_userId
+         * @description DELETE_api_roles_id_assign_userId
+         */
+        delete: operations["DELETE_api_roles_id_assign_userId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grant-exceptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_grant_exceptions_id
+         * @description DELETE_api_grant_exceptions_id
+         */
+        delete: operations["DELETE_api_grant_exceptions_id"];
         options?: never;
         head?: never;
         patch?: never;
@@ -296,7 +716,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/entitlements/{code}": {
+    "/api/operator/orgs/{orgId}/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_operator_orgs_orgId_entitlements
+         * @description GET_api_operator_orgs_orgId_entitlements
+         */
+        get: operations["GET_api_operator_orgs_orgId_entitlements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operator/orgs/{orgId}/entitlements/{code}": {
         parameters: {
             query?: never;
             header?: never;
@@ -305,10 +745,10 @@ export interface paths {
         };
         get?: never;
         /**
-         * PUT_api_admin_entitlements_code
-         * @description PUT_api_admin_entitlements_code
+         * PUT_api_operator_orgs_orgId_entitlements_code
+         * @description PUT_api_operator_orgs_orgId_entitlements_code
          */
-        put: operations["PUT_api_admin_entitlements_code"];
+        put: operations["PUT_api_operator_orgs_orgId_entitlements_code"];
         post?: never;
         delete?: never;
         options?: never;
@@ -316,7 +756,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/entitlements/{code}/exceptions": {
+    "/api/operator/orgs/{orgId}/entitlements/{code}/exceptions": {
         parameters: {
             query?: never;
             header?: never;
@@ -326,10 +766,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST_api_admin_entitlements_code_exceptions
-         * @description POST_api_admin_entitlements_code_exceptions
+         * POST_api_operator_orgs_orgId_entitlements_code_exceptions
+         * @description POST_api_operator_orgs_orgId_entitlements_code_exceptions
          */
-        post: operations["POST_api_admin_entitlements_code_exceptions"];
+        post: operations["POST_api_operator_orgs_orgId_entitlements_code_exceptions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -667,6 +1107,42 @@ export interface paths {
                     returnUrl?: string;
                     hint?: string;
                     org?: string;
+                    signup?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    email: string;
                 };
                 header?: never;
                 path?: never;
@@ -700,9 +1176,10 @@ export interface paths {
         };
         get: {
             parameters: {
-                query: {
-                    code: string;
-                    state: string;
+                query?: {
+                    code?: string;
+                    state?: string;
+                    error?: string;
                 };
                 header?: never;
                 path?: never;
@@ -939,12 +1416,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AddExceptionRequest: {
-            value: string;
-            reason: string;
-            /** Format: date-time */
-            expiresAt: string;
-        };
         AddGrantExceptionRequest: {
             /** Format: uuid */
             userId: string;
@@ -980,6 +1451,10 @@ export interface components {
             parentId: string;
             name: string;
         };
+        CreateOrgRequest: {
+            name: string;
+            slug: string;
+        };
         CreateRoleRequest: {
             name: string;
             grants: components["schemas"]["GrantSpec"][];
@@ -1013,6 +1488,11 @@ export interface components {
             domain: string;
             action: string;
         };
+        InviteMemberRequest: {
+            email: string;
+            /** Format: uuid */
+            roleId: string;
+        };
         IResult: Record<string, never>;
         IssueContactLinkRequest: {
             email: string;
@@ -1021,15 +1501,24 @@ export interface components {
             /** Format: uuid */
             newParentId: string;
         };
+        OperatorAddExceptionRequest: {
+            value: string;
+            reason: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        OperatorSetEntitlementRequest: {
+            value: string;
+        };
         PutSettingRequest: {
             value: string;
+        };
+        RenameOrgRequest: {
+            name: string;
         };
         SetAuditConfigRequest: {
             logGrants: boolean;
             logReads: boolean;
-        };
-        SetEntitlementRequest: {
-            value: string;
         };
         SetHoldRequest: {
             hold: boolean;
@@ -1050,7 +1539,8 @@ export interface components {
             status: string;
             path: string;
         };
-        SiteStatus: number;
+        /** @enum {unknown} */
+        SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
         StageUploadRequest: {
             /** Format: uuid */
             fileId: string;
@@ -1058,6 +1548,10 @@ export interface components {
         SwitchOrgRequest: {
             /** Format: uuid */
             orgId: string;
+        };
+        UpdateRoleRequest: {
+            name: string;
+            grants: components["schemas"]["GrantSpec"][];
         };
         UpdateSiteRequest: {
             name: null | string;
@@ -1232,6 +1726,37 @@ export interface operations {
             };
         };
     };
+    GET_api_sites_id_schedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     POST_api_sites_id_schedules: {
         parameters: {
             query?: never;
@@ -1246,6 +1771,131 @@ export interface operations {
                 "application/json": components["schemas"]["CreateScheduleRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_sites_id_schedules_scheduleId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_sites_id_windows: {
+        parameters: {
+            query?: {
+                days?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_public_sites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_public_sites_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1349,6 +1999,254 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_org_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_operator_orgs_orgId_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_operator_orgs_orgId_offboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_orgs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_org: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameOrgRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_operator_orgs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_operator_orgs_orgId_suspend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_operator_orgs_orgId_reactivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
                 };
             };
             /** @description Not Found */
@@ -1492,6 +2390,217 @@ export interface operations {
             };
         };
     };
+    POST_api_members_leave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_members_invitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_members_invitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_members_invitations_invitationId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_members_userId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     POST_api_roles: {
         parameters: {
             query?: never;
@@ -1560,6 +2669,35 @@ export interface operations {
             };
         };
     };
+    GET_api_grant_exceptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     POST_api_grant_exceptions: {
         parameters: {
             query?: never;
@@ -1572,6 +2710,135 @@ export interface operations {
                 "application/json": components["schemas"]["AddGrantExceptionRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_roles_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_roles_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_roles_id_assign_userId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_grant_exceptions_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1622,18 +2889,50 @@ export interface operations {
             };
         };
     };
-    PUT_api_admin_entitlements_code: {
+    GET_api_operator_orgs_orgId_entitlements: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                orgId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_operator_orgs_orgId_entitlements_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgId: string;
                 code: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetEntitlementRequest"];
+                "application/json": components["schemas"]["OperatorSetEntitlementRequest"];
             };
         };
         responses: {
@@ -1657,18 +2956,19 @@ export interface operations {
             };
         };
     };
-    POST_api_admin_entitlements_code_exceptions: {
+    POST_api_operator_orgs_orgId_entitlements_code_exceptions: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                orgId: string;
                 code: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddExceptionRequest"];
+                "application/json": components["schemas"]["OperatorAddExceptionRequest"];
             };
         };
         responses: {

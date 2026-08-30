@@ -22,6 +22,9 @@ public sealed class LocalAuthProvider : IAuthProvider, IOrganizationDirectory, I
     public Task<string> CreateOrganizationAsync(string name, CancellationToken ct = default) =>
         Task.FromResult($"local_org_{Interlocked.Increment(ref _sequence):D6}");
 
+    public Task DeleteOrganizationAsync(string externalOrgId, CancellationToken ct = default) =>
+        Task.CompletedTask;
+
     public Task UpdateOrganizationNameAsync(
         string externalOrgId,
         string name,

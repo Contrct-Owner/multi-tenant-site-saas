@@ -18,6 +18,9 @@ export function SettingsPage() {
       void queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
+  const exportData = useMutation({
+    mutationFn: () => api.post('/api/org/export'),
+  });
 
   if (!activeOrg) return null;
   const draft = name ?? activeOrg.name;
@@ -46,6 +49,22 @@ export function SettingsPage() {
               {String((rename.error as { body?: { error?: string } }).body?.error ?? rename.error)}
             </p>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Your data</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Take a full archive of this organization&apos;s data - sites, people, roles,
+            entitlements, and audit history. The archive is delivered to Files.
+          </p>
+          <Button
+            variant="outline"
+            disabled={exportData.isPending}
+            onClick={() => exportData.mutate()}
+          >
+            {exportData.isSuccess ? 'Queued - check Files shortly' : 'Export org data'}
+          </Button>
         </CardContent>
       </Card>
     </div>

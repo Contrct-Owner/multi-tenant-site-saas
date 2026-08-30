@@ -602,6 +602,118 @@
         }
       }
     },
+    "/api/org/export": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.LifecycleEndpoints"
+        ],
+        "summary": "POST_api_org_export",
+        "description": "POST_api_org_export",
+        "operationId": "POST_api_org_export",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operator/orgs/{orgId}/export": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.LifecycleEndpoints"
+        ],
+        "summary": "POST_api_operator_orgs_orgId_export",
+        "description": "POST_api_operator_orgs_orgId_export",
+        "operationId": "POST_api_operator_orgs_orgId_export",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operator/orgs/{orgId}/offboard": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.LifecycleEndpoints"
+        ],
+        "summary": "POST_api_operator_orgs_orgId_offboard",
+        "description": "POST_api_operator_orgs_orgId_offboard",
+        "operationId": "POST_api_operator_orgs_orgId_offboard",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs": {
       "post": {
         "tags": [
@@ -3084,6 +3196,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Organizations.LifecycleEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.OnboardingEndpoints"

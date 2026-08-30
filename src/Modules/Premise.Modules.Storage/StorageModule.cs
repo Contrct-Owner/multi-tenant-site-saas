@@ -32,6 +32,7 @@ public static class StorageModule
             }
         );
         services.AddScoped<Premise.Contracts.IStoredFileLookup, StoredFileLookup>();
+        services.AddScoped<Premise.Contracts.IOrgDataExporter, StorageExporter>();
         return services;
     }
 }

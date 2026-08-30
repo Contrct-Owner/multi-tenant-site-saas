@@ -31,6 +31,7 @@ public static class IngestModule
             }
         );
         services.AddScoped<StagingService>();
+        services.AddScoped<Premise.Contracts.IOrgDataExporter, IngestExporter>();
         services.AddHttpClient("ingest-connector");
         return services;
     }

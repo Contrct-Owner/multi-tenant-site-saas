@@ -32,6 +32,7 @@ public static class IdentityModule
             }
         );
         services.AddScoped<IOperatorContext, Premise.Modules.Identity.Access.OperatorContext>();
+        services.AddScoped<Premise.Contracts.IOrgDataExporter, Users.IdentityExporter>();
         return services;
     }
 }

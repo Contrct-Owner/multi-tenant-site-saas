@@ -102,6 +102,11 @@ public sealed class WorkOSAuthProvider : IAuthProvider, IOrganizationDirectory, 
         { }
     }
 
+    public async Task DeleteOrganizationAsync(
+        string externalOrgId,
+        CancellationToken ct = default
+    ) => await _client.Organizations.DeleteAsync(externalOrgId, cancellationToken: ct);
+
     public async Task UpdateOrganizationNameAsync(
         string externalOrgId,
         string name,

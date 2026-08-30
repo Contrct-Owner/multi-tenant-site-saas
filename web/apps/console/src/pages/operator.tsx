@@ -24,6 +24,16 @@ export function OperatorPage() {
       api.post(`/api/operator/orgs/${input.orgId}/${input.action}`),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operator-orgs'] }),
   });
+  const exportOrg = useMutation({
+    mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/export`),
+  });
+  const offboard = useMutation({
+    mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/offboard`),
+    onSuccess: () => {
+      setSelected(null);
+      void queryClient.invalidateQueries({ queryKey: ['operator-orgs'] });
+    },
+  });
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -78,6 +88,44 @@ export function OperatorPage() {
               </CardHeader>
               <CardContent>
                 <OrgEntitlements orgId={selected.id} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Lifecycle</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exportOrg.isPending}
+                    onClick={() => exportOrg.mutate(selected.id)}
+                  >
+                    Export data
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {exportOrg.isSuccess
+                      ? "Queued - the archive lands in the org's Files."
+                      : 'Full data archive, delivered to the org’s file library.'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={offboard.isPending || selected.status !== 'Suspended'}
+                    onClick={() => {
+                      if (window.confirm(`Offboard ${selected.name}? This purges the org's data. Take an export first.`))
+                        offboard.mutate(selected.id);
+                    }}
+                  >
+                    Offboard
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {selected.status === 'Suspended'
+                      ? 'Purges all org data. The audit trail and org record remain.'
+                      : 'Suspend the org first - offboarding is a deliberate two-step.'}
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </div>

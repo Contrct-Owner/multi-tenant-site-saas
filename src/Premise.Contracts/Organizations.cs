@@ -110,3 +110,36 @@ public sealed record SiteChangeRequested(
 /// the founder's membership, Owner bootstrap, and provider-side membership.
 /// </summary>
 public sealed record ProvisionFounderMembership(Guid UserId, OrgId OrgId);
+
+/// <summary>
+/// Offboarding export (lifecycle tail): each module serializes its own slice
+/// - the plugin direction, like the usage probes. The Storage module
+/// assembles the archive.
+/// </summary>
+public interface IOrgDataExporter
+{
+    /// <summary>Archive entry name, e.g. "tenancy" -> tenancy.json.</summary>
+    string Section { get; }
+
+    Task<string> ExportJsonAsync(OrgId org, CancellationToken ct = default);
+}
+
+/// <summary>Assemble the org's export archive (handled by Storage; tenant on the envelope).</summary>
+public sealed record ExportOrgData(Guid RequestedBy);
+
+/// <summary>
+/// Org deletion fan-out, one command per owning module so each Wolverine
+/// chain stays single-DbContext (multi-context chains are the known trap).
+/// Handlers run envelope-tenanted and are idempotent. Audit is deliberately
+/// absent: the trail outlives the org (retention ages it out).
+/// </summary>
+public sealed record PurgeOrgSites;
+
+public sealed record PurgeOrgFiles;
+
+public sealed record PurgeOrgEntitlements;
+
+public sealed record PurgeOrgIngest;
+
+/// <summary>The org is gone: read models drop it, provider directory follows.</summary>
+public sealed record OrganizationDeleted(OrgId OrgId, string? ExternalId);
