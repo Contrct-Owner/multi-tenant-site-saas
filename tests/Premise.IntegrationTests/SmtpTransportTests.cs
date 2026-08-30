@@ -83,7 +83,7 @@ public class SmtpTransportTests(MailpitFixture fixture) : IClassFixture<MailpitF
                 await Task.Delay(100);
         }
         Assert.True(delivered, await fixture.DeadLetterSummary());
-        Assert.Equal("Your access link", message.GetProperty("Subject").GetString());
+        Assert.Equal("Your Org A access link", message.GetProperty("Subject").GetString());
         Assert.Equal(
             "no-reply@premise.test",
             message.GetProperty("From").GetProperty("Address").GetString()

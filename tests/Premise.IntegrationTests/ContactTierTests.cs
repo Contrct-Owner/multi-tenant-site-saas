@@ -20,8 +20,7 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         issue.EnsureSuccessStatusCode();
 
         // Deliver: through the outbox -> Wolverine handler -> transport
-        var catcher = (LocalMailCatcher)
-            fixture.Factory.Services.GetRequiredService<INotificationTransport>();
+        var catcher = fixture.Factory.Services.GetRequiredService<LocalMailCatcher>();
         EmailMessage? mail = null;
         for (var i = 0; i < 50 && mail is null; i++) // outbox delivery is async
         {
@@ -29,7 +28,7 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             mail = catcher.Sent.FirstOrDefault(m => m.To == "visitor@example.com");
         }
         Assert.NotNull(mail);
-        var url = mail!.TextBody.Split('\n')[0].Replace("Follow this link to continue: ", "");
+        var url = System.Text.RegularExpressions.Regex.Match(mail!.TextBody, @"https?://\S+").Value;
 
         // the link points at the ORG'S public host - the contact's world is
         // the public app
@@ -55,8 +54,7 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             await member.PostAsJsonAsync("/contact-links", new { email = "revokee@example.com" })
         ).EnsureSuccessStatusCode();
 
-        var catcher = (LocalMailCatcher)
-            fixture.Factory.Services.GetRequiredService<INotificationTransport>();
+        var catcher = fixture.Factory.Services.GetRequiredService<LocalMailCatcher>();
         EmailMessage? mail = null;
         for (var i = 0; i < 50 && mail is null; i++)
         {
@@ -65,7 +63,7 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         }
         Assert.NotNull(mail);
         var path = new Uri(
-            mail!.TextBody.Split('\n')[0].Replace("Follow this link to continue: ", "")
+            System.Text.RegularExpressions.Regex.Match(mail!.TextBody, @"https?://\S+").Value
         ).PathAndQuery;
 
         // redeem, prove the identified session works against the public tier

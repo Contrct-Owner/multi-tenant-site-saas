@@ -12,7 +12,12 @@ public interface INotificationTransport
     Task SendAsync(EmailMessage message, CancellationToken ct = default);
 }
 
-public sealed record EmailMessage(string To, string Subject, string TextBody);
+public sealed record EmailMessage(
+    string To,
+    string Subject,
+    string TextBody,
+    string? HtmlBody = null
+);
 
 /// <summary>
 /// Dev/test transport: captures instead of sending. Email is on the auth

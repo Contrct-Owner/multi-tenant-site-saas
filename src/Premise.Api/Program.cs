@@ -197,13 +197,18 @@ switch (builder.Configuration["Notifications:Transport"] ?? "local")
         builder.Services.Configure<Premise.Integrations.Smtp.SmtpOptions>(
             builder.Configuration.GetSection("Notifications:Smtp")
         );
+        builder.Services.AddSingleton<Premise.Integrations.Smtp.SmtpNotificationTransport>();
         builder.Services.AddSingleton<
             INotificationTransport,
-            Premise.Integrations.Smtp.SmtpNotificationTransport
+            Premise.Modules.Identity.Users.SuppressingNotificationTransport<Premise.Integrations.Smtp.SmtpNotificationTransport>
         >();
         break;
     case "local" when !builder.Environment.IsProduction():
-        builder.Services.AddSingleton<INotificationTransport, LocalMailCatcher>();
+        builder.Services.AddSingleton<LocalMailCatcher>();
+        builder.Services.AddSingleton<
+            INotificationTransport,
+            Premise.Modules.Identity.Users.SuppressingNotificationTransport<LocalMailCatcher>
+        >();
         break;
     default:
         throw new InvalidOperationException(
@@ -347,8 +352,10 @@ if (role == "api")
         // in memory: this closes the dev loop. Never mapped outside dev.
         app.MapGet(
                 "/dev/mail",
-                (Premise.Platform.Notifications.INotificationTransport transport) =>
-                    transport is Premise.Platform.Notifications.LocalMailCatcher catcher
+                // the catcher sits BEHIND the suppression decorator now, so
+                // resolve the concrete type (absent when transport is smtp)
+                (IServiceProvider sp) =>
+                    sp.GetService<Premise.Platform.Notifications.LocalMailCatcher>() is { } catcher
                         ? Results.Ok(catcher.Sent)
                         : Results.NotFound()
             )

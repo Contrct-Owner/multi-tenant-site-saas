@@ -86,10 +86,13 @@ public static class AccountEndpoints
                     && await lifecycle.BeginPasswordResetAsync(user.Email, ct) is { } url
                 )
                     await transport.SendAsync(
-                        new EmailMessage(
+                        EmailTemplate.Render(
                             user.Email,
                             "Reset your password",
-                            $"Follow this link to reset your password: {url}\nIf you did not request this, ignore it."
+                            "Premise",
+                            ["A password reset was requested for this account."],
+                            (url.ToString(), "Reset your password"),
+                            "If you did not request this, ignore it."
                         ),
                         ct
                     );

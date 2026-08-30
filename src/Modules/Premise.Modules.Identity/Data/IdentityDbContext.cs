@@ -25,6 +25,7 @@ public sealed class IdentityDbContext(
     public DbSet<UserSession> Sessions => Set<UserSession>();
     public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<EmailSuppression> EmailSuppressions => Set<EmailSuppression>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +62,17 @@ public sealed class IdentityDbContext(
             b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
             b.HasIndex(x => x.SecretHash).IsUnique();
             b.HasIndex(x => x.OrgId);
+        });
+
+        modelBuilder.Entity<EmailSuppression>(b =>
+        {
+            b.ToTable("email_suppressions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.Email).HasColumnName("email").HasMaxLength(320);
+            b.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(40);
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => x.Email).IsUnique();
         });
 
         modelBuilder.Entity<Contact>(b =>

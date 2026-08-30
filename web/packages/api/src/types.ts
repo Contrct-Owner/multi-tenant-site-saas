@@ -548,6 +548,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications/bounce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_notifications_bounce
+         * @description POST_notifications_bounce
+         */
+        post: operations["POST_notifications_bounce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/directory/webhook": {
         parameters: {
             query?: never;
@@ -2268,6 +2288,10 @@ export interface components {
             userId: string;
             scopePath?: null | string;
         };
+        BounceReport: {
+            email: string;
+            reason: null | string;
+        };
         CheckoutRequest: {
             planId: string;
             returnPath: string;
@@ -3445,6 +3469,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MoveNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_notifications_bounce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BounceReport"];
             };
         };
         responses: {

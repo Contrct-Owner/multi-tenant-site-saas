@@ -1352,6 +1352,46 @@
         }
       }
     },
+    "/notifications/bounce": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Users.BounceWebhookEndpoint"
+        ],
+        "summary": "POST_notifications_bounce",
+        "description": "POST_notifications_bounce",
+        "operationId": "POST_notifications_bounce",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BounceReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/directory/webhook": {
       "post": {
         "tags": [
@@ -4129,6 +4169,24 @@
           }
         }
       },
+      "BounceReport": {
+        "required": [
+          "email",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CheckoutRequest": {
         "required": [
           "planId",
@@ -4834,6 +4892,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Identity.Users.BounceWebhookEndpoint"
     },
     {
       "name": "Premise.Modules.Identity.Users.DirectoryWebhookEndpoint"

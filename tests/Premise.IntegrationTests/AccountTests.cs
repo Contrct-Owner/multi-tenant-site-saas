@@ -38,8 +38,7 @@ public class AccountTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var response = await client.PostAsync("/auth/password-reset", null);
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-        var catcher = (LocalMailCatcher)
-            fixture.Factory.Services.GetRequiredService<INotificationTransport>();
+        var catcher = fixture.Factory.Services.GetRequiredService<LocalMailCatcher>();
         var mail = catcher.Sent.FirstOrDefault(m =>
             m.To == ApiFixture.UserA && m.Subject == "Reset your password"
         );

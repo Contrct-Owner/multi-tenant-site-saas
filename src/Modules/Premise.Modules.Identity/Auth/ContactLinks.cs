@@ -33,7 +33,7 @@ public static class ContactLinks
 
     public sealed record IssueContactLinkRequest(string Email);
 
-    public sealed record SendContactLink(string Email, string Url);
+    public sealed record SendContactLink(string Email, string Url, string OrgName);
 
     public static IEndpointRouteBuilder MapContactLinkEndpoints(this IEndpointRouteBuilder app)
     {
@@ -59,6 +59,21 @@ public static class ContactLinks
                     return Results.Unauthorized();
                 if (!await db.Memberships.AnyAsync(m => m.UserId == userId && m.OrgId == org, ct))
                     return Results.NotFound();
+                // the one place a human can be TOLD the address is dead -
+                // the transport-level suppression drop is silent by design
+                if (
+                    await db.EmailSuppressions.AnyAsync(
+                        s => s.Email == request.Email.Trim().ToLower(),
+                        ct
+                    )
+                )
+                    return Results.UnprocessableEntity(
+                        new
+                        {
+                            error = "this address has bounced before and is suppressed; "
+                                + "verify it with the contact, then ask the operator to unsuppress it",
+                        }
+                    );
 
                 // Gate 1, both shapes: boolean feature switch + monthly meter
                 // (Grace absorbs the approximate live count, ADR 9).
@@ -117,16 +132,14 @@ public static class ContactLinks
 
                 // the link lands on the ORG'S public host: the contact's
                 // world is the public app, not the console or the API
-                var slug = await db
-                    .OrgDirectory.Where(d => d.OrgId == org)
-                    .Select(d => d.Slug)
-                    .FirstAsync(ct);
+                var directoryEntry = await db.OrgDirectory.FirstAsync(d => d.OrgId == org, ct);
+                var slug = directoryEntry.Slug;
                 var publicHost =
                     configuration["Public:HostTemplate"] ?? "http://{slug}.localhost:5174";
                 var url =
                     $"{publicHost.Replace("{slug}", slug)}/contact/redeem?token={Uri.EscapeDataString(token)}";
 
-                await bus.PublishAsync(new SendContactLink(email, url));
+                await bus.PublishAsync(new SendContactLink(email, url, directoryEntry.Name));
                 await bus.PublishAsync(
                     new RecordDomainAudit(
                         "contact.invited",
@@ -214,10 +227,13 @@ public static class SendContactLinkHandler
         CancellationToken ct
     ) =>
         transport.SendAsync(
-            new EmailMessage(
+            EmailTemplate.Render(
                 message.Email,
-                "Your access link",
-                $"Follow this link to continue: {message.Url}\nIt expires in 30 minutes."
+                $"Your {message.OrgName} access link",
+                message.OrgName,
+                [$"{message.OrgName} has shared their locations with you."],
+                (message.Url, "Open your access link"),
+                "The link expires in 30 minutes. If you didn't expect this, ignore it."
             ),
             ct
         );

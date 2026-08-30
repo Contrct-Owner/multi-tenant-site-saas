@@ -23,7 +23,9 @@ public sealed class SmtpNotificationTransport(IOptions<SmtpOptions> options)
         mime.From.Add(new MailboxAddress(smtp.FromName ?? smtp.FromAddress, smtp.FromAddress));
         mime.To.Add(MailboxAddress.Parse(message.To));
         mime.Subject = message.Subject;
-        mime.Body = new TextPart("plain") { Text = message.TextBody };
+        mime.Body = message.HtmlBody is { } htmlBody
+            ? new BodyBuilder { TextBody = message.TextBody, HtmlBody = htmlBody }.ToMessageBody()
+            : new TextPart("plain") { Text = message.TextBody };
 
         using var client = new SmtpClient();
         await client.ConnectAsync(
