@@ -356,6 +356,7 @@ if (role == "api")
     app.MapIdentityEndpoints();
     app.MapAccountEndpoints();
     app.MapContactLinkEndpoints();
+    app.MapOperatorDeadLetterEndpoints();
     app.MapWolverineEndpoints();
     app.MapGet(
         "/healthz",

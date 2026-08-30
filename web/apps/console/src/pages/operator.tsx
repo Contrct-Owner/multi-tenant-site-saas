@@ -150,7 +150,77 @@ export function OperatorPage() {
           </div>
         )}
       </div>
+      <DeadLetters />
     </div>
+  );
+}
+
+type DeadLetter = {
+  id: string;
+  messageType: string;
+  exceptionType: string;
+  exceptionMessage: string;
+  sentAt: string;
+  tenantId?: string | null;
+  replayable: boolean;
+};
+
+function DeadLetters() {
+  const { data } = useQuery({
+    queryKey: ['dead-letters'],
+    queryFn: () => api.get<{ total: number; items: DeadLetter[] }>('/api/operator/dead-letters'),
+    refetchInterval: 30_000,
+  });
+  const replay = useApiMutation({
+    mutationFn: (id: string) => api.post(`/api/operator/dead-letters/${id}/replay`),
+    invalidate: [['dead-letters']],
+    success: 'Requeued for delivery',
+  });
+  const discard = useApiMutation({
+    mutationFn: (id: string) => api.del(`/api/operator/dead-letters/${id}`),
+    invalidate: [['dead-letters']],
+    success: 'Discarded',
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Dead letters{data && data.total > 0 ? ` (${data.total})` : ''}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {data?.total === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No failed messages. Background work that fails after retries lands here for
+            replay or discard.
+          </p>
+        )}
+        {data?.items.map((d) => (
+          <div key={d.id} className="flex items-start justify-between gap-3 rounded-md border p-2 text-sm">
+            <div className="min-w-0">
+              <div className="font-medium">
+                {d.messageType}
+                {d.replayable && <span className="ml-2 text-xs text-muted-foreground">requeued…</span>}
+              </div>
+              <div className="truncate text-xs text-muted-foreground" title={d.exceptionMessage}>
+                {d.exceptionType}: {d.exceptionMessage}
+              </div>
+              {d.tenantId && <div className="text-xs text-muted-foreground">org {d.tenantId}</div>}
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <Button size="sm" variant="outline" disabled={replay.isPending || d.replayable}
+                onClick={() => replay.mutate(d.id)}>
+                Replay
+              </Button>
+              <ConfirmButton size="sm" variant="destructive" confirmLabel="Discard forever?"
+                disabled={discard.isPending} onConfirm={() => discard.mutate(d.id)}>
+                Discard
+              </ConfirmButton>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
