@@ -4,6 +4,7 @@ import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead,
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
+import { useApiMutation } from '../lib/mutation';
 
 const KINDS = ['events', 'changes', 'authz', 'access'] as const;
 type Kind = (typeof KINDS)[number];
@@ -23,6 +24,10 @@ export function AuditPage() {
     queryKey: ['audit', kind, limit],
     queryFn: () => api.get<Row[]>(`/api/audit/${kind}?limit=${limit}`),
   });
+  const exportTrail = useApiMutation({
+    mutationFn: () => api.post('/api/audit/export'),
+    success: 'Export queued - check Files shortly',
+  });
 
   const detail = (row: Row): string => {
     switch (kind) {
@@ -39,7 +44,13 @@ export function AuditPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
-      <h1 className="text-2xl font-semibold">Audit</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Audit</h1>
+        <Button variant="outline" size="sm" disabled={exportTrail.isPending}
+          onClick={() => exportTrail.mutate()}>
+          Export trail
+        </Button>
+      </div>
       <div className="flex gap-2">
         {KINDS.map((k) => (
           <Button key={k} size="sm" variant={k === kind ? 'default' : 'outline'}

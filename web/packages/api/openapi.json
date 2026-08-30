@@ -2762,6 +2762,36 @@
         }
       }
     },
+    "/api/audit/export": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Audit.ExportEndpoint"
+        ],
+        "summary": "POST_api_audit_export",
+        "description": "POST_api_audit_export",
+        "operationId": "POST_api_audit_export",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/webhooks": {
       "get": {
         "tags": [
@@ -4768,6 +4798,9 @@
     },
     {
       "name": "Premise.Modules.Audit.AuditEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Audit.ExportEndpoint"
     },
     {
       "name": "Premise.Modules.Audit.WebhookManagementEndpoints"
