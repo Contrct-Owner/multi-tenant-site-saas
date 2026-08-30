@@ -137,6 +137,24 @@ DNS: `console.yourproduct.com` (console + API) and a wildcard
 what `Public:HostTemplate` must match). Production subdomains do not share
 cookies; only localhost's port-blind cookies do (the dev quirk in CLAUDE.md).
 
+## Before go-live: Wolverine codegen
+
+Wolverine generates handler plumbing at startup; the default Dynamic mode
+(fine in dev) does that work on every boot and says so in the log. For
+production images, pre-build the generated types
+(`dotnet run -- codegen write` during the image build, and set
+`opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static` under a
+production check) to cut startup time and memory. The template leaves
+Dynamic as the default because Static with a stale cache fails the boot -
+adopt it together with your CI image build, not before.
+
+## Incidents
+
+`docs/runbook.md` is the on-call companion to this guide: dead-letter
+triage and replay, dependency probes, migration failure recovery, the
+restore drill, and the support flows (customer lookup, unsuppression,
+impersonation).
+
 ## Database care
 
 - Keys are UUIDv7 (ADR 35) — no sequences to coordinate across regions later.

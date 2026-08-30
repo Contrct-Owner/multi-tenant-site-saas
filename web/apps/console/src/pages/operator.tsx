@@ -153,8 +153,37 @@ export function OperatorPage() {
         )}
       </div>
       <DeadLetters />
+      <Dependencies />
       <Suppressions />
     </div>
+  );
+}
+
+type HealthCheck = { name: string; ok: boolean; latencyMs: number; error: string | null };
+
+function Dependencies() {
+  const { data } = useQuery({
+    queryKey: ['operator-health'],
+    queryFn: () => api.get<{ checks: HealthCheck[] }>('/api/operator/health'),
+    refetchInterval: 60_000,
+  });
+  if (!data) return null;
+  return (
+    <Card>
+      <CardHeader><CardTitle>Dependencies</CardTitle></CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {data.checks.map((c) => (
+          <span key={c.name}
+            title={c.error ?? `${c.latencyMs}ms`}
+            className={`rounded-md border px-2 py-1 text-sm ${c.ok ? '' : 'border-destructive text-destructive'}`}>
+            {c.ok ? '●' : '○'} {c.name}
+            <span className="ml-1 text-xs text-muted-foreground">
+              {c.ok ? `${c.latencyMs}ms` : c.error}
+            </span>
+          </span>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
