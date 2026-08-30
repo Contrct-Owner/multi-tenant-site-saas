@@ -11,7 +11,10 @@ namespace Premise.Api;
 /// gets the catalog default; a five-minute TTL bounds staleness after a plan
 /// change.
 /// </summary>
-public sealed class OrgRateLimitCache(IServiceScopeFactory scopeFactory)
+public sealed class OrgRateLimitCache(
+    IServiceScopeFactory scopeFactory,
+    ILogger<OrgRateLimitCache> logger
+)
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
     private readonly ConcurrentDictionary<OrgId, (int limit, DateTimeOffset at)> _cache = new();
@@ -36,13 +39,27 @@ public sealed class OrgRateLimitCache(IServiceScopeFactory scopeFactory)
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
+            // the refresh reads RLS-protected rows, so the fresh scope MUST
+            // carry the org (found by the load baseline: without this the
+            // read saw an empty table and cached the catalog default - the
+            // per-org quota entitlement was silently inert for every org)
+            scope
+                .ServiceProvider.GetRequiredService<TenantContext>()
+                .Set(org, RegionId.Default);
             var entitlements = scope.ServiceProvider.GetRequiredService<IEntitlements>();
             var limit = await entitlements.LimitAsync(org, EntitlementCatalog.ApiRequestsPerMinute);
             _cache[org] = ((int)limit, DateTimeOffset.UtcNow);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            // keep the previous/default value; next request retries
+            // keep the previous/default value; next request retries - but
+            // LOUDLY: a silent failure here quietly throttles a paying org
+            // at the free-tier default
+            logger.LogWarning(
+                exception,
+                "org rate-limit refresh failed for {OrgId}; serving previous/default",
+                org.Value
+            );
         }
         finally
         {

@@ -290,17 +290,42 @@ builder.Services.AddRateLimiter(limiter =>
         // ADR 30: org-level quota from the metered entitlement, over the per-principal limiter
         PartitionedRateLimiter.Create<HttpContext, string>(http =>
         {
+            // service principals carry no claims: their org rides
+            // HttpContext.Items (found by the load-baseline work - API keys
+            // were falling into the per-IP guest bucket and skipping the
+            // org quota entirely)
+            Guid? serviceOrg =
+                http.Items.TryGetValue(RequestPrincipalAccessor.ServiceKeyItem, out var rawKey)
+                && rawKey is (Guid, OrgId serviceKeyOrg)
+                    ? serviceKeyOrg.Value
+                    : null;
             if (
-                http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.ActiveOrg)?.Value
-                    is { } activeOrg
-                && Guid.TryParse(activeOrg, out var orgGuid)
+                serviceOrg is { } fromKey
+                || (
+                    http
+                        .User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.ActiveOrg)
+                        ?.Value
+                        is { } activeOrg
+                    && Guid.TryParse(activeOrg, out var claimOrg)
+                )
             )
             {
+                var orgGuid =
+                    serviceOrg
+                    ?? Guid.Parse(
+                        http.User.FindFirst(
+                            Premise.Modules.Identity.Auth.PremiseClaims.ActiveOrg
+                        )!.Value
+                    );
                 var orgLimit = http
                     .RequestServices.GetRequiredService<OrgRateLimitCache>()
                     .LimitFor(new OrgId(orgGuid));
+                // the limit is part of the KEY: partition limiters are
+                // created once and cached, so a quota change must roll to a
+                // fresh partition or a hot org keeps its old limit forever
+                // (found by the load baseline)
                 return RateLimitPartition.GetFixedWindowLimiter(
-                    $"org:{orgGuid}",
+                    $"org:{orgGuid}:{orgLimit}",
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = orgLimit,
@@ -314,7 +339,12 @@ builder.Services.AddRateLimiter(limiter =>
         PartitionedRateLimiter.Create<HttpContext, string>(http =>
         {
             var (key, permits) =
-                http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.UserId)?.Value
+                http.Items.TryGetValue(RequestPrincipalAccessor.ServiceKeyItem, out var rawKey)
+                && rawKey is (Guid keyId, OrgId)
+                    // an API key is a first-class principal (ADR 40): its own
+                    // bucket at the USER limit, never the per-IP guest bucket
+                    ? ($"key:{keyId}", userLimit)
+                : http.User.FindFirst(Premise.Modules.Identity.Auth.PremiseClaims.UserId)?.Value
                     is { } userId
                     ? ($"user:{userId}", userLimit)
                 : http.Request.Cookies.TryGetValue(GuestSessionMiddleware.CookieName, out var guest)
