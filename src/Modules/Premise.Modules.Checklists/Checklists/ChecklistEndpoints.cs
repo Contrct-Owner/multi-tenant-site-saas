@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Checklists.Data;
@@ -13,6 +14,29 @@ public sealed record CreateTemplateRequest(string Name, string[] Items, string? 
 
 public sealed record CheckItemRequest(Guid TemplateId, Guid SiteId, int ItemIndex, bool Done);
 
+public sealed record ChecklistItemState(
+    int Index,
+    string Text,
+    bool Done,
+    DateTimeOffset? CheckedAt
+);
+
+public sealed record ChecklistToday(Guid Id, string Name, IReadOnlyList<ChecklistItemState> Items);
+
+public sealed record ChecklistTodayResponse(
+    DateOnly BusinessDate,
+    string Site,
+    IReadOnlyList<ChecklistToday> Lists
+);
+
+public sealed record ChecklistTemplateSummary(
+    Guid Id,
+    string Name,
+    string[] Items,
+    string? ScopePath,
+    DateTimeOffset CreatedAt
+);
+
 /// <summary>
 /// The ops archetype's core loop (ADR 45), and the reference vertical slice:
 /// this module was scaffolded by tools/new-module.py and consumes Tenancy
@@ -24,6 +48,7 @@ public static class ChecklistEndpoints
 {
     [Transactional(typeof(ChecklistsDbContext))]
     [WolverineGet("/api/checklists/templates")]
+    [ProducesResponseType(typeof(List<ChecklistTemplateSummary>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListTemplates(
         ChecklistsDbContext db,
         IPrincipalAccessor accessor,
@@ -38,14 +63,13 @@ public static class ChecklistEndpoints
             return Results.Unauthorized();
         var templates = await db
             .Templates.OrderBy(t => t.Name)
-            .Select(t => new
-            {
+            .Select(t => new ChecklistTemplateSummary(
                 t.Id,
                 t.Name,
                 t.Items,
                 t.ScopePath,
-                t.CreatedAt,
-            })
+                t.CreatedAt
+            ))
             .ToListAsync(ct);
         return Results.Ok(templates);
     }
@@ -130,6 +154,7 @@ public static class ChecklistEndpoints
     /// <summary>Today's lists for one site, on that site's clock.</summary>
     [Transactional(typeof(ChecklistsDbContext))]
     [WolverineGet("/api/checklists/today")]
+    [ProducesResponseType(typeof(ChecklistTodayResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Today(
         Guid siteId,
         ChecklistsDbContext db,
@@ -166,31 +191,31 @@ public static class ChecklistEndpoints
             .ToListAsync(ct);
 
         return Results.Ok(
-            new
-            {
+            new ChecklistTodayResponse(
                 businessDate,
-                site = site.Name,
-                lists = applicable.Select(t => new
-                {
-                    t.Id,
-                    t.Name,
-                    items = t.Items.Select(
-                        (text, index) =>
-                        {
-                            var check = checks.FirstOrDefault(c =>
-                                c.TemplateId == t.Id && c.ItemIndex == index
-                            );
-                            return new
-                            {
-                                index,
-                                text,
-                                done = check is not null,
-                                checkedAt = check?.CheckedAt,
-                            };
-                        }
-                    ),
-                }),
-            }
+                site.Name,
+                applicable
+                    .Select(t => new ChecklistToday(
+                        t.Id,
+                        t.Name,
+                        t.Items.Select(
+                                (text, index) =>
+                                {
+                                    var check = checks.FirstOrDefault(c =>
+                                        c.TemplateId == t.Id && c.ItemIndex == index
+                                    );
+                                    return new ChecklistItemState(
+                                        index,
+                                        text,
+                                        check is not null,
+                                        check?.CheckedAt
+                                    );
+                                }
+                            )
+                            .ToList()
+                    ))
+                    .ToList()
+            )
         );
     }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Billing;
@@ -8,6 +9,23 @@ using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Entitlements;
+
+public sealed record PlanSummary(
+    string Id,
+    string Name,
+    decimal MonthlyPriceUsd,
+    IReadOnlyDictionary<string, string> Entitlements
+);
+
+public sealed record BillingResponse(
+    string Provider,
+    string? PlanId,
+    string PlanName,
+    string? Status,
+    DateTimeOffset? CurrentPeriodEnd,
+    bool PortalAvailable,
+    IReadOnlyList<PlanSummary> Plans
+);
 
 public sealed record CheckoutRequest(string PlanId, string ReturnPath);
 
@@ -22,6 +40,7 @@ public static class BillingEndpoints
 {
     [Transactional(typeof(EntitlementsDbContext))]
     [WolverineGet("/api/billing")]
+    [ProducesResponseType(typeof(BillingResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(
         EntitlementsDbContext db,
         IPrincipalAccessor accessor,
@@ -46,25 +65,25 @@ public static class BillingEndpoints
             })
             .FirstOrDefaultAsync(ct);
         return Results.Ok(
-            new
-            {
-                provider = provider.Name,
+            new BillingResponse(
+                provider.Name,
                 // no subscription row = the free tier: catalog defaults
-                planId = subscription?.PlanId,
-                planName = subscription is null
+                subscription?.PlanId,
+                subscription is null
                     ? "Free"
                     : (PlanCatalog.Find(subscription.PlanId)?.Name ?? subscription.PlanId),
-                status = subscription?.Status,
-                currentPeriodEnd = subscription?.CurrentPeriodEnd,
-                portalAvailable = subscription?.hasCustomer == true,
-                plans = PlanCatalog.Plans.Select(p => new
-                {
-                    p.Id,
-                    p.Name,
-                    p.MonthlyPriceUsd,
-                    entitlements = p.Entitlements,
-                }),
-            }
+                subscription?.Status.ToString(),
+                subscription?.CurrentPeriodEnd,
+                subscription?.hasCustomer == true,
+                PlanCatalog
+                    .Plans.Select(p => new PlanSummary(
+                        p.Id,
+                        p.Name,
+                        p.MonthlyPriceUsd,
+                        p.Entitlements
+                    ))
+                    .ToList()
+            )
         );
     }
 

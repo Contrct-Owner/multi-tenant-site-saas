@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Identity.Data;
@@ -12,6 +13,20 @@ using Wolverine.Http;
 namespace Premise.Modules.Identity.Users;
 
 public sealed record InviteMemberRequest(string Email, Guid RoleId);
+
+public sealed record MemberSummary(
+    Guid UserId,
+    string Email,
+    string? Name,
+    DateTimeOffset JoinedAt,
+    string[] Roles
+);
+
+public sealed record MemberListResponse(
+    IReadOnlyList<MemberSummary> Items,
+    int Total,
+    int? NextOffset
+);
 
 /// <summary>
 /// Member management (day-zero arc): the provider (WorkOS) carries invitation
@@ -97,6 +112,7 @@ public static class MemberEndpoints
 
     [Transactional(typeof(IdentityDbContext))]
     [WolverineGet("/api/members")]
+    [ProducesResponseType(typeof(MemberListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         IdentityDbContext db,
         IPrincipalAccessor accessor,
@@ -149,22 +165,22 @@ public static class MemberEndpoints
         ).ToListAsync(ct);
 
         return Results.Ok(
-            new
-            {
-                items = members.Select(m => new
-                {
-                    m.userId,
-                    email = m.Email,
-                    name = m.Name,
-                    m.joinedAt,
-                    roles = roleNames
-                        .Where(r => r.MembershipId == m.membershipId)
-                        .Select(r => r.Name)
-                        .ToArray(),
-                }),
+            new MemberListResponse(
+                members
+                    .Select(m => new MemberSummary(
+                        m.userId,
+                        m.Email,
+                        m.Name,
+                        m.joinedAt,
+                        roleNames
+                            .Where(r => r.MembershipId == m.membershipId)
+                            .Select(r => r.Name)
+                            .ToArray()
+                    ))
+                    .ToList(),
                 total,
-                nextOffset = skip + members.Count < total ? skip + members.Count : (int?)null,
-            }
+                skip + members.Count < total ? skip + members.Count : null
+            )
         );
     }
 

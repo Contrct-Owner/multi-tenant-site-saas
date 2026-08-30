@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Premise.Contracts;
@@ -25,6 +26,7 @@ public static class ImpersonationEndpoints
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverinePost("/api/operator/orgs/{orgId}/impersonate")]
+    [ProducesResponseType(typeof(ImpersonationResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Start(
         Guid orgId,
         HttpContext http,

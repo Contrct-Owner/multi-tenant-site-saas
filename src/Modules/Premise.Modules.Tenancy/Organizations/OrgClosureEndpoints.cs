@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Premise.Contracts;
@@ -26,6 +27,7 @@ public static class OrgClosureEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/org/closure")]
+    [ProducesResponseType(typeof(ClosureStatusResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Status(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
@@ -50,6 +52,7 @@ public static class OrgClosureEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/org/close")]
+    [ProducesResponseType(typeof(ClosureStatusResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Request(
         TenancyDbContext db,
         IPrincipalAccessor accessor,

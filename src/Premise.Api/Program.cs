@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using System.Threading.RateLimiting;
+using JasperFx;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Logs;
@@ -463,6 +464,23 @@ if (role == "api")
     );
 }
 
+// JasperFx command line only when a command is given (design-debt close):
+// `-- codegen write` really writes the generated handler code, so CI
+// catches "fails at first request" codegen errors at build time. The
+// no-args path stays plain app.Run() - WebApplicationFactory (the whole
+// integration suite) hooks that and NOT the JasperFx runner.
+// JasperFx command line only when a command is given (design-debt close):
+// `-- codegen write` really writes the generated handler code, so CI
+// catches "fails at first request" codegen errors at build time. Two
+// hard-won constraint: under WebApplicationFactory (the whole integration
+// suite) the entry point sees the TEST HOST's own arguments, so gating on
+// "any args" sends every test through the JasperFx runner and nothing
+// starts. Gate on the one command we actually use.
+if (args is ["codegen", ..])
+{
+    _ = await app.RunJasperFxCommands(args);
+    return;
+}
 app.Run();
 
 // Exposed for WebApplicationFactory in the integration/isolation suites.

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Hierarchy;
@@ -77,6 +78,7 @@ public static class SiteEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites")]
+    [ProducesResponseType(typeof(SiteResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Create(
         CreateSiteRequest request,
         TenancyDbContext db,
@@ -223,6 +225,7 @@ public static class SiteEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites/{id}")]
+    [ProducesResponseType(typeof(SiteResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(
         Guid id,
         TenancyDbContext db,
@@ -243,6 +246,7 @@ public static class SiteEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites/{id}")]
+    [ProducesResponseType(typeof(SiteResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Update(
         Guid id,
         UpdateSiteRequest request,

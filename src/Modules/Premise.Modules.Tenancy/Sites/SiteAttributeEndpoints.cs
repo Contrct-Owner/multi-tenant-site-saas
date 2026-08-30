@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
@@ -32,6 +33,7 @@ public static class SiteAttributeEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites/attributes")]
+    [ProducesResponseType(typeof(List<AttributeDefinitionResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
@@ -48,6 +50,7 @@ public static class SiteAttributeEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites/attributes")]
+    [ProducesResponseType(typeof(AttributeDefinitionResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Create(
         CreateAttributeDefinitionRequest request,
         TenancyDbContext db,

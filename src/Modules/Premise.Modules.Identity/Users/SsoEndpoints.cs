@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Auth;
@@ -24,6 +25,7 @@ public static class SsoEndpoints
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverineGet("/api/org/sso")]
+    [ProducesResponseType(typeof(SsoStatusResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Status(
         IdentityDbContext db,
         IPrincipalAccessor accessor,
@@ -49,6 +51,7 @@ public static class SsoEndpoints
 
     [Transactional(typeof(IdentityDbContext))]
     [WolverinePost("/api/org/sso/portal")]
+    [ProducesResponseType(typeof(SsoPortalLinkResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Portal(
         SsoPortalRequest request,
         HttpContext http,

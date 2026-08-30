@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
@@ -13,6 +14,45 @@ namespace Premise.Modules.Tenancy.Sites;
 /// over their org, and RLS scopes the rows. Closed sites and internal fields
 /// (paths, nodes, external ids) never appear here.
 /// </summary>
+public sealed record PublicSiteSummary(
+    Guid Id,
+    string Name,
+    string? City,
+    string TimeZone,
+    double? Lat,
+    double? Lng,
+    string Status,
+    bool OpenNow,
+    double? DistanceKm
+);
+
+public sealed record PublicOpenWindow(
+    DateTimeOffset StartsAtUtc,
+    DateTimeOffset EndsAtUtc,
+    DateOnly LocalDate
+);
+
+public sealed record PublicSiteAttribute(
+    string Key,
+    string Label,
+    System.Text.Json.JsonElement Value
+);
+
+public sealed record PublicSiteDetailResponse(
+    Guid Id,
+    string Name,
+    string? City,
+    string? AddressLine1,
+    string? PostalCode,
+    string? CountryCode,
+    string TimeZone,
+    string Status,
+    bool OpenNow,
+    IReadOnlyList<PublicOpenWindow> Windows,
+    IReadOnlyList<string> Closures,
+    IReadOnlyList<PublicSiteAttribute> Attributes
+);
+
 public static class PublicSiteEndpoints
 {
     /// <summary>
@@ -70,6 +110,7 @@ public static class PublicSiteEndpoints
     /// </summary>
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/public/sites")]
+    [ProducesResponseType(typeof(List<PublicSiteSummary>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
@@ -114,21 +155,20 @@ public static class PublicSiteEndpoints
         }
 
         var shaped = sites
-            .Select(s => new
-            {
+            .Select(s => new PublicSiteSummary(
                 s.id,
                 s.Name,
                 s.City,
                 s.TimeZone,
-                lat = s.Latitude,
-                lng = s.Longitude,
+                s.Latitude,
+                s.Longitude,
                 s.status,
                 s.openNow,
-                distanceKm = origin is { } from && s.Latitude is { } slat && s.Longitude is { } slng
+                origin is { } from && s.Latitude is { } slat && s.Longitude is { } slng
                     ? Math.Round(HaversineKm(from.Lat, from.Lng, slat, slng), 1)
-                    : (double?)null,
-            })
-            .OrderBy(s => s.distanceKm ?? double.MaxValue)
+                    : null
+            ))
+            .OrderBy(s => s.DistanceKm ?? double.MaxValue)
             .ThenBy(s => s.Name)
             .ToList();
         return Results.Ok(shaped);
@@ -146,6 +186,7 @@ public static class PublicSiteEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/public/sites/{id}")]
+    [ProducesResponseType(typeof(PublicSiteDetailResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(
         Guid id,
         TenancyDbContext db,
@@ -212,29 +253,25 @@ public static class PublicSiteEndpoints
         >(site.AttributesJson);
         var attributes = publicDefinitions
             .Where(d => values is not null && values.ContainsKey(d.Key))
-            .Select(d => new
-            {
-                key = d.Key,
-                label = d.Label,
-                value = values![d.Key],
-            })
+            .Select(d => new PublicSiteAttribute(d.Key, d.Label, values![d.Key]))
             .ToList();
         return Results.Ok(
-            new
-            {
-                id = site.Id.Value,
+            new PublicSiteDetailResponse(
+                site.Id.Value,
                 site.Name,
                 site.City,
                 site.AddressLine1,
                 site.PostalCode,
                 site.CountryCode,
                 site.TimeZone,
-                status = site.Status.ToString(),
-                openNow = windows.Any(w => w.StartsAtUtc <= now && now < w.EndsAtUtc),
-                windows,
+                site.Status.ToString(),
+                windows.Any(w => w.StartsAtUtc <= now && now < w.EndsAtUtc),
+                windows
+                    .Select(w => new PublicOpenWindow(w.StartsAtUtc, w.EndsAtUtc, w.LocalDate))
+                    .ToList(),
                 closures,
-                attributes,
-            }
+                attributes
+            )
         );
     }
 }

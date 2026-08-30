@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Storage.Data;
 using Premise.Platform.Kernel;
@@ -8,6 +9,19 @@ using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Storage;
+
+public sealed record FileSummary(
+    Guid Id,
+    string Name,
+    string ContentType,
+    string Status,
+    DateTimeOffset? DeletedAt,
+    bool LegalHold,
+    bool HasPreview,
+    DateTimeOffset CreatedAt
+);
+
+public sealed record FileListResponse(IReadOnlyList<FileSummary> Items, int Total, int? NextOffset);
 
 public sealed record CreateFileRequest(string Name, string ContentType, long SizeBytes);
 
@@ -96,6 +110,7 @@ public static class FileEndpoints
 
     [Transactional(typeof(StorageDbContext))]
     [WolverineGet("/api/files")]
+    [ProducesResponseType(typeof(FileListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         StorageDbContext db,
         IPrincipalAccessor accessor,
@@ -122,25 +137,23 @@ public static class FileEndpoints
             .ThenByDescending(f => f.Id)
             .Skip(skip)
             .Take(take)
-            .Select(f => new
-            {
+            .Select(f => new FileSummary(
                 f.Id,
                 f.Name,
                 f.ContentType,
-                status = f.Status.ToString(),
+                f.Status.ToString(),
                 f.DeletedAt,
                 f.LegalHold,
-                hasPreview = f.PreviewKey != null,
-                f.CreatedAt,
-            })
+                f.PreviewKey != null,
+                f.CreatedAt
+            ))
             .ToListAsync(ct);
         return Results.Ok(
-            new
-            {
-                items = files,
+            new FileListResponse(
+                files,
                 total,
-                nextOffset = skip + files.Count < total ? skip + files.Count : (int?)null,
-            }
+                skip + files.Count < total ? skip + files.Count : null
+            )
         );
     }
 

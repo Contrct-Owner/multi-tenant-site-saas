@@ -173,7 +173,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/SiteResponse"
                 }
               }
             }
@@ -316,7 +316,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/SiteResponse"
                 }
               }
             }
@@ -365,7 +365,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/SiteResponse"
                 }
               }
             }
@@ -588,7 +588,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/ListingsFeedResponse"
                 }
               }
             }
@@ -657,7 +657,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicSiteSummary"
+                  }
                 }
               }
             }
@@ -698,7 +701,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/PublicSiteDetailResponse"
                 }
               }
             }
@@ -728,7 +731,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttributeDefinitionResponse"
+                  }
                 }
               }
             }
@@ -766,7 +772,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/AttributeDefinitionResponse"
                 }
               }
             }
@@ -1265,7 +1271,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/ClosureStatusResponse"
                 }
               }
             }
@@ -1295,7 +1301,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/ClosureStatusResponse"
                 }
               }
             }
@@ -1355,7 +1361,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/PublicUrlResponse"
                 }
               }
             }
@@ -1767,7 +1773,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/MemberListResponse"
                 }
               }
             }
@@ -1946,7 +1952,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/SsoStatusResponse"
                 }
               }
             }
@@ -1986,7 +1992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/SsoPortalLinkResponse"
                 }
               }
             }
@@ -2445,7 +2451,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/ImpersonationResponse"
                 }
               }
             }
@@ -2805,7 +2811,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/BillingResponse"
                 }
               }
             }
@@ -3594,7 +3600,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/FileListResponse"
                 }
               }
             }
@@ -4231,7 +4237,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChecklistTemplateSummary"
+                  }
                 }
               }
             }
@@ -4350,7 +4359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IResult"
+                  "$ref": "#/components/schemas/ChecklistTodayResponse"
                 }
               }
             }
@@ -4909,6 +4918,82 @@
           }
         }
       },
+      "AttributeDefinitionResponse": {
+        "required": [
+          "id",
+          "key",
+          "label",
+          "type",
+          "public"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "public": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BillingResponse": {
+        "required": [
+          "provider",
+          "planId",
+          "planName",
+          "status",
+          "currentPeriodEnd",
+          "portalAvailable",
+          "plans"
+        ],
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "planId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "planName": {
+            "type": "string"
+          },
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentPeriodEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "portalAvailable": {
+            "type": "boolean"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanSummary"
+            }
+          }
+        }
+      },
       "BounceReport": {
         "required": [
           "email",
@@ -4957,6 +5042,119 @@
           }
         }
       },
+      "ChecklistItemState": {
+        "required": [
+          "index",
+          "text",
+          "done",
+          "checkedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "text": {
+            "type": "string"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "checkedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ChecklistTemplateSummary": {
+        "required": [
+          "id",
+          "name",
+          "items",
+          "scopePath",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopePath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChecklistToday": {
+        "required": [
+          "id",
+          "name",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItemState"
+            }
+          }
+        }
+      },
+      "ChecklistTodayResponse": {
+        "required": [
+          "businessDate",
+          "site",
+          "lists"
+        ],
+        "type": "object",
+        "properties": {
+          "businessDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "site": {
+            "type": "string"
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChecklistToday"
+            }
+          }
+        }
+      },
       "CheckoutRequest": {
         "required": [
           "planId",
@@ -4969,6 +5167,29 @@
           },
           "returnPath": {
             "type": "string"
+          }
+        }
+      },
+      "ClosureStatusResponse": {
+        "required": [
+          "requestedAt",
+          "purgesAt"
+        ],
+        "type": "object",
+        "properties": {
+          "requestedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "purgesAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5291,6 +5512,84 @@
           }
         }
       },
+      "FileListResponse": {
+        "required": [
+          "items",
+          "total",
+          "nextOffset"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileSummary"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nextOffset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "FileSummary": {
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "status",
+          "deletedAt",
+          "legalHold",
+          "hasPreview",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "deletedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "legalHold": {
+            "type": "boolean"
+          },
+          "hasPreview": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "GrantSpec": {
         "required": [
           "domain",
@@ -5302,6 +5601,22 @@
             "type": "string"
           },
           "action": {
+            "type": "string"
+          }
+        }
+      },
+      "ImpersonationResponse": {
+        "required": [
+          "expiresAt",
+          "orgName"
+        ],
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orgName": {
             "type": "string"
           }
         }
@@ -5337,6 +5652,220 @@
         }
       },
       "JsonElement": { },
+      "ListingHours": {
+        "required": [
+          "name",
+          "rRule",
+          "anchorDate",
+          "opens",
+          "closes",
+          "closedDates"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "rRule": {
+            "type": "string"
+          },
+          "anchorDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "opens": {
+            "type": "string"
+          },
+          "closes": {
+            "type": "string"
+          },
+          "closedDates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        }
+      },
+      "ListingRecord": {
+        "required": [
+          "id",
+          "name",
+          "status",
+          "timeZone",
+          "addressLine1",
+          "city",
+          "postalCode",
+          "countryCode",
+          "latitude",
+          "longitude",
+          "publicUrl",
+          "hours",
+          "attributes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "latitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "publicUrl": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingHours"
+            }
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
+      "ListingsFeedResponse": {
+        "required": [
+          "generatedAt",
+          "organization",
+          "listings"
+        ],
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "organization": {
+            "type": "string"
+          },
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingRecord"
+            }
+          }
+        }
+      },
+      "MemberListResponse": {
+        "required": [
+          "items",
+          "total",
+          "nextOffset"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberSummary"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nextOffset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MemberSummary": {
+        "required": [
+          "userId",
+          "email",
+          "name",
+          "joinedAt",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "MoveNodeRequest": {
         "required": [
           "newParentId"
@@ -5380,6 +5909,37 @@
           }
         }
       },
+      "PlanSummary": {
+        "required": [
+          "id",
+          "name",
+          "monthlyPriceUsd",
+          "entitlements"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "monthlyPriceUsd": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "entitlements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "PortalRequest": {
         "required": [
           "returnPath"
@@ -5387,6 +5947,204 @@
         "type": "object",
         "properties": {
           "returnPath": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicOpenWindow": {
+        "required": [
+          "startsAtUtc",
+          "endsAtUtc",
+          "localDate"
+        ],
+        "type": "object",
+        "properties": {
+          "startsAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "localDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "PublicSiteAttribute": {
+        "required": [
+          "key",
+          "label",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
+      "PublicSiteDetailResponse": {
+        "required": [
+          "id",
+          "name",
+          "city",
+          "addressLine1",
+          "postalCode",
+          "countryCode",
+          "timeZone",
+          "status",
+          "openNow",
+          "windows",
+          "closures",
+          "attributes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "openNow": {
+            "type": "boolean"
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicOpenWindow"
+            }
+          },
+          "closures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicSiteAttribute"
+            }
+          }
+        }
+      },
+      "PublicSiteSummary": {
+        "required": [
+          "id",
+          "name",
+          "city",
+          "timeZone",
+          "lat",
+          "lng",
+          "status",
+          "openNow",
+          "distanceKm"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "lat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "status": {
+            "type": "string"
+          },
+          "openNow": {
+            "type": "boolean"
+          },
+          "distanceKm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "PublicUrlResponse": {
+        "required": [
+          "url",
+          "embedSnippet"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "embedSnippet": {
             "type": "string"
           }
         }
@@ -5629,6 +6387,17 @@
           null
         ]
       },
+      "SsoPortalLinkResponse": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "SsoPortalRequest": {
         "required": [
           "intent",
@@ -5644,6 +6413,21 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SsoStatusResponse": {
+        "required": [
+          "available",
+          "entitled"
+        ],
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "entitled": {
+            "type": "boolean"
           }
         }
       },

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Premise.Modules.Tenancy.Data;
@@ -19,6 +20,7 @@ public static class PublicUrlEndpoint
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/org/public-url")]
+    [ProducesResponseType(typeof(PublicUrlResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(
         TenancyDbContext db,
         IPrincipalAccessor accessor,

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Premise.Modules.Tenancy.Data;
@@ -52,6 +53,7 @@ public static class ListingsFeedEndpoint
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/listings/feed")]
+    [ProducesResponseType(typeof(ListingsFeedResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Feed(
         TenancyDbContext db,
         IPrincipalAccessor accessor,

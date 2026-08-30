@@ -2702,6 +2702,24 @@ export interface components {
             userId: string;
             scopePath?: null | string;
         };
+        AttributeDefinitionResponse: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            label: string;
+            type: string;
+            public: boolean;
+        };
+        BillingResponse: {
+            provider: string;
+            planId: null | string;
+            planName: string;
+            status: null | string;
+            /** Format: date-time */
+            currentPeriodEnd: null | string;
+            portalAvailable: boolean;
+            plans: components["schemas"]["PlanSummary"][];
+        };
         BounceReport: {
             email: string;
             reason: null | string;
@@ -2715,9 +2733,44 @@ export interface components {
             itemIndex: number | string;
             done: boolean;
         };
+        ChecklistItemState: {
+            /** Format: int32 */
+            index: number | string;
+            text: string;
+            done: boolean;
+            /** Format: date-time */
+            checkedAt: null | string;
+        };
+        ChecklistTemplateSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            items: string[];
+            scopePath: null | string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ChecklistToday: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            items: components["schemas"]["ChecklistItemState"][];
+        };
+        ChecklistTodayResponse: {
+            /** Format: date */
+            businessDate: string;
+            site: string;
+            lists: components["schemas"]["ChecklistToday"][];
+        };
         CheckoutRequest: {
             planId: string;
             returnPath: string;
+        };
+        ClosureStatusResponse: {
+            /** Format: date-time */
+            requestedAt: null | string;
+            /** Format: date-time */
+            purgesAt: null | string;
         };
         CreateApiKeyRequest: {
             name: string;
@@ -2798,9 +2851,34 @@ export interface components {
             url: string;
             events?: null | string[];
         };
+        FileListResponse: {
+            items: components["schemas"]["FileSummary"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            nextOffset: null | number | string;
+        };
+        FileSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            contentType: string;
+            status: string;
+            /** Format: date-time */
+            deletedAt: null | string;
+            legalHold: boolean;
+            hasPreview: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
         GrantSpec: {
             domain: string;
             action: string;
+        };
+        ImpersonationResponse: {
+            /** Format: date-time */
+            expiresAt: string;
+            orgName: string;
         };
         InviteMemberRequest: {
             email: string;
@@ -2812,6 +2890,55 @@ export interface components {
             email: string;
         };
         JsonElement: unknown;
+        ListingHours: {
+            name: string;
+            rRule: string;
+            /** Format: date */
+            anchorDate: string;
+            opens: string;
+            closes: string;
+            closedDates: string[];
+        };
+        ListingRecord: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: string;
+            timeZone: string;
+            addressLine1: null | string;
+            city: null | string;
+            postalCode: null | string;
+            countryCode: null | string;
+            /** Format: double */
+            latitude: null | number | string;
+            /** Format: double */
+            longitude: null | number | string;
+            publicUrl: string;
+            hours: components["schemas"]["ListingHours"][];
+            attributes: components["schemas"]["JsonElement"];
+        };
+        ListingsFeedResponse: {
+            /** Format: date-time */
+            generatedAt: string;
+            organization: string;
+            listings: components["schemas"]["ListingRecord"][];
+        };
+        MemberListResponse: {
+            items: components["schemas"]["MemberSummary"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            nextOffset: null | number | string;
+        };
+        MemberSummary: {
+            /** Format: uuid */
+            userId: string;
+            email: string;
+            name: null | string;
+            /** Format: date-time */
+            joinedAt: string;
+            roles: string[];
+        };
         MoveNodeRequest: {
             /** Format: uuid */
             newParentId: string;
@@ -2825,8 +2952,64 @@ export interface components {
         OperatorSetEntitlementRequest: {
             value: string;
         };
+        PlanSummary: {
+            id: string;
+            name: string;
+            /** Format: double */
+            monthlyPriceUsd: number | string;
+            entitlements: {
+                [key: string]: string;
+            };
+        };
         PortalRequest: {
             returnPath: string;
+        };
+        PublicOpenWindow: {
+            /** Format: date-time */
+            startsAtUtc: string;
+            /** Format: date-time */
+            endsAtUtc: string;
+            /** Format: date */
+            localDate: string;
+        };
+        PublicSiteAttribute: {
+            key: string;
+            label: string;
+            value: components["schemas"]["JsonElement"];
+        };
+        PublicSiteDetailResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            city: null | string;
+            addressLine1: null | string;
+            postalCode: null | string;
+            countryCode: null | string;
+            timeZone: string;
+            status: string;
+            openNow: boolean;
+            windows: components["schemas"]["PublicOpenWindow"][];
+            closures: string[];
+            attributes: components["schemas"]["PublicSiteAttribute"][];
+        };
+        PublicSiteSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            city: null | string;
+            timeZone: string;
+            /** Format: double */
+            lat: null | number | string;
+            /** Format: double */
+            lng: null | number | string;
+            status: string;
+            openNow: boolean;
+            /** Format: double */
+            distanceKm: null | number | string;
+        };
+        PublicUrlResponse: {
+            url: string;
+            embedSnippet: string;
         };
         PutSettingRequest: {
             value: string;
@@ -2886,9 +3069,16 @@ export interface components {
         };
         /** @enum {unknown} */
         SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
+        SsoPortalLinkResponse: {
+            url: string;
+        };
         SsoPortalRequest: {
             intent: string;
             returnPath: null | string;
+        };
+        SsoStatusResponse: {
+            available: boolean;
+            entitled: boolean;
         };
         StageUploadRequest: {
             /** Format: uuid */
@@ -3088,7 +3278,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["SiteResponse"];
                 };
             };
             /** @description Not Found */
@@ -3148,7 +3338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["SiteResponse"];
                 };
             };
             /** @description Not Found */
@@ -3183,7 +3373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["SiteResponse"];
                 };
             };
             /** @description Not Found */
@@ -3343,7 +3533,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ListingsFeedResponse"];
                 };
             };
             /** @description Not Found */
@@ -3403,7 +3593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["PublicSiteSummary"][];
                 };
             };
             /** @description Not Found */
@@ -3434,7 +3624,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["PublicSiteDetailResponse"];
                 };
             };
             /** @description Not Found */
@@ -3463,7 +3653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["AttributeDefinitionResponse"][];
                 };
             };
             /** @description Not Found */
@@ -3496,7 +3686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["AttributeDefinitionResponse"];
                 };
             };
             /** @description Not Found */
@@ -3899,7 +4089,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ClosureStatusResponse"];
                 };
             };
             /** @description Not Found */
@@ -3928,7 +4118,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ClosureStatusResponse"];
                 };
             };
             /** @description Not Found */
@@ -3986,7 +4176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["PublicUrlResponse"];
                 };
             };
             /** @description Not Found */
@@ -4306,7 +4496,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["MemberListResponse"];
                 };
             };
             /** @description Not Found */
@@ -4459,7 +4649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["SsoStatusResponse"];
                 };
             };
             /** @description Not Found */
@@ -4492,7 +4682,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["SsoPortalLinkResponse"];
                 };
             };
             /** @description Not Found */
@@ -4870,7 +5060,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ImpersonationResponse"];
                 };
             };
             /** @description Not Found */
@@ -5150,7 +5340,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["BillingResponse"];
                 };
             };
             /** @description Not Found */
@@ -5721,7 +5911,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["FileListResponse"];
                 };
             };
             /** @description Not Found */
@@ -6256,7 +6446,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ChecklistTemplateSummary"][];
                 };
             };
             /** @description Not Found */
@@ -6351,7 +6541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IResult"];
+                    "application/json": components["schemas"]["ChecklistTodayResponse"];
                 };
             };
             /** @description Not Found */
