@@ -354,6 +354,7 @@ var app = builder.Build();
 
 if (role == "api")
 {
+    app.UseMiddleware<UnhandledErrorMiddleware>();
     app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseAuthentication();
     app.UseMiddleware<SessionValidationMiddleware>();
@@ -367,6 +368,15 @@ if (role == "api")
     app.MapLocalObjectStore();
 
     app.MapOpenApi();
+    if (!app.Environment.IsProduction())
+        app.MapGet(
+                "/dev/boom",
+                new Func<IResult>(() =>
+                    throw new InvalidOperationException("deliberate dev failure")
+                )
+            )
+            .ExcludeFromDescription();
+
     if (app.Environment.IsDevelopment())
         // instant "checkout" for the local billing provider: applies the plan
         // as if the provider's webhook had fired, then returns to the console

@@ -1,10 +1,11 @@
 import { toast } from '@premise/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-/** The server's error body, when it sent one. */
+/** The server's error body, when it sent one - with the trace id support can quote (maturity review, hole 1). */
 export function apiError(error: unknown, fallback: string): string {
-  const body = (error as { body?: { error?: string } })?.body;
-  return body?.error ?? fallback;
+  const body = (error as { body?: { error?: string; traceId?: string } })?.body;
+  const message = body?.error ?? fallback;
+  return body?.traceId ? `${message} (trace ${body.traceId})` : message;
 }
 
 /**

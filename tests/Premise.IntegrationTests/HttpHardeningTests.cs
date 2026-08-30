@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 
 namespace Premise.IntegrationTests;
@@ -48,5 +49,22 @@ public class HttpHardeningTests(TinyRateLimitFixture fixture) : IClassFixture<Ti
         Assert.NotNull(limited);
         Assert.NotNull(limited!.Headers.RetryAfter);
         Assert.InRange(limited.Headers.RetryAfter!.Delta!.Value.TotalSeconds, 1, 60);
+    }
+
+    [Fact]
+    public async Task Every_response_carries_a_trace_id_and_500s_quote_it()
+    {
+        var guest = fixture.GuestClient();
+        var ok = await guest.GetAsync("/healthz");
+        Assert.True(ok.Headers.Contains("X-Trace-Id"));
+
+        // the deliberate dev failure: the body's traceId matches the header,
+        // so a ticket quoting it joins straight to the exported trace
+        var boom = await guest.GetAsync("/dev/boom");
+        Assert.Equal(HttpStatusCode.InternalServerError, boom.StatusCode);
+        var body = await boom.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var quoted = body.GetProperty("traceId").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(quoted));
+        Assert.Equal(quoted, boom.Headers.GetValues("X-Trace-Id").Single());
     }
 }
