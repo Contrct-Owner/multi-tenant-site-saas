@@ -144,4 +144,19 @@ public class PublicJourneyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var management = await guest.GetFromJsonAsync<JsonElement>("/api/sites");
         Assert.Equal(0, management.GetArrayLength());
     }
+
+    [Fact]
+    public async Task Org_identity_serves_the_page_shell_and_vanishes_for_unknown_hosts()
+    {
+        // known host: name + slug + the seeded brand color (its first reader)
+        var guest = GuestFor("org-a");
+        var identity = await guest.GetFromJsonAsync<JsonElement>("/public/org");
+        Assert.Equal("Org A", identity.GetProperty("name").GetString());
+        Assert.Equal("org-a", identity.GetProperty("slug").GetString());
+        Assert.Equal("#B01458", identity.GetProperty("brandColor").GetString());
+
+        // unknown host: 404, the page renders unbranded - never an error page
+        var stranger = GuestFor("nobody");
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync("/public/org")).StatusCode);
+    }
 }

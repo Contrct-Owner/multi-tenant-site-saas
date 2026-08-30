@@ -15,6 +15,52 @@ namespace Premise.Modules.Tenancy.Sites;
 /// </summary>
 public static class PublicSiteEndpoints
 {
+    /// <summary>
+    /// Whose page is this? The org's public identity - name for the title and
+    /// header, brand color as the fork-ready theming hook (the seeded
+    /// brand.color org setting finally has a reader). A shell enhancer: 404
+    /// when the host resolves to nothing, and the page renders unbranded.
+    /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverineGet("/public/org")]
+    public static async Task<IResult> OrgIdentity(
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.PublicRead, ct))
+            return Results.NotFound();
+        OrgId? principalOrg = accessor.Current switch
+        {
+            Principal.Guest { Org: { } guestOrg } => guestOrg,
+            Principal.Contact contact => contact.Org,
+            Principal.User { ActiveOrg: { } activeOrg } => activeOrg,
+            _ => null,
+        };
+        if (principalOrg is not { } org)
+            return Results.NotFound();
+        var organization = await db
+            .Organizations.Where(o => o.Id == org)
+            .Select(o => new { o.Name, o.Slug })
+            .FirstOrDefaultAsync(ct);
+        if (organization is null)
+            return Results.NotFound();
+        var brandColor = await db
+            .OrganizationSettings.Where(s => s.Key == "brand.color")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync(ct);
+        return Results.Ok(
+            new
+            {
+                organization.Name,
+                organization.Slug,
+                brandColor,
+            }
+        );
+    }
+
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/public/sites")]
     public static async Task<IResult> List(

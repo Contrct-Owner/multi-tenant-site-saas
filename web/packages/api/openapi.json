@@ -407,6 +407,36 @@
         }
       }
     },
+    "/public/org": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
+        ],
+        "summary": "GET_public_org",
+        "description": "GET_public_org",
+        "operationId": "GET_public_org",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/public/sites": {
       "get": {
         "tags": [

@@ -264,6 +264,17 @@ if (role == "api")
     app.MapLocalObjectStore();
 
     app.MapOpenApi();
+    if (app.Environment.IsDevelopment())
+        // caught mail (contact links, password resets) is otherwise trapped
+        // in memory: this closes the dev loop. Never mapped outside dev.
+        app.MapGet(
+                "/dev/mail",
+                (Premise.Platform.Notifications.INotificationTransport transport) =>
+                    transport is Premise.Platform.Notifications.LocalMailCatcher catcher
+                        ? Results.Ok(catcher.Sent)
+                        : Results.NotFound()
+            )
+            .ExcludeFromDescription();
     app.MapIdentityEndpoints();
     app.MapAccountEndpoints();
     app.MapContactLinkEndpoints();

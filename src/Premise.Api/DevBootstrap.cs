@@ -64,6 +64,33 @@ public sealed class DevBootstrap(
             await tenancy.SaveChangesAsync(ct);
         }
 
+        // brand color: the public app's theming hook, visible on a fresh clone
+        await TenantScope.RunAsAsync(
+            sp,
+            org.Id,
+            async scoped =>
+            {
+                var scopedTenancy =
+                    scoped.GetRequiredService<Premise.Modules.Tenancy.Data.TenancyDbContext>();
+                if (
+                    !await scopedTenancy.OrganizationSettings.AnyAsync(
+                        x => x.Key == "brand.color",
+                        ct
+                    )
+                )
+                {
+                    scopedTenancy.OrganizationSettings.Add(
+                        Premise.Modules.Tenancy.Organizations.OrganizationSetting.Create(
+                            org.Id,
+                            "brand.color",
+                            "#B01458"
+                        )
+                    );
+                    await scopedTenancy.SaveChangesAsync(ct);
+                }
+            }
+        );
+
         // RLS-protected rows (roles, grants, assignments) are seeded in the
         // org's own tenant scope: the app role holds no bypass (ADR 38)
         await SeedOwnerAsync(

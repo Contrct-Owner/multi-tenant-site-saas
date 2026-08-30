@@ -1,11 +1,32 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { publicApi, type PublicMe, type PublicSite } from '../api';
+import { getRequestHeader, setCookie } from '@tanstack/react-start/server';
+import { publicApi, publicApiMaybe, type PublicMe, type PublicSite } from '../api';
 
 const fetchLocator = createServerFn({ method: 'GET' }).handler(async () => ({
-  sites: await publicApi<PublicSite[]>('/public/sites', []),
+  // maybe-variant: an unreachable API must not masquerade as an empty org
+  sites: await publicApiMaybe<PublicSite[]>('/public/sites'),
   me: await publicApi<PublicMe>('/me', { tier: 'guest' }),
 }));
+
+const signOut = createServerFn({ method: 'POST' }).handler(async () => {
+  const apiBase = process.env.PREMISE_API ?? 'http://localhost:5293';
+  const cookie = getRequestHeader('cookie');
+  try {
+    const response = await fetch(`${apiBase}/auth/logout`, {
+      method: 'POST',
+      headers: cookie ? { cookie } : {},
+    });
+    // relay the API's cookie deletions onto THIS host, mirroring the redeem relay
+    for (const raw of response.headers.getSetCookie()) {
+      const pair = raw.split(';')[0] ?? '';
+      const eq = pair.indexOf('=');
+      if (eq > 0) setCookie(pair.slice(0, eq), '', { path: '/', maxAge: 0 });
+    }
+  } catch {
+    // the API being down must not trap the visitor in the session
+  }
+});
 
 export const Route = createFileRoute('/')({
   loader: () => fetchLocator(),
@@ -14,11 +35,37 @@ export const Route = createFileRoute('/')({
 
 function Locator() {
   const { sites, me } = Route.useLoaderData();
+  const router = useRouter();
+
+  if (sites === undefined) {
+    return (
+      <main className="mx-auto max-w-2xl space-y-4 px-6 py-16">
+        <h1 className="text-3xl font-semibold tracking-tight">Temporarily unavailable</h1>
+        <p className="text-muted-foreground">
+          We couldn&apos;t load locations right now. Please try again in a moment.
+        </p>
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto max-w-2xl space-y-8 px-6 py-16">
+    <main className="mx-auto max-w-2xl space-y-8 px-6 py-12">
       {me.tier === 'contact' && me.email && (
-        <p className="rounded-md border bg-card px-4 py-2 text-sm text-muted-foreground">
-          You&apos;re viewing as <span className="font-medium text-foreground">{me.email}</span>
+        <p className="flex items-center justify-between rounded-md border bg-card px-4 py-2 text-sm text-muted-foreground">
+          <span>
+            You&apos;re viewing as{' '}
+            <span className="font-medium text-foreground">{me.email}</span>
+          </span>
+          <button
+            type="button"
+            className="underline-offset-4 hover:underline"
+            onClick={async () => {
+              await signOut();
+              await router.invalidate();
+            }}
+          >
+            Sign out
+          </button>
         </p>
       )}
       <div className="space-y-2">
