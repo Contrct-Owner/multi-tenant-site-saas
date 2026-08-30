@@ -40,6 +40,13 @@ export const ENTITLEMENT_LABELS: Record<string, string> = {
   'contact_links.monthly': 'Contact links / month',
   'hierarchy.depth': 'Hierarchy depth',
   'sites.max': 'Site limit',
+  'sso.enabled': 'Single sign-on',
 };
 
 export const entitlementLabel = (code: string): string => ENTITLEMENT_LABELS[code] ?? code;
+
+/** "billing.subscription_changed" -> "Billing subscription changed" - mechanical, so fork events humanize for free. */
+export const eventLabel = (code: string): string => {
+  const words = code.replaceAll('.', ' ').replaceAll('_', ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};

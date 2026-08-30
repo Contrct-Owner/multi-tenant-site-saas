@@ -4958,7 +4958,11 @@
           "timeZone",
           "status",
           "path",
-          "version"
+          "version",
+          "addressLine1",
+          "city",
+          "postalCode",
+          "countryCode"
         ],
         "type": "object",
         "properties": {
@@ -4989,6 +4993,30 @@
               "string"
             ],
             "format": "uint32"
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5130,6 +5158,30 @@
               {
                 "$ref": "#/components/schemas/SiteStatus"
               }
+            ]
+          },
+          "addressLine1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countryCode": {
+            "type": [
+              "null",
+              "string"
             ]
           },
           "version": {

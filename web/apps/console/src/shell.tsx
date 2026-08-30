@@ -38,6 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useMe();
   const queryClient = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const [navOpen, setNavOpen] = useState(false);
 
   if (isLoading) return <div className="p-12 text-muted-foreground">Loading session…</div>;
 
@@ -71,7 +72,8 @@ export function Shell({ children }: { children: ReactNode }) {
         />
       )}
       <div className="flex flex-1">
-      <aside className="flex w-56 flex-col border-r bg-card">
+      {/* the sidebar content renders twice: a fixed rail on md+, a drawer below */}
+      <aside className="hidden w-56 flex-col border-r bg-card md:flex">
         <div className="border-b p-4">
           <div className="font-semibold">Premise</div>
           <div className="text-xs text-muted-foreground">{activeOrg?.name ?? 'No organization'}</div>
@@ -93,6 +95,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <Link
                     key={n.to}
                     to={n.to}
+                    onClick={() => setNavOpen(false)}
                     className={cn(
                       'block rounded-md px-3 py-2 text-sm hover:bg-accent',
                       path === n.to && 'bg-accent font-medium',
@@ -142,7 +145,100 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-8">{children}</main>
+      {navOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setNavOpen(false)}
+            aria-hidden
+          />
+          <aside className="relative flex w-64 flex-col overflow-y-auto border-r bg-card">
+        <div className="border-b p-4">
+          <div className="font-semibold">Premise</div>
+          <div className="text-xs text-muted-foreground">{activeOrg?.name ?? 'No organization'}</div>
+        </div>
+        <nav className="flex-1 space-y-4 p-2">
+          {NAV_GROUPS.map((group) => {
+            const items = group.items.filter(
+              (n) => n.capability === null || can(me, n.capability),
+            );
+            if (items.length === 0) return null;
+            return (
+              <div key={group.label ?? 'operate'} className="space-y-1">
+                {group.label && (
+                  <div className="px-3 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.label}
+                  </div>
+                )}
+                {items.map((n) => (
+                  <Link
+                    key={n.to}
+                    to={n.to}
+                    onClick={() => setNavOpen(false)}
+                    className={cn(
+                      'block rounded-md px-3 py-2 text-sm hover:bg-accent',
+                      path === n.to && 'bg-accent font-medium',
+                    )}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
+        </nav>
+        <div className="space-y-2 border-t p-3">
+          {me.organizations.length > 1 && (
+            <select
+              className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              value={me.activeOrg ?? ''}
+              onChange={async (e) => {
+                await api.post('/auth/switch-org', { orgId: e.target.value });
+                await queryClient.invalidateQueries(); // org switch re-resolves everything
+              }}
+            >
+              {me.organizations.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              to="/account"
+              className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {me.email}
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await api.post('/auth/logout');
+                await queryClient.invalidateQueries({ queryKey: ['me'] });
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+          </aside>
+        </div>
+      )}
+      <main className="min-w-0 flex-1 overflow-auto p-4 md:p-8">
+        <div className="mb-4 flex items-center gap-3 md:hidden">
+          <Button variant="outline" size="sm" aria-label="Open navigation"
+            onClick={() => setNavOpen(true)}>
+            ☰
+          </Button>
+          <div>
+            <span className="font-semibold">Premise</span>
+            <span className="ml-2 text-xs text-muted-foreground">{activeOrg?.name}</span>
+          </div>
+        </div>
+        {children}
+      </main>
       </div>
       <Toaster />
     </div>

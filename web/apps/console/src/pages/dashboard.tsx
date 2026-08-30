@@ -2,13 +2,16 @@ import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { entitlementLabel, fmtDateTime } from '../lib/format';
+import {entitlementLabel, fmtDateTime, eventLabel } from '../lib/format';
 import { can, useMe } from '../session';
 
 type Effective = Record<string, { value: string; shape: string; policy: string; usage: number | null }>;
 type SitesSummary = { total: number; openCount: number };
 type Invitation = { id: string; state: string };
-type AuditEvent = { id: string; eventName: string; actorTier: string; occurredAt: string };
+type AuditEvent = {
+  id: string; eventName: string; actorTier: string; occurredAt: string;
+  actorLabel?: string | null;
+};
 
 /** The overview (UX review P2): what needs attention, then the plan. */
 export function DashboardPage() {
@@ -93,7 +96,12 @@ export function DashboardPage() {
               <ul className="space-y-1.5 text-sm">
                 {events.map((e) => (
                   <li key={e.id} className="flex justify-between gap-4">
-                    <span className="truncate font-mono text-xs">{e.eventName}</span>
+                    <span className="min-w-0 truncate">
+                      {eventLabel(e.eventName)}
+                      {e.actorLabel && (
+                        <span className="ml-2 text-xs text-muted-foreground">{e.actorLabel}</span>
+                      )}
+                    </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {fmtDateTime(e.occurredAt)}
                     </span>
@@ -108,7 +116,7 @@ export function DashboardPage() {
       <Card>
         <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             {entitlements &&
               (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
                 const entry = entitlements[code];

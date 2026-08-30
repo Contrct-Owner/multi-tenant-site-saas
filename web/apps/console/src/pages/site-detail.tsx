@@ -11,7 +11,11 @@ import { weeklySchedule, type DayCode } from '../lib/schedule';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
 
-type Site = { id: string; name: string; timeZone: string; status: string; version: number };
+type Site = {
+  id: string; name: string; timeZone: string; status: string; version: number;
+  addressLine1: string | null; city: string | null;
+  postalCode: string | null; countryCode: string | null;
+};
 type Schedule = {
   id: string; name: string; rRule: string;
   anchorDate: string; opens: string; closes: string; exDates: string[];
@@ -68,7 +72,12 @@ export function SiteDetailPage() {
   };
 
   const update = useApiMutation({
-    mutationFn: (body: Partial<{ name: string; timeZone: string; status: string }>) =>
+    mutationFn: (
+      body: Partial<{
+        name: string; timeZone: string; status: string;
+        addressLine1: string; city: string; postalCode: string; countryCode: string;
+      }>,
+    ) =>
       // echo the version we loaded: a 409 means someone else saved first
       api.post(`/api/sites/${siteId}`, { ...body, version: site?.version }),
     success: 'Site updated',
@@ -90,6 +99,10 @@ export function SiteDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editZone, setEditZone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editPostal, setEditPostal] = useState('');
+  const [editCountry, setEditCountry] = useState('');
   const { data: closures } = useQuery({
     queryKey: ['closures', siteId],
     queryFn: () => api.get<string[]>(`/api/sites/${siteId}/closures`),
@@ -139,6 +152,10 @@ export function SiteDetailPage() {
                   onClick={() => {
                     setEditName(site.name);
                     setEditZone(site.timeZone);
+                    setEditAddress(site.addressLine1 ?? '');
+                    setEditCity(site.city ?? '');
+                    setEditPostal(site.postalCode ?? '');
+                    setEditCountry(site.countryCode ?? '');
                   }}
                 >
                   Edit
@@ -158,11 +175,40 @@ export function SiteDetailPage() {
                   <TimeZoneSelect id="edit-site-tz" value={editZone}
                     onChange={(e) => setEditZone(e.target.value)} />
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-site-address">Street address</Label>
+                  <Input id="edit-site-address" value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-site-city">City</Label>
+                    <Input id="edit-site-city" value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-site-postal">Postal code</Label>
+                    <Input id="edit-site-postal" value={editPostal}
+                      onChange={(e) => setEditPostal(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-site-country">Country code</Label>
+                  <Input id="edit-site-country" value={editCountry} placeholder="US"
+                    maxLength={2} onChange={(e) => setEditCountry(e.target.value)} />
+                </div>
                 <Button className="w-full"
                   disabled={!editName.trim() || update.isPending}
                   onClick={() =>
                     update.mutate(
-                      { name: editName.trim(), timeZone: editZone },
+                      {
+                        name: editName.trim(),
+                        timeZone: editZone,
+                        addressLine1: editAddress.trim(),
+                        city: editCity.trim(),
+                        postalCode: editPostal.trim(),
+                        countryCode: editCountry.trim(),
+                      },
                       { onSuccess: () => setEditOpen(false) },
                     )
                   }>
@@ -182,7 +228,13 @@ export function SiteDetailPage() {
           </div>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">Time zone: {site.timeZone}</p>
+      <p className="text-sm text-muted-foreground">
+        Time zone: {site.timeZone}
+        {site.addressLine1 &&
+          ` · ${[site.addressLine1, site.city, site.postalCode, site.countryCode]
+            .filter(Boolean)
+            .join(', ')}`}
+      </p>
 
       <Card>
         <CardHeader><CardTitle>Operating hours</CardTitle></CardHeader>
@@ -201,7 +253,11 @@ export function SiteDetailPage() {
                 <TableRow key={s.id}>
                   <TableCell>{s.name}</TableCell>
                   <TableCell className="text-muted-foreground">{describeRule(s.rRule)}</TableCell>
-                  <TableCell>{s.opens.slice(0, 5)} – {s.closes.slice(0, 5)}</TableCell>
+                  <TableCell>
+                    {s.opens.slice(0, 5) === '00:00' && s.closes.slice(0, 5) === '23:59'
+                      ? 'Open 24 hours'
+                      : `${s.opens.slice(0, 5)} – ${s.closes.slice(0, 5)}`}
+                  </TableCell>
                   {manage && (
                     <TableCell className="w-28 text-right">
                       <ConfirmButton size="sm" disabled={removeSchedule.isPending}
@@ -335,10 +391,12 @@ export function SiteDetailPage() {
                 <li key={w.startsAtUtc} className="flex justify-between">
                   <span>{fmtDayInZone(w.startsAtUtc, site.timeZone)}</span>
                   <span className="text-muted-foreground">
-                    {/* the SITE's clock, not the viewer's (UX review P0) */}
-                    {fmtTimeInZone(w.startsAtUtc, site.timeZone)}
-                    {' – '}
-                    {fmtTimeInZone(w.endsAtUtc, site.timeZone)}
+                    {/* the SITE's clock, not the viewer's (UX review P0); the
+                        public app's all-day treatment applies here too */}
+                    {fmtTimeInZone(w.startsAtUtc, site.timeZone) === '12:00 AM' &&
+                    fmtTimeInZone(w.endsAtUtc, site.timeZone) === '11:59 PM'
+                      ? 'Open 24 hours'
+                      : `${fmtTimeInZone(w.startsAtUtc, site.timeZone)} – ${fmtTimeInZone(w.endsAtUtc, site.timeZone)}`}
                   </span>
                 </li>
               ))}

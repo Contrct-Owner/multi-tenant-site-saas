@@ -23,10 +23,19 @@ public sealed record CreateSiteRequest(
     double? Longitude = null
 );
 
+/// <summary>
+/// Patch semantics: null = unchanged. Address fields accept "" to CLEAR -
+/// an address typo must be fixable, and so must an address that never
+/// existed (finding 2 of the competitive review).
+/// </summary>
 public sealed record UpdateSiteRequest(
     string? Name,
     string? TimeZone,
     SiteStatus? Status,
+    string? AddressLine1 = null,
+    string? City = null,
+    string? PostalCode = null,
+    string? CountryCode = null,
     uint? Version = null
 );
 
@@ -46,7 +55,11 @@ public sealed record SiteResponse(
     string TimeZone,
     string Status,
     string Path,
-    uint Version
+    uint Version,
+    string? AddressLine1,
+    string? City,
+    string? PostalCode,
+    string? CountryCode
 );
 
 /// <summary>
@@ -264,6 +277,14 @@ public static class SiteEndpoints
             site.Name = name;
         if (request.Status is { } status)
             site.Status = status;
+        if (request.AddressLine1 is { } line1)
+            site.AddressLine1 = line1.Length == 0 ? null : line1;
+        if (request.City is { } city)
+            site.City = city.Length == 0 ? null : city;
+        if (request.PostalCode is { } postal)
+            site.PostalCode = postal.Length == 0 ? null : postal;
+        if (request.CountryCode is { } country)
+            site.CountryCode = country.Length == 0 ? null : country.ToUpperInvariant();
         await db.SaveChangesAsync(ct);
 
         // The rebuild trigger everyone forgets (ADR 28): a timezone change
@@ -331,7 +352,11 @@ public static class SiteEndpoints
             s.TimeZone,
             s.Status.ToString(),
             s.Path.ToString(),
-            s.Version
+            s.Version,
+            s.AddressLine1,
+            s.City,
+            s.PostalCode,
+            s.CountryCode
         );
 }
 

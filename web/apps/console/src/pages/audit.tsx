@@ -14,7 +14,9 @@ const KIND_LABELS: Record<Kind, string> = {
   authz: 'Access decisions',
   access: 'Request log',
 };
-type Row = Record<string, unknown> & { id: string; occurredAt: string; actorTier: string };
+type Row = Record<string, unknown> & {
+  id: string; occurredAt: string; actorTier: string; actorLabel?: string | null;
+};
 
 export function AuditPage() {
   const [kind, setKind] = useState<Kind>('events');
@@ -69,7 +71,7 @@ export function AuditPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-40">When</TableHead>
-                <TableHead className="w-20">Actor</TableHead>
+                <TableHead className="w-44">Actor</TableHead>
                 <TableHead>Detail</TableHead>
               </TableRow>
             </TableHeader>
@@ -90,7 +92,9 @@ export function AuditPage() {
                     <TableCell className="text-xs text-muted-foreground">
                       {fmtDateTime(row.occurredAt)}
                     </TableCell>
-                    <TableCell className="text-xs">{row.actorTier}</TableCell>
+                    <TableCell className="max-w-44 truncate text-xs" title={row.actorLabel ?? row.actorTier}>
+                      {row.actorLabel ?? row.actorTier}
+                    </TableCell>
                     <TableCell className="max-w-xl truncate font-mono text-xs">
                       {detail(row)}
                     </TableCell>

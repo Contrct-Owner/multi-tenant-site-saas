@@ -48,7 +48,7 @@ export function OperatorPage() {
     <div className="max-w-4xl space-y-6">
       <h1 className="text-2xl font-semibold">Operator</h1>
       <PlatformOverview />
-      <div className="grid grid-cols-[280px_1fr] gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
         <Card>
           <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
           <CardContent className="space-y-1">

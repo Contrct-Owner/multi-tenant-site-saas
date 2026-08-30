@@ -2591,6 +2591,10 @@ export interface components {
             path: string;
             /** Format: uint32 */
             version: number | string;
+            addressLine1: null | string;
+            city: null | string;
+            postalCode: null | string;
+            countryCode: null | string;
         };
         /** @enum {unknown} */
         SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
@@ -2624,6 +2628,10 @@ export interface components {
             name: null | string;
             timeZone: null | string;
             status: null | components["schemas"]["SiteStatus"];
+            addressLine1?: null | string;
+            city?: null | string;
+            postalCode?: null | string;
+            countryCode?: null | string;
             /** Format: uint32 */
             version?: null | number | string;
         };

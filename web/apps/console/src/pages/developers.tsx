@@ -10,7 +10,8 @@ import { useApiMutation } from '../lib/mutation';
 type Role = { id: string; name: string };
 type ApiKeyRow = {
   id: string; name: string; prefix: string; role: string;
-  scopePath: string | null; createdAt: string; lastUsedAt: string | null; revoked: boolean;
+  scopePath: string | null; createdAt: string; lastUsedAt: string | null;
+  expiresAt: string | null; revoked: boolean;
 };
 type Webhook = {
   id: string; url: string; events: string[]; active: boolean; createdAt: string;
@@ -123,6 +124,14 @@ function ApiKeysCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Authenticate with <code className="rounded bg-muted px-1">Authorization: Bearer premise_…</code>{' '}
+          against this console's origin. The full contract:{' '}
+          <a href="/openapi/v1.json" target="_blank" rel="noreferrer" className="underline">
+            OpenAPI spec
+          </a>
+          .
+        </p>
         {keys && keys.length > 0 ? (
           <Table>
             <TableHeader>
@@ -131,6 +140,7 @@ function ApiKeysCard() {
                 <TableHead>Key</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Last used</TableHead>
+                <TableHead>Expires</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -142,6 +152,19 @@ function ApiKeysCard() {
                   <TableCell className="text-muted-foreground">{k.role}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {k.revoked ? 'Revoked' : k.lastUsedAt ? fmtDateTime(k.lastUsedAt) : 'never'}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      k.expiresAt && new Date(k.expiresAt).getTime() - Date.now() < 7 * 86_400_000
+                        ? 'text-warning-foreground'
+                        : 'text-muted-foreground'
+                    }
+                  >
+                    {k.expiresAt
+                      ? new Date(k.expiresAt).getTime() < Date.now()
+                        ? 'Expired'
+                        : fmtDateTime(k.expiresAt)
+                      : '—'}
                   </TableCell>
                   <TableCell className="space-x-1 text-right">
                     {!k.revoked && (

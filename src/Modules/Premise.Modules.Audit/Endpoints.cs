@@ -21,6 +21,7 @@ public static class AuditEndpoints
         AuditDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        IActorDirectory actors,
         int? limit,
         CancellationToken ct
     )
@@ -51,19 +52,10 @@ public static class AuditEndpoints
                     a.OccurredAt,
                 })
                 .ToListAsync(ct),
-            "events" => await db
-                .DomainEvents.Where(a => a.OrgId == org.Value)
-                .OrderByDescending(a => a.OccurredAt)
-                .Take(take)
-                .Select(a => new
-                {
-                    a.Id,
-                    a.ActorTier,
-                    a.EventName,
-                    payload = a.Payload,
-                    a.OccurredAt,
-                })
-                .ToListAsync(ct),
+            // events resolve WHO, not just which tier: the id was stamped at
+            // write time, the label is looked up at read time so renames and
+            // old rows stay correct (competitive review, finding 3)
+            "events" => await EventsWithActorsAsync(db, actors, org, take, ct),
             "authz" => await db
                 .AuthzDecisions.Where(a => a.OrgId == org.Value)
                 .OrderByDescending(a => a.OccurredAt)
@@ -186,5 +178,45 @@ public static class AuditEndpoints
             }
         );
         return Results.NoContent();
+    }
+
+    private static async Task<object> EventsWithActorsAsync(
+        AuditDbContext db,
+        IActorDirectory actors,
+        OrgId org,
+        int take,
+        CancellationToken ct
+    )
+    {
+        var rows = await db
+            .DomainEvents.Where(a => a.OrgId == org.Value)
+            .OrderByDescending(a => a.OccurredAt)
+            .Take(take)
+            .Select(a => new
+            {
+                a.Id,
+                a.ActorTier,
+                a.ActorId,
+                a.EventName,
+                payload = a.Payload,
+                a.OccurredAt,
+            })
+            .ToListAsync(ct);
+        var labels = await actors.LabelsAsync(
+            rows.Where(r => r.ActorId is not null)
+                .Select(r => r.ActorId!.Value)
+                .Distinct()
+                .ToList(),
+            ct
+        );
+        return rows.Select(r => new
+        {
+            r.Id,
+            r.ActorTier,
+            actorLabel = r.ActorId is { } actorId ? labels.GetValueOrDefault(actorId) : null,
+            r.EventName,
+            r.payload,
+            r.OccurredAt,
+        });
     }
 }
