@@ -2,7 +2,7 @@ import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { entitlementLabel } from '../lib/format';
+import { entitlementLabel, fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { StatusBadge } from '../shell';
 
@@ -153,7 +153,53 @@ export function OperatorPage() {
         )}
       </div>
       <DeadLetters />
+      <Suppressions />
     </div>
+  );
+}
+
+type Suppression = { id: string; email: string; reason: string; createdAt: string };
+
+function Suppressions() {
+  const [q, setQ] = useState('');
+  const { data: rows } = useQuery({
+    queryKey: ['suppressions', q],
+    queryFn: () =>
+      api.get<Suppression[]>(`/api/operator/suppressions${q.trim() ? `?q=${encodeURIComponent(q)}` : ''}`),
+  });
+  const unsuppress = useApiMutation({
+    mutationFn: (id: string) => api.del(`/api/operator/suppressions/${id}`),
+    invalidate: [['suppressions']],
+    success: 'Unsuppressed - sending to this address resumes',
+  });
+  return (
+    <Card>
+      <CardHeader><CardTitle>Email suppressions</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Addresses that bounced. Verify the address is real before unsuppressing -
+          repeated bounces hurt the platform&apos;s sender reputation.
+        </p>
+        <Input placeholder="Search addresses…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {rows?.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing suppressed.</p>
+        )}
+        {rows?.map((s) => (
+          <div key={s.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+            <span>
+              <span className="font-medium">{s.email}</span>
+              <span className="ml-2 text-muted-foreground">
+                {s.reason} · {fmtDateTime(s.createdAt)}
+              </span>
+            </span>
+            <ConfirmButton size="sm" variant="outline" confirmLabel="Verified real address?"
+              disabled={unsuppress.isPending} onConfirm={() => unsuppress.mutate(s.id)}>
+              Unsuppress
+            </ConfirmButton>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

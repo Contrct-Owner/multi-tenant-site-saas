@@ -81,6 +81,49 @@ public class BounceSuppressionTests(BounceFixture fixture) : IClassFixture<Bounc
         Assert.DoesNotContain(catcher.Sent, m => m.To == "void@example.com");
         Assert.Contains(catcher.Sent, m => m.To == "fresh@example.com");
     }
+
+    [Fact]
+    public async Task Operator_lists_and_unsuppresses_and_sending_resumes()
+    {
+        var guest = fixture.GuestClient();
+        (await guest.SendAsync(Report("comeback@example.com"))).EnsureSuccessStatusCode();
+
+        var member = await fixture.LoginAsync(ApiFixture.UserA);
+        Assert.Equal(
+            HttpStatusCode.UnprocessableEntity,
+            (
+                await member.PostAsJsonAsync(
+                    "/contact-links",
+                    new { email = "comeback@example.com" }
+                )
+            ).StatusCode
+        );
+
+        // the knob the 422 promises: operator finds it and lifts it
+        var op = await fixture.OperatorClient();
+        var rows = await op.GetFromJsonAsync<System.Text.Json.JsonElement>(
+            "/api/operator/suppressions?q=comeback"
+        );
+        var suppression = rows.EnumerateArray().Single();
+        Assert.Equal("bounce", suppression.GetProperty("reason").GetString());
+        (
+            await op.DeleteAsync(
+                $"/api/operator/suppressions/{suppression.GetProperty("id").GetGuid()}"
+            )
+        ).EnsureSuccessStatusCode();
+
+        var resumed = await member.PostAsJsonAsync(
+            "/contact-links",
+            new { email = "comeback@example.com" }
+        );
+        Assert.True(resumed.IsSuccessStatusCode, await resumed.Content.ReadAsStringAsync());
+
+        // tenants hold no custody over the platform-global list
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await member.GetAsync("/api/operator/suppressions")).StatusCode
+        );
+    }
 }
 
 public class BounceIntakeDisabledTests(ApiFixture fixture) : IClassFixture<ApiFixture>
