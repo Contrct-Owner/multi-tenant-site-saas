@@ -520,6 +520,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/org/public-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_org_public_url
+         * @description GET_api_org_public_url
+         */
+        get: operations["GET_api_org_public_url"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hierarchy": {
         parameters: {
             query?: never;
@@ -2595,6 +2615,10 @@ export interface components {
             city: null | string;
             postalCode: null | string;
             countryCode: null | string;
+            /** Format: double */
+            latitude: null | number | string;
+            /** Format: double */
+            longitude: null | number | string;
         };
         /** @enum {unknown} */
         SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
@@ -2632,6 +2656,10 @@ export interface components {
             city?: null | string;
             postalCode?: null | string;
             countryCode?: null | string;
+            /** Format: double */
+            latitude?: null | number | string;
+            /** Format: double */
+            longitude?: null | number | string;
             /** Format: uint32 */
             version?: null | number | string;
         };
@@ -3066,7 +3094,9 @@ export interface operations {
     };
     GET_public_sites: {
         parameters: {
-            query?: never;
+            query?: {
+                near?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3526,6 +3556,35 @@ export interface operations {
         };
     };
     POST_api_org_close_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_org_public_url: {
         parameters: {
             query?: never;
             header?: never;

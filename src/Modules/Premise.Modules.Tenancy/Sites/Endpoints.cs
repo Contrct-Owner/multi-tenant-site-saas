@@ -36,6 +36,8 @@ public sealed record UpdateSiteRequest(
     string? City = null,
     string? PostalCode = null,
     string? CountryCode = null,
+    double? Latitude = null,
+    double? Longitude = null,
     uint? Version = null
 );
 
@@ -59,7 +61,9 @@ public sealed record SiteResponse(
     string? AddressLine1,
     string? City,
     string? PostalCode,
-    string? CountryCode
+    string? CountryCode,
+    double? Latitude,
+    double? Longitude
 );
 
 /// <summary>
@@ -285,6 +289,13 @@ public static class SiteEndpoints
             site.PostalCode = postal.Length == 0 ? null : postal;
         if (request.CountryCode is { } country)
             site.CountryCode = country.Length == 0 ? null : country.ToUpperInvariant();
+        if (request is { Latitude: { } latitude, Longitude: { } longitude })
+        {
+            if (Math.Abs(latitude) > 90 || Math.Abs(longitude) > 180)
+                return Results.BadRequest(new { error = "coordinates out of range" });
+            site.Latitude = latitude;
+            site.Longitude = longitude;
+        }
         await db.SaveChangesAsync(ct);
 
         // The rebuild trigger everyone forgets (ADR 28): a timezone change
@@ -356,7 +367,9 @@ public static class SiteEndpoints
             s.AddressLine1,
             s.City,
             s.PostalCode,
-            s.CountryCode
+            s.CountryCode,
+            s.Latitude,
+            s.Longitude
         );
 }
 

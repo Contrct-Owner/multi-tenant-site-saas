@@ -15,6 +15,7 @@ type Site = {
   id: string; name: string; timeZone: string; status: string; version: number;
   addressLine1: string | null; city: string | null;
   postalCode: string | null; countryCode: string | null;
+  latitude: number | null; longitude: number | null;
 };
 type Schedule = {
   id: string; name: string; rRule: string;
@@ -76,6 +77,7 @@ export function SiteDetailPage() {
       body: Partial<{
         name: string; timeZone: string; status: string;
         addressLine1: string; city: string; postalCode: string; countryCode: string;
+        latitude: number; longitude: number;
       }>,
     ) =>
       // echo the version we loaded: a 409 means someone else saved first
@@ -103,6 +105,8 @@ export function SiteDetailPage() {
   const [editCity, setEditCity] = useState('');
   const [editPostal, setEditPostal] = useState('');
   const [editCountry, setEditCountry] = useState('');
+  const [editLat, setEditLat] = useState('');
+  const [editLng, setEditLng] = useState('');
   const { data: closures } = useQuery({
     queryKey: ['closures', siteId],
     queryFn: () => api.get<string[]>(`/api/sites/${siteId}/closures`),
@@ -156,6 +160,8 @@ export function SiteDetailPage() {
                     setEditCity(site.city ?? '');
                     setEditPostal(site.postalCode ?? '');
                     setEditCountry(site.countryCode ?? '');
+                    setEditLat(site.latitude?.toString() ?? '');
+                    setEditLng(site.longitude?.toString() ?? '');
                   }}
                 >
                   Edit
@@ -197,6 +203,21 @@ export function SiteDetailPage() {
                   <Input id="edit-site-country" value={editCountry} placeholder="US"
                     maxLength={2} onChange={(e) => setEditCountry(e.target.value)} />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-site-lat">Latitude</Label>
+                    <Input id="edit-site-lat" value={editLat} placeholder="42.3601"
+                      onChange={(e) => setEditLat(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-site-lng">Longitude</Label>
+                    <Input id="edit-site-lng" value={editLng} placeholder="-71.0589"
+                      onChange={(e) => setEditLng(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Coordinates put this site on the public locator map.
+                </p>
                 <Button className="w-full"
                   disabled={!editName.trim() || update.isPending}
                   onClick={() =>
@@ -208,6 +229,13 @@ export function SiteDetailPage() {
                         city: editCity.trim(),
                         postalCode: editPostal.trim(),
                         countryCode: editCountry.trim(),
+                        ...(Number.isFinite(Number.parseFloat(editLat)) &&
+                        Number.isFinite(Number.parseFloat(editLng))
+                          ? {
+                              latitude: Number.parseFloat(editLat),
+                              longitude: Number.parseFloat(editLng),
+                            }
+                          : {}),
                       },
                       { onSuccess: () => setEditOpen(false) },
                     )

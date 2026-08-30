@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router';
+import { createRootRoute, HeadContent, Link, Outlet, Scripts, useRouterState } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import type { ReactNode } from 'react';
 import { publicApiMaybe, type PublicOrg } from '../api';
@@ -30,6 +30,15 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const org = Route.useLoaderData();
+  // the embed route lives inside someone ELSE's page: no chrome (ADR 43)
+  const embedded = useRouterState({ select: (s) => s.location.pathname }) === '/embed';
+  if (embedded) {
+    return (
+      <RootDocument brandColor={org?.brandColor ?? undefined}>
+        <Outlet />
+      </RootDocument>
+    );
+  }
   return (
     <RootDocument brandColor={org?.brandColor ?? undefined}>
       <header className="border-b">

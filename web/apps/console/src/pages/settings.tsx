@@ -55,6 +55,10 @@ export function SettingsPage() {
     queryKey: ['sso'],
     queryFn: () => api.get<SsoStatus>('/api/org/sso'),
   });
+  const { data: publicUrl } = useQuery({
+    queryKey: ['public-url'],
+    queryFn: () => api.get<{ url: string; embedSnippet: string }>('/api/org/public-url'),
+  });
   const { data: closure } = useQuery({
     queryKey: ['closure'],
     queryFn: () =>
@@ -188,6 +192,27 @@ export function SettingsPage() {
                   Configure directory sync
                 </Button>
               </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Public locator</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {publicUrl && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Your locations live at{' '}
+                <a href={publicUrl.url} target="_blank" rel="noreferrer"
+                  className="text-foreground underline underline-offset-4">
+                  {publicUrl.url}
+                </a>
+                . Embed the locator on your own website with this snippet:
+              </p>
+              <code className="block overflow-x-auto whitespace-pre rounded-md bg-muted p-3 text-xs">
+                {publicUrl.embedSnippet}
+              </code>
             </>
           )}
         </CardContent>

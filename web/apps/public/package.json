@@ -12,11 +12,13 @@
     "@premise/ui": "workspace:*",
     "@tanstack/react-router": "^1.170.32",
     "@tanstack/react-start": "^1.168.49",
+    "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

@@ -32,6 +32,9 @@ export type PublicSite = {
   timeZone: string;
   status: string;
   openNow: boolean;
+  lat?: number | null;
+  lng?: number | null;
+  distanceKm?: number | null;
 };
 
 export type PublicSiteDetail = PublicSite & {

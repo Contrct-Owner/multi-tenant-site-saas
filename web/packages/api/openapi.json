@@ -612,6 +612,15 @@
         "summary": "GET_public_sites",
         "description": "GET_public_sites",
         "operationId": "GET_public_sites",
+        "parameters": [
+          {
+            "name": "near",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1171,6 +1180,36 @@
         "summary": "POST_api_org_close_cancel",
         "description": "POST_api_org_close_cancel",
         "operationId": "POST_api_org_close_cancel",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/public-url": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.PublicUrlEndpoint"
+        ],
+        "summary": "GET_api_org_public_url",
+        "description": "GET_api_org_public_url",
+        "operationId": "GET_api_org_public_url",
         "responses": {
           "200": {
             "description": "OK",
@@ -4962,7 +5001,9 @@
           "addressLine1",
           "city",
           "postalCode",
-          "countryCode"
+          "countryCode",
+          "latitude",
+          "longitude"
         ],
         "type": "object",
         "properties": {
@@ -5017,6 +5058,24 @@
               "null",
               "string"
             ]
+          },
+          "latitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -5184,6 +5243,24 @@
               "string"
             ]
           },
+          "latitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -5227,6 +5304,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.OrgClosureEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Organizations.PublicUrlEndpoint"
     },
     {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"

@@ -61,6 +61,13 @@ public static class PublicSiteEndpoints
         );
     }
 
+    /// <summary>
+    /// The locator list (ADR 43): geo-aware when asked. ?near=lat,lng sorts
+    /// by great-circle distance and returns distanceKm; sites without
+    /// coordinates sort last, alphabetical. Distance math runs in memory on
+    /// purpose - the public fleet list is unpaged and modest by design, and
+    /// haversine-in-SQL buys translation risk for nothing at this size.
+    /// </summary>
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/public/sites")]
     public static async Task<IResult> List(
@@ -68,6 +75,7 @@ public static class PublicSiteEndpoints
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         TimeProvider time,
+        string? near,
         CancellationToken ct
     )
     {
@@ -83,13 +91,57 @@ public static class PublicSiteEndpoints
                 s.Name,
                 s.City,
                 s.TimeZone,
+                s.Latitude,
+                s.Longitude,
                 status = s.Status.ToString(),
                 openNow = db.SiteOpenWindows.Any(w =>
                     w.SiteId == s.Id && w.StartsAtUtc <= now && now < w.EndsAtUtc
                 ),
             })
             .ToListAsync(ct);
-        return Results.Ok(sites);
+
+        (double Lat, double Lng)? origin = null;
+        if (near?.Split(',') is [var latRaw, var lngRaw])
+        {
+            var style = System.Globalization.CultureInfo.InvariantCulture;
+            if (
+                double.TryParse(latRaw, style, out var lat)
+                && double.TryParse(lngRaw, style, out var lng)
+                && Math.Abs(lat) <= 90
+                && Math.Abs(lng) <= 180
+            )
+                origin = (lat, lng);
+        }
+
+        var shaped = sites
+            .Select(s => new
+            {
+                s.id,
+                s.Name,
+                s.City,
+                s.TimeZone,
+                lat = s.Latitude,
+                lng = s.Longitude,
+                s.status,
+                s.openNow,
+                distanceKm = origin is { } from && s.Latitude is { } slat && s.Longitude is { } slng
+                    ? Math.Round(HaversineKm(from.Lat, from.Lng, slat, slng), 1)
+                    : (double?)null,
+            })
+            .OrderBy(s => s.distanceKm ?? double.MaxValue)
+            .ThenBy(s => s.Name)
+            .ToList();
+        return Results.Ok(shaped);
+    }
+
+    private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double earthRadiusKm = 6371.0;
+        static double Rad(double degrees) => degrees * Math.PI / 180.0;
+        var halfLat = Math.Sin(Rad(lat2 - lat1) / 2);
+        var halfLng = Math.Sin(Rad(lng2 - lng1) / 2);
+        var a = halfLat * halfLat + Math.Cos(Rad(lat1)) * Math.Cos(Rad(lat2)) * halfLng * halfLng;
+        return 2 * earthRadiusKm * Math.Asin(Math.Sqrt(a));
     }
 
     [Transactional(typeof(TenancyDbContext))]

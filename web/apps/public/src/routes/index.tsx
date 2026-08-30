@@ -1,13 +1,18 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server';
 import { publicApi, publicApiMaybe, type PublicMe, type PublicSite } from '../api';
+import { SiteMap } from '../SiteMap';
 
-const fetchLocator = createServerFn({ method: 'GET' }).handler(async () => ({
-  // maybe-variant: an unreachable API must not masquerade as an empty org
-  sites: await publicApiMaybe<PublicSite[]>('/public/sites'),
-  me: await publicApi<PublicMe>('/me', { tier: 'guest' }),
-}));
+const fetchLocator = createServerFn({ method: 'GET' })
+  .inputValidator((near?: string) => near)
+  .handler(async ({ data: near }) => ({
+    // maybe-variant: an unreachable API must not masquerade as an empty org
+    sites: await publicApiMaybe<PublicSite[]>(
+      near ? `/public/sites?near=${encodeURIComponent(near)}` : '/public/sites',
+    ),
+    me: await publicApi<PublicMe>('/me', { tier: 'guest' }),
+  }));
 
 const signOut = createServerFn({ method: 'POST' }).handler(async () => {
   const apiBase = process.env.PREMISE_API ?? 'http://localhost:5293';
@@ -29,12 +34,17 @@ const signOut = createServerFn({ method: 'POST' }).handler(async () => {
 });
 
 export const Route = createFileRoute('/')({
-  loader: () => fetchLocator(),
+  validateSearch: (search: Record<string, unknown>): { near?: string } =>
+    typeof search.near === 'string' ? { near: search.near } : {},
+  loaderDeps: ({ search }) => ({ near: search.near }),
+  loader: ({ deps }) => fetchLocator({ data: deps.near }),
   component: Locator,
 });
 
 function Locator() {
   const { sites, me } = Route.useLoaderData();
+  const { near } = Route.useSearch();
+  const navigate = useNavigate();
   const router = useRouter();
 
   if (sites === undefined) {
@@ -75,7 +85,26 @@ function Locator() {
             ? 'No locations to show for this address.'
             : 'Find a location and check today’s hours.'}
         </p>
+        {sites.length > 1 && (
+          <button
+            type="button"
+            className="text-sm underline-offset-4 hover:underline"
+            onClick={() => {
+              if (near) {
+                void navigate({ to: '/', search: {} });
+                return;
+              }
+              navigator.geolocation?.getCurrentPosition((position) => {
+                const at = `${position.coords.latitude.toFixed(4)},${position.coords.longitude.toFixed(4)}`;
+                void navigate({ to: '/', search: { near: at } });
+              });
+            }}
+          >
+            {near ? 'Clear distance sort' : 'Sort by distance from me'}
+          </button>
+        )}
       </div>
+      <SiteMap sites={sites} />
       <ul className="divide-y rounded-lg border bg-card">
         {sites.map((site) => (
           <li key={site.id}>
@@ -88,6 +117,11 @@ function Locator() {
                 <span className="font-medium">{site.name}</span>
                 {site.city && (
                   <span className="ml-2 text-sm text-muted-foreground">{site.city}</span>
+                )}
+                {site.distanceKm != null && (
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {site.distanceKm} km
+                  </span>
                 )}
               </span>
               <span
