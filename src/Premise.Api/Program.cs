@@ -188,8 +188,28 @@ switch (builder.Configuration["Billing:Provider"] ?? "local")
 builder.Services.AddWolverineHttp();
 builder.Services.AddOpenApi(); // ADR 16: the spec is the contract; TS client + keys generate from it
 
-// Notifications (ADR 32): local catcher unless a fork wires a real transport.
-builder.Services.AddSingleton<INotificationTransport, LocalMailCatcher>();
+// Notifications (ADR 32): email is on the auth critical path (magic links),
+// so Production must configure a real transport - the built-in SMTP adapter
+// reaches every mainstream provider, forks add vendor SDKs behind the port.
+switch (builder.Configuration["Notifications:Transport"] ?? "local")
+{
+    case "smtp":
+        builder.Services.Configure<Premise.Integrations.Smtp.SmtpOptions>(
+            builder.Configuration.GetSection("Notifications:Smtp")
+        );
+        builder.Services.AddSingleton<
+            INotificationTransport,
+            Premise.Integrations.Smtp.SmtpNotificationTransport
+        >();
+        break;
+    case "local" when !builder.Environment.IsProduction():
+        builder.Services.AddSingleton<INotificationTransport, LocalMailCatcher>();
+        break;
+    default:
+        throw new InvalidOperationException(
+            "Notifications:Transport 'local' is dev/test only (ADR 32); configure 'smtp' or a fork adapter in Production."
+        );
+}
 
 // Rate limiting (ADR 30): partitioned by principal tier. Guests limit on
 // their session cookie (fallback: IP), users on user id. The per-org quota
