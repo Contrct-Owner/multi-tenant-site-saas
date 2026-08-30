@@ -2,6 +2,10 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Premise.Api;
 using Premise.Integrations.WorkOS;
 using Premise.Modules.Audit;
@@ -53,6 +57,35 @@ if (role != "migrate" && builder.Configuration["Database:AppUser"] is { Length: 
         Password = builder.Configuration["Database:AppPassword"],
     }.ConnectionString;
 }
+
+// Observability (ADR 33): OTLP only - the standard OTEL_EXPORTER_OTLP_*
+// env vars point it anywhere (the Aspire dashboard in dev, any collector in
+// prod). Tenant/site/actor ride traces and logs as baggage, NEVER metric
+// labels. Wolverine publishes its own activity source.
+builder
+    .Services.AddOpenTelemetry()
+    .ConfigureResource(r =>
+        r.AddService(serviceName: $"premise-{role}", serviceInstanceId: Environment.MachineName)
+    )
+    .WithTracing(tracing =>
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddSource("Wolverine")
+            .AddOtlpExporter()
+    )
+    .WithMetrics(metrics =>
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddMeter("Wolverine:*")
+            .AddOtlpExporter()
+    );
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.IncludeScopes = true;
+    logging.AddOtlpExporter();
+});
 
 // No ambient connection string (ADR 35): everything resolves through the
 // region seam, single-region in v1.
@@ -378,6 +411,7 @@ if (role == "api")
     app.MapAccountEndpoints();
     app.MapContactLinkEndpoints();
     app.MapOperatorDeadLetterEndpoints();
+    app.MapOperatorOverviewEndpoint();
     app.MapWolverineEndpoints();
     app.MapGet(
         "/healthz",

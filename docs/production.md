@@ -149,14 +149,14 @@ cookies; only localhost's port-blind cookies do (the dev quirk in CLAUDE.md).
 
 ## Observability (ADR 33)
 
-The decision is OTLP-only (no vendor SDKs; the Aspire dashboard plays the
-collector role in dev). **The OpenTelemetry SDK wiring itself is not yet in
-the template** — it is tracked as an open item in the operability review, and
-until it lands you get structured console logs only. When you (or the
-template) wire it: use the standard `OTEL_EXPORTER_OTLP_ENDPOINT` /
-`OTEL_EXPORTER_OTLP_HEADERS` env vars, and keep tenant, site, and actor on
-traces and logs as baggage — **never metric labels**; a metric with an org
-label is a cardinality bomb and a cross-tenant side channel at once.
+OTLP only, and wired: traces (ASP.NET Core, HttpClient, Wolverine), metrics,
+and logs all export wherever the standard `OTEL_EXPORTER_OTLP_ENDPOINT` /
+`OTEL_EXPORTER_OTLP_HEADERS` env vars point — the Aspire dashboard in dev
+(it injects those vars), any collector in production; nothing exports when
+they are unset. Services are named `premise-api` / `premise-worker`. Keep
+tenant, site, and actor on traces and logs as baggage — **never metric
+labels**; a metric with an org label is a cardinality bomb and a
+cross-tenant side channel at once.
 
 ## Degradation stories (what breaks when a dependency is down)
 

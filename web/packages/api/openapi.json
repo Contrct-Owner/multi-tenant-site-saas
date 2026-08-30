@@ -4319,6 +4319,18 @@
         }
       }
     },
+    "/api/operator/overview": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [

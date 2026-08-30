@@ -17,6 +17,10 @@
     <ProjectReference Include="..\Modules\Premise.Modules.Tenancy\Premise.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Identity\Premise.Modules.Identity.csproj" />
     <ProjectReference Include="..\Integrations\Premise.Integrations.WorkOS\Premise.Integrations.WorkOS.csproj" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <ProjectReference Include="..\Integrations\Premise.Integrations.Smtp\Premise.Integrations.Smtp.csproj" />
     <ProjectReference Include="..\Integrations\Premise.Integrations.Stripe\Premise.Integrations.Stripe.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Entitlements\Premise.Modules.Entitlements.csproj" />

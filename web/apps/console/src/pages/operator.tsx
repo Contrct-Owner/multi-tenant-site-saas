@@ -47,6 +47,7 @@ export function OperatorPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <h1 className="text-2xl font-semibold">Operator</h1>
+      <PlatformOverview />
       <div className="grid grid-cols-[280px_1fr] gap-6">
         <Card>
           <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
@@ -151,6 +152,45 @@ export function OperatorPage() {
         )}
       </div>
       <DeadLetters />
+    </div>
+  );
+}
+
+type Overview = {
+  orgsByStatus: { status: string; count: number }[];
+  closuresPending: number;
+  users: number;
+  deadLetters: number;
+};
+
+function PlatformOverview() {
+  const { data } = useQuery({
+    queryKey: ['operator-overview'],
+    queryFn: () => api.get<Overview>('/api/operator/overview'),
+    refetchInterval: 30_000,
+  });
+  if (!data) return null;
+  const active = data.orgsByStatus.find((s) => s.status === 'Active')?.count ?? 0;
+  const suspended = data.orgsByStatus.find((s) => s.status === 'Suspended')?.count ?? 0;
+  const stats: [string, number, boolean][] = [
+    ['Active orgs', active, false],
+    ['Suspended', suspended, suspended > 0],
+    ['Closures pending', data.closuresPending, data.closuresPending > 0],
+    ['People', data.users, false],
+    ['Dead letters', data.deadLetters, data.deadLetters > 0],
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {stats.map(([label, value, attention]) => (
+        <Card key={label}>
+          <CardContent className="pt-4">
+            <div className={`text-2xl font-semibold ${attention ? 'text-warning-foreground' : ''}`}>
+              {value}
+            </div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
