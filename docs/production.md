@@ -125,6 +125,12 @@ prefixes to the API and everything else to the console bundle:
 (That list is mirrored by `web/apps/console/vite.config.ts` — keep them in
 sync. `/me` is an exact match: a prefix match swallows `/members`.)
 
+Header custody: the API stamps `nosniff`, `X-Frame-Options`,
+`Referrer-Policy`, and a deny-all CSP on its own responses, and 429s carry
+`Retry-After`. **HSTS and the frontends' CSPs are the reverse proxy's job** —
+TLS terminates there, and the static bundles need a script/style policy only
+their host can own.
+
 DNS: `console.yourproduct.com` (console + API) and a wildcard
 `*.yourproduct.com` (public app; the org slug is the subdomain — this is
 what `Public:HostTemplate` must match). Production subdomains do not share

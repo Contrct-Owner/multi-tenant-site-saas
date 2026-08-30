@@ -225,6 +225,19 @@ builder.Services.AddSingleton<OrgRateLimitCache>();
 builder.Services.AddRateLimiter(limiter =>
 {
     limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // consumers deserve to know when to come back: fixed one-minute windows,
+    // so the limiter's own retry hint (when present) or the window size
+    limiter.OnRejected = (context, _) =>
+    {
+        var seconds = context.Lease.TryGetMetadata(
+            System.Threading.RateLimiting.MetadataName.RetryAfter,
+            out var retryAfter
+        )
+            ? Math.Max(1, (int)retryAfter.TotalSeconds)
+            : 60;
+        context.HttpContext.Response.Headers.RetryAfter = seconds.ToString();
+        return ValueTask.CompletedTask;
+    };
     limiter.GlobalLimiter = PartitionedRateLimiter.CreateChained(
         // ADR 30: org-level quota from the metered entitlement, over the per-principal limiter
         PartitionedRateLimiter.Create<HttpContext, string>(http =>
@@ -305,6 +318,7 @@ var app = builder.Build();
 
 if (role == "api")
 {
+    app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseAuthentication();
     app.UseMiddleware<SessionValidationMiddleware>();
     app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
