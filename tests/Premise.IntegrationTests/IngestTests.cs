@@ -302,4 +302,214 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             await stub.StopAsync();
         }
     }
+
+    [Fact]
+    public async Task Staged_batches_list_and_discard_but_committed_history_stays()
+    {
+        var (client, _, _) = await Setup();
+        var csv = """
+            external_id,name,time_zone,node,status
+            disc-001,Discardable,America/New_York,IngestEast,open
+            """;
+        var batchId = (await Stage(client, await UploadCsv(client, csv)))
+            .GetProperty("batchId")
+            .GetGuid();
+
+        var listed = await client.GetFromJsonAsync<JsonElement>("/api/ingest/batches");
+        var row = listed.EnumerateArray().First(b => b.GetProperty("id").GetGuid() == batchId);
+        Assert.Equal("Staged", row.GetProperty("status").GetString());
+        Assert.Equal(1, row.GetProperty("counts").GetProperty("create").GetInt32());
+
+        // discard: nothing applied, the diff rows are gone, the record stays
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await client.PostAsync($"/api/ingest/batches/{batchId}/discard", null)).StatusCode
+        );
+        var after = await client.GetFromJsonAsync<JsonElement>($"/api/ingest/batches/{batchId}");
+        Assert.Equal("Discarded", after.GetProperty("status").GetString());
+        Assert.Equal(0, after.GetProperty("rows").GetArrayLength());
+
+        // a discarded batch neither commits nor discards again
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            (await client.PostAsync($"/api/ingest/batches/{batchId}/commit", null)).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            (await client.PostAsync($"/api/ingest/batches/{batchId}/discard", null)).StatusCode
+        );
+        Assert.Null(await PollSite(client, "Discardable", expect: false));
+    }
+
+    [Fact]
+    public async Task Connector_update_rewraps_key_and_delete_removes_it()
+    {
+        var (client, _, _) = await Setup();
+        string? seenKey = null;
+        var stub = WebApplication.CreateSlimBuilder().Build();
+        stub.MapGet(
+            "/sites",
+            (HttpRequest req) =>
+            {
+                seenKey = req.Headers["X-Api-Key"].ToString();
+                return Results.Json(Array.Empty<object>());
+            }
+        );
+        await stub.StartAsync();
+        try
+        {
+            var created = await client.PostAsJsonAsync(
+                "/api/connectors",
+                new
+                {
+                    name = "editable",
+                    url = $"{stub.Urls.First()}/sites",
+                    apiKey = "key-one",
+                }
+            );
+            created.EnsureSuccessStatusCode();
+            var id = (await created.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("id")
+                .GetGuid();
+
+            // the inventory shows config, never credentials
+            var listed = await client.GetFromJsonAsync<JsonElement>("/api/connectors");
+            var row = listed.EnumerateArray().First(c => c.GetProperty("id").GetGuid() == id);
+            Assert.Equal(JsonValueKind.Null, row.GetProperty("syncIntervalHours").ValueKind);
+            Assert.False(row.TryGetProperty("encryptedCredentials", out _));
+            Assert.False(row.TryGetProperty("apiKey", out _));
+
+            // edit: new key rewraps, new schedule sticks
+            var updated = await client.PutAsJsonAsync(
+                $"/api/connectors/{id}",
+                new
+                {
+                    name = "editable-v2",
+                    url = $"{stub.Urls.First()}/sites",
+                    apiKey = "key-two",
+                    syncIntervalHours = 6,
+                }
+            );
+            Assert.Equal(HttpStatusCode.NoContent, updated.StatusCode);
+            (await client.PostAsync($"/api/connectors/{id}/sync", null)).EnsureSuccessStatusCode();
+            for (var i = 0; i < 50 && seenKey is null; i++)
+                await Task.Delay(100);
+            Assert.Equal("key-two", seenKey);
+
+            var relisted = await client.GetFromJsonAsync<JsonElement>("/api/connectors");
+            var edited = relisted.EnumerateArray().First(c => c.GetProperty("id").GetGuid() == id);
+            Assert.Equal("editable-v2", edited.GetProperty("name").GetString());
+            Assert.Equal(6, edited.GetProperty("syncIntervalHours").GetInt32());
+
+            // delete: gone from inventory, sync 404s
+            Assert.Equal(
+                HttpStatusCode.NoContent,
+                (await client.DeleteAsync($"/api/connectors/{id}")).StatusCode
+            );
+            Assert.DoesNotContain(
+                (await client.GetFromJsonAsync<JsonElement>("/api/connectors")).EnumerateArray(),
+                c => c.GetProperty("id").GetGuid() == id
+            );
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                (await client.PostAsync($"/api/connectors/{id}/sync", null)).StatusCode
+            );
+        }
+        finally
+        {
+            await stub.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Scheduled_sweep_syncs_due_connectors_and_leaves_manual_ones_alone()
+    {
+        var (client, _, _) = await Setup();
+        var stub = WebApplication.CreateSlimBuilder().Build();
+        stub.MapGet(
+            "/sites",
+            () =>
+                Results.Json(
+                    new[]
+                    {
+                        new
+                        {
+                            external_id = "sched-1",
+                            name = "Scheduled Site",
+                            time_zone = "America/New_York",
+                            node = "IngestEast",
+                            status = "open",
+                        },
+                    }
+                )
+        );
+        await stub.StartAsync();
+        try
+        {
+            foreach (
+                var (name, interval) in new (string, int?)[]
+                {
+                    ("scheduled-conn", 1),
+                    ("manual-conn", null),
+                }
+            )
+                (
+                    await client.PostAsJsonAsync(
+                        "/api/connectors",
+                        new
+                        {
+                            name,
+                            url = $"{stub.Urls.First()}/sites",
+                            apiKey = "k",
+                            syncIntervalHours = interval,
+                        }
+                    )
+                ).EnsureSuccessStatusCode();
+
+            // the hourly enumerator's per-org sweep, delivered by hand
+            await fixture.PublishForOrgA(new Premise.Modules.Ingest.SyncDueConnectors());
+
+            // the due connector lands a STAGED batch (never auto-committed)...
+            JsonElement batches = default;
+            var found = false;
+            for (var i = 0; i < 100 && !found; i++)
+            {
+                batches = await client.GetFromJsonAsync<JsonElement>("/api/ingest/batches");
+                found = batches
+                    .EnumerateArray()
+                    .Any(b => b.GetProperty("source").GetString() == "scheduled-conn");
+                if (!found)
+                    await Task.Delay(100);
+            }
+            Assert.True(found, "scheduled connector never produced a batch");
+            Assert.Equal(
+                "Staged",
+                batches
+                    .EnumerateArray()
+                    .First(b => b.GetProperty("source").GetString() == "scheduled-conn")
+                    .GetProperty("status")
+                    .GetString()
+            );
+
+            // ...the manual one is untouched
+            Assert.DoesNotContain(
+                batches.EnumerateArray(),
+                b => b.GetProperty("source").GetString() == "manual-conn"
+            );
+
+            // a second sweep inside the interval is a no-op (LastSyncedAt advanced)
+            await fixture.PublishForOrgA(new Premise.Modules.Ingest.SyncDueConnectors());
+            await Task.Delay(500);
+            Assert.Equal(
+                1,
+                (await client.GetFromJsonAsync<JsonElement>("/api/ingest/batches"))
+                    .EnumerateArray()
+                    .Count(b => b.GetProperty("source").GetString() == "scheduled-conn")
+            );
+        }
+        finally
+        {
+            await stub.StopAsync();
+        }
+    }
 }

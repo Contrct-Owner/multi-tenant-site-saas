@@ -2345,6 +2345,77 @@
         }
       }
     },
+    "/api/ingest/batches": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "GET_api_ingest_batches",
+        "description": "GET_api_ingest_batches",
+        "operationId": "GET_api_ingest_batches",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/batches/{id}/discard": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "POST_api_ingest_batches_id_discard",
+        "description": "POST_api_ingest_batches_id_discard",
+        "operationId": "POST_api_ingest_batches_id_discard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/batches/{id}/commit": {
       "post": {
         "tags": [
@@ -2404,6 +2475,124 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "GET_api_connectors",
+        "description": "GET_api_connectors",
+        "operationId": "GET_api_connectors",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connectors/{id}": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "PUT_api_connectors_id",
+        "description": "PUT_api_connectors_id",
+        "operationId": "PUT_api_connectors_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConnectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Premise.Modules.Ingest.IngestEndpoints"
+        ],
+        "summary": "DELETE_api_connectors_id",
+        "description": "DELETE_api_connectors_id",
+        "operationId": "DELETE_api_connectors_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2878,6 +3067,15 @@
           },
           "apiKey": {
             "type": "string"
+          },
+          "syncIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -3293,6 +3491,36 @@
           "orgId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "UpdateConnectorRequest": {
+        "required": [
+          "name",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "syncIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

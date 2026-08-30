@@ -9,8 +9,14 @@ namespace Premise.Modules.Ingest;
 
 public static class IngestModule
 {
-    public static IServiceCollection AddIngestModule(this IServiceCollection services)
+    public static IServiceCollection AddIngestModule(
+        this IServiceCollection services,
+        bool runBackgroundWork = false
+    )
     {
+        if (runBackgroundWork)
+            services.AddHostedService<ConnectorScheduleService>();
+
         services.AddDbContextWithWolverineIntegration<IngestDbContext>(
             (sp, options) =>
             {

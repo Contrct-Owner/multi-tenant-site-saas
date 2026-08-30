@@ -50,10 +50,13 @@ public sealed class SiteConnector : IOrgScoped
 {
     public required Guid Id { get; init; }
     public required OrgId OrgId { get; init; }
-    public required string Name { get; init; }
+    public required string Name { get; set; }
     public required string Type { get; init; } // "json-http" in v1; forks add types
-    public required string Url { get; init; }
-    public required byte[] EncryptedCredentials { get; init; }
+    public required string Url { get; set; }
+    public required byte[] EncryptedCredentials { get; set; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastSyncedAt { get; set; }
+
+    /// <summary>Null = manual-only. Otherwise the schedule enumerator syncs when this many hours have passed.</summary>
+    public int? SyncIntervalHours { get; set; }
 }

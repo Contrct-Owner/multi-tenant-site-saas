@@ -14,7 +14,19 @@ namespace Premise.Modules.Ingest;
 
 public sealed record StageUploadRequest(Guid FileId);
 
-public sealed record CreateConnectorRequest(string Name, string Url, string ApiKey);
+public sealed record CreateConnectorRequest(
+    string Name,
+    string Url,
+    string ApiKey,
+    int? SyncIntervalHours = null
+);
+
+public sealed record UpdateConnectorRequest(
+    string Name,
+    string Url,
+    string? ApiKey = null,
+    int? SyncIntervalHours = null
+);
 
 public static class IngestEndpoints
 {
@@ -100,6 +112,91 @@ public static class IngestEndpoints
                 rows,
             }
         );
+    }
+
+    /// <summary>Recent batches, newest first: the ingest history at a glance.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverineGet("/api/ingest/batches")]
+    public static async Task<IResult> ListBatches(
+        IngestDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+            return Results.Unauthorized();
+        var batches = await db
+            .Batches.OrderByDescending(b => b.CreatedAt)
+            .Take(50)
+            .Select(b => new
+            {
+                b.Id,
+                b.Source,
+                status = b.Status.ToString(),
+                counts = b.Counts,
+                b.CreatedAt,
+            })
+            .ToListAsync(ct);
+        return Results.Ok(
+            batches.Select(b => new
+            {
+                b.Id,
+                b.Source,
+                b.status,
+                counts = JsonSerializer.Deserialize<object>(b.counts),
+                b.CreatedAt,
+            })
+        );
+    }
+
+    /// <summary>
+    /// Discard a staged batch: the diff is thrown away, nothing was applied.
+    /// The batch row stays as the record (with its counts); the staged rows -
+    /// bulk working data - are deleted (tier 3).
+    /// </summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePost("/api/ingest/batches/{id}/discard")]
+    public static async Task<IResult> Discard(
+        Guid id,
+        IngestDbContext db,
+        IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
+        )
+            return Results.Unauthorized();
+        var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (batch is null)
+            return Results.NotFound();
+        if (batch.Status != BatchStatus.Staged)
+            return Results.Conflict(new { error = $"batch is {batch.Status}" });
+
+        batch.Status = BatchStatus.Discarded;
+        await db.StagedSites.Where(s => s.BatchId == id).ExecuteDeleteAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await bus.PublishAsync(
+            new RecordDomainAudit(
+                "ingest.batch_discarded",
+                JsonSerializer.Serialize(new { batchId = batch.Id })
+            ),
+            new DeliveryOptions
+            {
+                TenantId = org.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = userId.ToString(),
+                },
+            }
+        );
+        return Results.NoContent();
     }
 
     /// <summary>
@@ -188,9 +285,113 @@ public static class IngestEndpoints
             // ADR 31: envelope-encrypted, never plaintext at rest
             EncryptedCredentials = await EnvelopeCrypto.EncryptAsync(request.ApiKey, kms, ct),
         };
+        connector.SyncIntervalHours = request.SyncIntervalHours;
         db.Connectors.Add(connector);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { connector.Id });
+    }
+
+    /// <summary>Connector inventory - credentials never leave the envelope.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverineGet("/api/connectors")]
+    public static async Task<IResult> ListConnectors(
+        IngestDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+            return Results.Unauthorized();
+        var connectors = await db
+            .Connectors.OrderBy(c => c.Name)
+            .Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.Type,
+                c.Url,
+                c.CreatedAt,
+                c.LastSyncedAt,
+                c.SyncIntervalHours,
+            })
+            .ToListAsync(ct);
+        return Results.Ok(connectors);
+    }
+
+    /// <summary>Edit a connector; the key only rewraps when a new one is provided.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverinePut("/api/connectors/{id}")]
+    public static async Task<IResult> UpdateConnector(
+        Guid id,
+        UpdateConnectorRequest request,
+        IngestDbContext db,
+        IKeyWrapper kms,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+            return Results.Unauthorized();
+        var connector = await db.Connectors.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (connector is null)
+            return Results.NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Url))
+            return Results.BadRequest(new { error = "name and url are required" });
+
+        connector.Name = request.Name.Trim();
+        connector.Url = request.Url.Trim();
+        connector.SyncIntervalHours = request.SyncIntervalHours;
+        if (!string.IsNullOrEmpty(request.ApiKey))
+            connector.EncryptedCredentials = await EnvelopeCrypto.EncryptAsync(
+                request.ApiKey,
+                kms,
+                ct
+            );
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    /// <summary>Tier 3: connectors are configuration, hard-deleted. The audit trail keeps the fact.</summary>
+    [Transactional(typeof(IngestDbContext))]
+    [WolverineDelete("/api/connectors/{id}")]
+    public static async Task<IResult> DeleteConnector(
+        Guid id,
+        IngestDbContext db,
+        IMessageBus bus,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
+            || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
+        )
+            return Results.Unauthorized();
+        var connector = await db.Connectors.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (connector is null)
+            return Results.NotFound();
+        db.Connectors.Remove(connector);
+        await db.SaveChangesAsync(ct);
+        await bus.PublishAsync(
+            new RecordDomainAudit(
+                "connector.deleted",
+                JsonSerializer.Serialize(new { connectorId = id, connector.Name })
+            ),
+            new DeliveryOptions
+            {
+                TenantId = org.Value.ToString(),
+                Headers =
+                {
+                    ["premise-actor-tier"] = "user",
+                    ["premise-actor-id"] = userId.ToString(),
+                },
+            }
+        );
+        return Results.NoContent();
     }
 
     [Transactional(typeof(IngestDbContext))]

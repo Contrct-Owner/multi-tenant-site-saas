@@ -4,8 +4,14 @@ import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHea
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { uploadFile } from '../lib/uploads';
+import { Input, Label } from '@premise/ui';
 
 type Counts = { create: number; update: number; close: number; unchanged: number; invalid: number };
+type Batch = { id: string; source: string; status: string; counts: Counts; createdAt: string };
+type Connector = {
+  id: string; name: string; type: string; url: string;
+  createdAt: string; lastSyncedAt: string | null; syncIntervalHours: number | null;
+};
 type Preview = {
   id: string;
   status: string;
@@ -42,7 +48,19 @@ export function IngestPage() {
     mutationFn: () => api.post<{ applied: number }>(`/api/ingest/batches/${batchId}/commit`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ingest-batch', batchId] });
+      void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] });
       void queryClient.invalidateQueries({ queryKey: ['sites'] });
+    },
+  });
+  const { data: batches } = useQuery({
+    queryKey: ['ingest-batches'],
+    queryFn: () => api.get<Batch[]>('/api/ingest/batches'),
+  });
+  const discard = useMutation({
+    mutationFn: (id: string) => api.post(`/api/ingest/batches/${id}/discard`),
+    onSuccess: (_, id) => {
+      if (id === batchId) setBatchId(null);
+      void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] });
     },
   });
 
@@ -121,6 +139,207 @@ export function IngestPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader><CardTitle>Batches</CardTitle></CardHeader>
+        <CardContent>
+          {batches && batches.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Staged</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Counts</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batches.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell>{b.source}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(b.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{b.status}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      +{b.counts.create} ~{b.counts.update} −{b.counts.close} ·{' '}
+                      {b.counts.invalid} invalid
+                    </TableCell>
+                    <TableCell className="space-x-1 text-right">
+                      {b.status === 'Staged' && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => setBatchId(b.id)}>
+                            Review
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={discard.isPending}
+                            onClick={() => discard.mutate(b.id)}
+                          >
+                            Discard
+                          </Button>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground">No batches yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <ConnectorsCard />
     </div>
+  );
+}
+
+function ConnectorsCard() {
+  const queryClient = useQueryClient();
+  const { data: connectors } = useQuery({
+    queryKey: ['connectors'],
+    queryFn: () => api.get<Connector[]>('/api/connectors'),
+  });
+  const empty = { name: '', url: '', apiKey: '', interval: '' };
+  const [form, setForm] = useState(empty);
+  const [editing, setEditing] = useState<string | null>(null);
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['connectors'] });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const body = {
+        name: form.name.trim(),
+        url: form.url.trim(),
+        apiKey: form.apiKey || undefined,
+        syncIntervalHours: form.interval ? Number(form.interval) : null,
+      };
+      return editing
+        ? api.put(`/api/connectors/${editing}`, body)
+        : api.post('/api/connectors', { ...body, apiKey: form.apiKey });
+    },
+    onSuccess: () => {
+      setForm(empty);
+      setEditing(null);
+      refresh();
+    },
+  });
+  const sync = useMutation({
+    mutationFn: (id: string) => api.post(`/api/connectors/${id}/sync`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] }),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.del(`/api/connectors/${id}`),
+    onSuccess: refresh,
+  });
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Connectors</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {connectors && connectors.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Schedule</TableHead>
+                <TableHead>Last sync</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {connectors.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>
+                    <div>{c.name}</div>
+                    <div className="max-w-64 truncate text-xs text-muted-foreground">{c.url}</div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {c.syncIntervalHours ? `every ${c.syncIntervalHours}h` : 'manual'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {c.lastSyncedAt ? new Date(c.lastSyncedAt).toLocaleString() : 'never'}
+                  </TableCell>
+                  <TableCell className="space-x-1 text-right">
+                    <Button variant="ghost" size="sm" disabled={sync.isPending}
+                      onClick={() => sync.mutate(c.id)}>
+                      Sync now
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                      onClick={() => {
+                        setEditing(c.id);
+                        setForm({
+                          name: c.name,
+                          url: c.url,
+                          apiKey: '',
+                          interval: c.syncIntervalHours?.toString() ?? '',
+                        });
+                      }}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={remove.isPending}
+                      onClick={() => {
+                        if (window.confirm(`Delete connector ${c.name}?`)) remove.mutate(c.id);
+                      }}>
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <div className="space-y-2 rounded-md border p-3">
+          <p className="text-sm font-medium">{editing ? 'Edit connector' : 'Add connector'}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="conn-name">Name</Label>
+              <Input id="conn-name" value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="conn-url">URL</Label>
+              <Input id="conn-url" value={form.url}
+                onChange={(e) => setForm({ ...form, url: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="conn-key">
+                API key{editing ? ' (leave blank to keep current)' : ''}
+              </Label>
+              <Input id="conn-key" type="password" value={form.apiKey}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="conn-interval">Sync every N hours (blank = manual)</Label>
+              <Input id="conn-interval" type="number" min="1" value={form.interval}
+                onChange={(e) => setForm({ ...form, interval: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={
+                !form.name.trim() || !form.url.trim() || (!editing && !form.apiKey) || save.isPending
+              }
+              onClick={() => save.mutate()}
+            >
+              {editing ? 'Save' : 'Add'}
+            </Button>
+            {editing && (
+              <Button variant="ghost" size="sm"
+                onClick={() => {
+                  setEditing(null);
+                  setForm(empty);
+                }}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

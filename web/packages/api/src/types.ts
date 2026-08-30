@@ -1004,6 +1004,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_ingest_batches
+         * @description GET_api_ingest_batches
+         */
+        get: operations["GET_api_ingest_batches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/batches/{id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_ingest_batches_id_discard
+         * @description POST_api_ingest_batches_id_discard
+         */
+        post: operations["POST_api_ingest_batches_id_discard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/batches/{id}/commit": {
         parameters: {
             query?: never;
@@ -1031,7 +1071,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET_api_connectors
+         * @description GET_api_connectors
+         */
+        get: operations["GET_api_connectors"];
         put?: never;
         /**
          * POST_api_connectors
@@ -1039,6 +1083,30 @@ export interface paths {
          */
         post: operations["POST_api_connectors"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connectors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_connectors_id
+         * @description PUT_api_connectors_id
+         */
+        put: operations["PUT_api_connectors_id"];
+        post?: never;
+        /**
+         * DELETE_api_connectors_id
+         * @description DELETE_api_connectors_id
+         */
+        delete: operations["DELETE_api_connectors_id"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1679,6 +1747,8 @@ export interface components {
             name: string;
             url: string;
             apiKey: string;
+            /** Format: int32 */
+            syncIntervalHours?: null | number | string;
         };
         CreateFileRequest: {
             name: string;
@@ -1792,6 +1862,13 @@ export interface components {
         SwitchOrgRequest: {
             /** Format: uuid */
             orgId: string;
+        };
+        UpdateConnectorRequest: {
+            name: string;
+            url: string;
+            apiKey?: null | string;
+            /** Format: int32 */
+            syncIntervalHours?: null | number | string;
         };
         UpdateProfileRequest: {
             name: string;
@@ -3648,6 +3725,66 @@ export interface operations {
             };
         };
     };
+    GET_api_ingest_batches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_ingest_batches_id_discard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     POST_api_ingest_batches_id_commit: {
         parameters: {
             query?: never;
@@ -3655,6 +3792,35 @@ export interface operations {
             path: {
                 id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_connectors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -3691,6 +3857,72 @@ export interface operations {
                 "application/json": components["schemas"]["CreateConnectorRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_connectors_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConnectorRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_connectors_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

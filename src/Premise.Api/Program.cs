@@ -102,7 +102,7 @@ builder.Services.AddIdentityModule();
 builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
 builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddStorageModule();
-builder.Services.AddIngestModule();
+builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 
 // Platform infra context (idempotency, ADR 29)
 builder.Services.AddDbContext<PlatformDbContext>(

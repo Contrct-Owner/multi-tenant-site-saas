@@ -67,6 +67,7 @@ public sealed class IngestDbContext(
             b.Property(x => x.EncryptedCredentials).HasColumnName("encrypted_credentials");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.LastSyncedAt).HasColumnName("last_synced_at");
+            b.Property(x => x.SyncIntervalHours).HasColumnName("sync_interval_hours");
             b.HasIndex(x => new { x.OrgId, x.Name }).IsUnique();
         });
     }
