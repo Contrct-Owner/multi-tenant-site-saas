@@ -73,6 +73,10 @@ public static class MemberEndpoints
         var nextOrg = await db
             .Memberships.Where(m => m.UserId == userId)
             .OrderBy(m => m.CreatedAt)
+            // UUIDv7 tie-break: CreatedAt collides at Postgres microsecond
+            // resolution for memberships created together - without this the
+            // default org is a per-boot coin flip
+            .ThenBy(m => m.Id)
             .Select(m => (OrgId?)m.OrgId)
             .FirstOrDefaultAsync(ct);
         await http.SignInAsync(

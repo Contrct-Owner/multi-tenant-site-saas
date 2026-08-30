@@ -129,14 +129,26 @@ public class ApiFixture : IAsyncLifetime
             var viewer = AppUser.Create("local", ViewerA, ViewerA, "Viewer A");
             var op = AppUser.Create("local", Operator, Operator, "Operator");
             seed.Users.AddRange(a, b, both, viewer, op);
+            // Distinct join instants (real joins are never in the same
+            // microsecond): "first joined" must MEAN something - UserBoth
+            // joined OrgA before OrgB, so OrgA is their default org.
+            var t0 = DateTimeOffset.UtcNow.AddMinutes(-10);
+            Membership Join(Guid userId, OrgId org, int order) =>
+                new()
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = userId,
+                    OrgId = org,
+                    CreatedAt = t0.AddSeconds(order),
+                };
             var memberships = new[]
             {
-                (Membership.Create(a.Id, OrgA), true),
-                (Membership.Create(b.Id, OrgB), true),
-                (Membership.Create(both.Id, OrgA), true),
-                (Membership.Create(both.Id, OrgB), true),
-                (Membership.Create(viewer.Id, OrgA), false), // no role: gets nothing
-                (Membership.Create(op.Id, PlatformOrg), true),
+                (Join(a.Id, OrgA, 0), true),
+                (Join(b.Id, OrgB, 1), true),
+                (Join(both.Id, OrgA, 2), true),
+                (Join(both.Id, OrgB, 3), true),
+                (Join(viewer.Id, OrgA, 4), false), // no role: gets nothing
+                (Join(op.Id, PlatformOrg, 5), true),
             };
             seed.Memberships.AddRange(memberships.Select(m => m.Item1));
             // Owner (*:*) per org, assigned org-wide to the seeded members (ADR 6)
@@ -315,18 +327,6 @@ public class ApiFixture : IAsyncLifetime
     }
 
     public Task<HttpClient> OperatorClient() => LoginAsync(Operator);
-
-    public async Task ResetUsageEvents(OrgId org, string code)
-    {
-        await using var db = CreateModuleContext<EntitlementsDbContext>(
-            _postgres.GetConnectionString(),
-            "entitlements"
-        );
-        await db
-            .UsageEvents.IgnoreQueryFilters()
-            .Where(e => e.OrgId == org && e.Code == code)
-            .ExecuteDeleteAsync();
-    }
 
     /// <summary>A user with NO org at all - the day-zero starting state.</summary>
     public async Task<Guid> CreateUserOnly(string email)

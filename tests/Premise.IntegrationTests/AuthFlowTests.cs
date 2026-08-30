@@ -7,6 +7,19 @@ namespace Premise.IntegrationTests;
 public class AuthFlowTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 {
     [Fact]
+    public async Task Multi_org_default_org_is_first_joined_deterministically()
+    {
+        // UserBoth's two memberships were seeded microseconds apart - their
+        // CreatedAt values collide at Postgres resolution. The UUIDv7 id
+        // tie-break makes the pick deterministic: first joined wins. (Without
+        // it this was a per-boot coin flip that masqueraded as cold-boot
+        // metering loss.)
+        var client = await fixture.LoginAsync(ApiFixture.UserBoth);
+        var me = await client.GetFromJsonAsync<JsonElement>("/me");
+        Assert.Equal(fixture.OrgA.Value, me.GetProperty("activeOrg").GetGuid());
+    }
+
+    [Fact]
     public async Task Login_yields_user_principal_with_memberships()
     {
         var client = await fixture.LoginAsync(ApiFixture.UserA);

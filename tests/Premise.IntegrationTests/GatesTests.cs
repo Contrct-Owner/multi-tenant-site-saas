@@ -129,13 +129,15 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     [Fact]
     public async Task Metered_grace_allows_ten_percent_then_blocks()
     {
-        var owner = await fixture.LoginAsync(ApiFixture.UserBoth); // org A active
-        // warm the metering pipeline on a cold boot (see task: cold-boot
-        // metering loss), then reset the counter for a clean measurement
+        // Explicit about WHICH org is metered: the "cold-boot metering loss"
+        // this test used to blame was never metering at all - a multi-org
+        // user's default org was a per-boot coin flip (CreatedAt tie at
+        // Postgres microsecond resolution), so some boots metered org B
+        // against org A's operator-set limit.
+        var owner = await fixture.LoginAsync(ApiFixture.UserBoth);
         (
-            await owner.PostAsJsonAsync("/contact-links", new { email = "warmup@example.com" })
+            await owner.PostAsJsonAsync("/auth/switch-org", new { orgId = fixture.OrgA.Value })
         ).EnsureSuccessStatusCode();
-        await fixture.ResetUsageEvents(fixture.OrgA, "contact_links.monthly");
 
         var op = await fixture.OperatorClient();
         var set = await op.PutAsJsonAsync(
