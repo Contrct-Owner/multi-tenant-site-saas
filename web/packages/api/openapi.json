@@ -1465,6 +1465,115 @@
         }
       }
     },
+    "/api/api-keys": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ApiKeyEndpoints"
+        ],
+        "summary": "GET_api_api_keys",
+        "description": "GET_api_api_keys",
+        "operationId": "GET_api_api_keys",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ApiKeyEndpoints"
+        ],
+        "summary": "POST_api_api_keys",
+        "description": "POST_api_api_keys",
+        "operationId": "POST_api_api_keys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Identity.Access.ApiKeyEndpoints"
+        ],
+        "summary": "DELETE_api_api_keys_id",
+        "description": "DELETE_api_api_keys_id",
+        "operationId": "DELETE_api_api_keys_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roles": {
       "get": {
         "tags": [
@@ -2260,6 +2369,197 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "GET_api_webhooks",
+        "description": "GET_api_webhooks",
+        "operationId": "GET_api_webhooks",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "POST_api_webhooks",
+        "description": "POST_api_webhooks",
+        "operationId": "POST_api_webhooks",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "DELETE_api_webhooks_id",
+        "description": "DELETE_api_webhooks_id",
+        "operationId": "DELETE_api_webhooks_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/deliveries": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "GET_api_webhooks_id_deliveries",
+        "description": "GET_api_webhooks_id_deliveries",
+        "operationId": "GET_api_webhooks_id_deliveries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/ping": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Audit.WebhookManagementEndpoints"
+        ],
+        "summary": "POST_api_webhooks_id_ping",
+        "description": "POST_api_webhooks_id_ping",
+        "operationId": "POST_api_webhooks_id_ping",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -3326,6 +3626,28 @@
           }
         }
       },
+      "CreateApiKeyRequest": {
+        "required": [
+          "name",
+          "roleId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scopePath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreateConnectorRequest": {
         "required": [
           "name",
@@ -3544,6 +3866,26 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "CreateWebhookRequest": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3919,6 +4261,9 @@
       "name": "Premise.Modules.Identity.Auth.ContactManagementEndpoints"
     },
     {
+      "name": "Premise.Modules.Identity.Access.ApiKeyEndpoints"
+    },
+    {
       "name": "Premise.Modules.Identity.Access.AccessEndpoints"
     },
     {
@@ -3935,6 +4280,9 @@
     },
     {
       "name": "Premise.Modules.Audit.AuditEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Audit.WebhookManagementEndpoints"
     },
     {
       "name": "Premise.Modules.Storage.FileEndpoints"

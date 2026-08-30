@@ -18,6 +18,8 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
     public DbSet<AuthzLogEntry> AuthzDecisions => Set<AuthzLogEntry>();
     public DbSet<AccessLogEntry> Accesses => Set<AccessLogEntry>();
     public DbSet<OrgAuditConfig> Configs => Set<OrgAuditConfig>();
+    public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -86,6 +88,36 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
             b.Property(a => a.StatusCode).HasColumnName("status_code");
             b.Property(a => a.OccurredAt).HasColumnName("occurred_at");
             b.HasIndex(a => new { a.OrgId, a.OccurredAt });
+        });
+
+        modelBuilder.Entity<WebhookEndpoint>(b =>
+        {
+            b.ToTable("webhook_endpoints");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.Url).HasColumnName("url").HasMaxLength(1000);
+            b.Property(x => x.EncryptedSecret).HasColumnName("encrypted_secret");
+            b.Property(x => x.Events).HasColumnName("events");
+            b.Property(x => x.Active).HasColumnName("active");
+            b.Property(x => x.CreatedBy).HasColumnName("created_by");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => x.OrgId);
+        });
+
+        modelBuilder.Entity<WebhookDelivery>(b =>
+        {
+            b.ToTable("webhook_deliveries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.EndpointId).HasColumnName("endpoint_id");
+            b.Property(x => x.EventName).HasColumnName("event_name").HasMaxLength(120);
+            b.Property(x => x.Attempt).HasColumnName("attempt");
+            b.Property(x => x.StatusCode).HasColumnName("status_code");
+            b.Property(x => x.Ok).HasColumnName("ok");
+            b.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+            b.HasIndex(x => new { x.EndpointId, x.OccurredAt });
         });
 
         modelBuilder.Entity<OrgAuditConfig>(b =>

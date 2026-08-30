@@ -21,14 +21,16 @@ public static class RecordDomainAuditHandler
         Envelope envelope,
         ITenantContext tenant,
         AuditDbContext db,
+        Wolverine.IMessageBus bus,
         CancellationToken ct
     )
     {
+        var org = RequireOrg(tenant, envelope);
         db.DomainEvents.Add(
             new DomainLogEntry
             {
                 Id = Guid.CreateVersion7(),
-                OrgId = RequireOrg(tenant, envelope),
+                OrgId = org,
                 ActorTier = envelope.Headers.GetValueOrDefault("premise-actor-tier") ?? "system",
                 ActorId = ParseActor(envelope),
                 EventName = message.EventName,
@@ -37,6 +39,24 @@ public static class RecordDomainAuditHandler
             }
         );
         await db.SaveChangesAsync(ct);
+
+        // outbound webhooks ride the same stream (ADR 40): the event record
+        // and its subscriptions live in this module, so the fan-out is one
+        // same-context query away
+        var endpoints = await db.WebhookEndpoints.Where(e => e.Active).ToListAsync(ct);
+        var groupId = Guid.CreateVersion7();
+        foreach (var endpoint in endpoints.Where(e => e.Matches(message.EventName)))
+            await bus.PublishAsync(
+                new DeliverWebhook(
+                    endpoint.Id,
+                    groupId,
+                    message.EventName,
+                    message.PayloadJson,
+                    envelope.SentAt,
+                    Attempt: 1
+                ),
+                new Wolverine.DeliveryOptions { TenantId = org.ToString() }
+            );
     }
 
     private static Guid RequireOrg(ITenantContext tenant, Envelope envelope) =>

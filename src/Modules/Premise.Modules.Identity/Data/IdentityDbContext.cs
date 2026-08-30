@@ -24,6 +24,7 @@ public sealed class IdentityDbContext(
     public DbSet<InvitedRole> InvitedRoles => Set<InvitedRole>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
     public DbSet<Contact> Contacts => Set<Contact>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +42,25 @@ public sealed class IdentityDbContext(
             b.Property(u => u.CreatedAt).HasColumnName("created_at");
             b.HasIndex(u => new { u.Provider, u.Subject }).IsUnique();
             b.HasIndex(u => u.Email);
+        });
+
+        modelBuilder.Entity<ApiKey>(b =>
+        {
+            b.ToTable("api_keys");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.Name).HasColumnName("name").HasMaxLength(120);
+            b.Property(x => x.SecretHash).HasColumnName("secret_hash").HasMaxLength(64);
+            b.Property(x => x.Prefix).HasColumnName("prefix").HasMaxLength(16);
+            b.Property(x => x.RoleId).HasColumnName("role_id");
+            b.Property(x => x.ScopePath).HasColumnName("scope_path").HasMaxLength(500);
+            b.Property(x => x.CreatedBy).HasColumnName("created_by");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.LastUsedAt).HasColumnName("last_used_at");
+            b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            b.HasIndex(x => x.SecretHash).IsUnique();
+            b.HasIndex(x => x.OrgId);
         });
 
         modelBuilder.Entity<Contact>(b =>

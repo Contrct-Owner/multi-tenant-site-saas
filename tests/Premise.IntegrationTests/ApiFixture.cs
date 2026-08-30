@@ -195,6 +195,7 @@ public class ApiFixture : IAsyncLifetime
             builder.UseSetting("Audit:PolicyCacheTtlSeconds", "1");
             builder.UseSetting("Storage:LocalRoot", _storageRoot);
             builder.UseSetting("Secrets:LocalMasterKey", Convert.ToBase64String(new byte[32])); // dev/test wrapper key
+            builder.UseSetting("Webhooks:RetryBaseSeconds", "1"); // fast retry backoff in tests
             builder.UseEnvironment("Testing");
             ConfigureHost(builder);
         });

@@ -18,10 +18,13 @@ public sealed class SuspensionMiddleware(RequestDelegate next)
         IdentityDbContext db
     )
     {
-        if (
-            context.Request.Path.StartsWithSegments("/api")
-            && accessor.Current is Principal.User { ActiveOrg: { } org }
-        )
+        OrgId? principalOrg = accessor.Current switch
+        {
+            Principal.User { ActiveOrg: { } userOrg } => userOrg,
+            Principal.Service service => service.Org, // keys of a dead org stop too
+            _ => null,
+        };
+        if (context.Request.Path.StartsWithSegments("/api") && principalOrg is { } org)
         {
             var status = await db
                 .OrgDirectory.Where(d => d.OrgId == org)

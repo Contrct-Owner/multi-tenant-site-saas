@@ -43,6 +43,9 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
                     ? new NodeScope.EntireOrg(contact.Org)
                     : NodeScope.Nothing;
         }
+        if (principal is Principal.Service service)
+            return await ServiceScopeAsync(service, action, ct);
+
         if (principal is not Principal.User { ActiveOrg: { } org, UserId: var userId })
             return NodeScope.Nothing;
 
@@ -83,6 +86,43 @@ public sealed class GrantScopeResolver(IdentityDbContext db) : IScopeResolver
             : paths.Contains(null) ? new NodeScope.EntireOrg(org)
             : new NodeScope.Subtrees(org, [.. paths.Cast<string>().Distinct()]);
         _memo[(userId, org, action)] = scope;
+        return scope;
+    }
+
+    /// <summary>
+    /// An API key holds exactly one role, optionally subtree-scoped: the same
+    /// monotonic grant evaluation as people, minus memberships (ADR 40).
+    /// A revoked key's still-presented credential resolves to nothing.
+    /// </summary>
+    private async ValueTask<NodeScope> ServiceScopeAsync(
+        Principal.Service service,
+        string action,
+        CancellationToken ct
+    )
+    {
+        if (_memo.TryGetValue((service.KeyId, service.Org, action), out var cached))
+            return cached;
+        var (domain, verb) = Split(action);
+        var key = await db.ApiKeys.FirstOrDefaultAsync(
+            k => k.Id == service.KeyId && k.RevokedAt == null,
+            ct
+        );
+        NodeScope scope = NodeScope.Nothing;
+        if (key is not null)
+        {
+            var granted = await db
+                .RoleGrants.Where(g =>
+                    g.RoleId == key.RoleId
+                    && (g.Domain == domain || g.Domain == "*")
+                    && (g.Action == verb || g.Action == "*")
+                )
+                .AnyAsync(ct);
+            if (granted)
+                scope = key.ScopePath is { } path
+                    ? new NodeScope.Subtrees(service.Org, [path])
+                    : new NodeScope.EntireOrg(service.Org);
+        }
+        _memo[(service.KeyId, service.Org, action)] = scope;
         return scope;
     }
 

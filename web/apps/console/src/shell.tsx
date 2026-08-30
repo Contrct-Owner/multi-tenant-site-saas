@@ -23,6 +23,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/members', label: 'Members', capability: 'roles:manage' },
       { to: '/roles', label: 'Roles', capability: 'roles:manage' },
+      { to: '/developers', label: 'Developers', capability: 'org:manage' },
       { to: '/settings', label: 'Settings', capability: 'org:manage' },
       { to: '/audit', label: 'Audit', capability: 'audit:read' },
     ],

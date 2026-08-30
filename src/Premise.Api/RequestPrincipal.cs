@@ -14,6 +14,7 @@ namespace Premise.Api;
 public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IPrincipalAccessor
 {
     public const string GuestOrgItem = "premise.guest_org";
+    public const string ServiceKeyItem = "premise.service_key";
 
     public Principal Current
     {
@@ -22,6 +23,14 @@ public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IP
             var http = accessor.HttpContext;
             if (http is null)
                 return new Principal.Guest(null);
+
+            // a validated API key (ApiKeyAuthenticationMiddleware owns the
+            // lookup) makes this a SERVICE principal - server-to-server
+            if (
+                http.Items.TryGetValue(ServiceKeyItem, out var serviceRaw)
+                && serviceRaw is (Guid serviceKeyId, OrgId serviceOrg)
+            )
+                return new Principal.Service(serviceKeyId, serviceOrg);
 
             var user = http.User;
             if (
@@ -86,6 +95,7 @@ public sealed class PrincipalTenantContext(
         {
             Principal.User u => u.ActiveOrg,
             Principal.Contact c => c.Org,
+            Principal.Service s => s.Org,
             Principal.Guest g => g.Org ?? EnvelopeOrg,
             _ => EnvelopeOrg,
         };

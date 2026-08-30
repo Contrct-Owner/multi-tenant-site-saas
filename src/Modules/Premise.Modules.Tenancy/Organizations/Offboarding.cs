@@ -255,6 +255,7 @@ public static class LifecycleEndpoints
         await bus.PublishForOrgAsync(target, new PurgeOrgFiles());
         await bus.PublishForOrgAsync(target, new PurgeOrgEntitlements());
         await bus.PublishForOrgAsync(target, new PurgeOrgIngest());
+        await bus.PublishForOrgAsync(target, new PurgeOrgWebhooks());
         await bus.PublishForOrgAsync(target, new OrganizationDeleted(org.Id, org.ExternalId));
         return Results.NoContent();
     }

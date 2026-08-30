@@ -45,6 +45,7 @@ public static class PurgeAuditDataHandler
         await db.DomainEvents.Where(a => a.OccurredAt < cutoff).ExecuteDeleteAsync(ct);
         await db.AuthzDecisions.Where(a => a.OccurredAt < cutoff).ExecuteDeleteAsync(ct);
         await db.Accesses.Where(a => a.OccurredAt < cutoff).ExecuteDeleteAsync(ct);
+        await db.WebhookDeliveries.Where(d => d.OccurredAt < cutoff).ExecuteDeleteAsync(ct);
     }
 }
 

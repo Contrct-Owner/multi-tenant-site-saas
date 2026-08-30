@@ -12,6 +12,9 @@ public abstract record Principal
 
     public sealed record Contact(Guid ContactId, OrgId Org, string? Email = null) : Principal;
 
+    /// <summary>An API key acting server-to-server: a service principal OF an org (ADR 40).</summary>
+    public sealed record Service(Guid KeyId, OrgId Org) : Principal;
+
     public sealed record User(Guid UserId, string Email, string? Name, OrgId? ActiveOrg)
         : Principal;
 }

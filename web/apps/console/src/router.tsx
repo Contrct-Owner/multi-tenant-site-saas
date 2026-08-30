@@ -3,6 +3,7 @@ import { Shell } from './shell';
 import { AccountPage } from './pages/account';
 import { AuditPage } from './pages/audit';
 import { DashboardPage } from './pages/dashboard';
+import { DevelopersPage } from './pages/developers';
 import { HierarchyPage } from './pages/hierarchy';
 import { IngestPage } from './pages/ingest';
 import { MembersPage } from './pages/members';
@@ -33,6 +34,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: '/audit', component: AuditPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/operator', component: OperatorPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/developers', component: DevelopersPage }),
   createRoute({ getParentRoute: () => rootRoute, path: '/account', component: AccountPage }),
 ];
 

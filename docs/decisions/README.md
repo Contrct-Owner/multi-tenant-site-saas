@@ -56,3 +56,4 @@ confirmation on edits under this directory.
 - [0037. Contract direction and read models](0037-contract-direction-and-read-models.md)
 - [0038. Engineering standards: role split, migration round-trips, test tiers, CI gates](0038-engineering-standards-convergence.md)
 - [0039. Billing seam: plans are entitlement bundles, the webhook is the writer](0039-billing-seam.md)
+- [0040. Integration surface: API keys as service principals, webhooks off the event record](0040-integration-surface.md)

@@ -95,6 +95,7 @@ public static class OrganizationDeletedHandler
     {
         var org = evt.OrgId;
         await db.Contacts.IgnoreQueryFilters().Where(c => c.OrgId == org).ExecuteDeleteAsync(ct);
+        await db.ApiKeys.IgnoreQueryFilters().Where(k => k.OrgId == org).ExecuteDeleteAsync(ct);
         await db.Set<InvitedRole>()
             .IgnoreQueryFilters()
             .Where(i => i.OrgId == org)

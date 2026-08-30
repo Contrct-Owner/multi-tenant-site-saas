@@ -141,5 +141,8 @@ public sealed record PurgeOrgEntitlements;
 
 public sealed record PurgeOrgIngest;
 
+/// <summary>Webhook CONFIG purges with the org; the audit trail itself stays (ADR 25/40).</summary>
+public sealed record PurgeOrgWebhooks;
+
 /// <summary>The org is gone: read models drop it, provider directory follows.</summary>
 public sealed record OrganizationDeleted(OrgId OrgId, string? ExternalId);
