@@ -17,7 +17,7 @@ subtree it belongs to). Every request passes **three gates**, in order:
 
 ## Architectural decisions
 
-All 45 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
+All 46 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
 README). **Consult them before proposing structural changes.** Decisions marked
 `pinned: true` are expensive to reverse once data exists — do not contradict them
 without the maintainer explicitly reopening the decision.

@@ -201,6 +201,24 @@ public static class PublicSiteEndpoints
             .OrderBy(date => date)
             .Select(date => date.ToString("yyyy-MM-dd"))
             .ToList();
+        // PUBLIC attribute values only (ADR 46): the definition's flag is the
+        // visibility gate, labels ride along for display
+        var publicDefinitions = await db
+            .SiteAttributeDefinitions.Where(d => d.Public)
+            .OrderBy(d => d.Key)
+            .ToListAsync(ct);
+        var values = System.Text.Json.JsonSerializer.Deserialize<
+            Dictionary<string, System.Text.Json.JsonElement>
+        >(site.AttributesJson);
+        var attributes = publicDefinitions
+            .Where(d => values is not null && values.ContainsKey(d.Key))
+            .Select(d => new
+            {
+                key = d.Key,
+                label = d.Label,
+                value = values![d.Key],
+            })
+            .ToList();
         return Results.Ok(
             new
             {
@@ -215,6 +233,7 @@ public static class PublicSiteEndpoints
                 openNow = windows.Any(w => w.StartsAtUtc <= now && now < w.EndsAtUtc),
                 windows,
                 closures,
+                attributes,
             }
         );
     }

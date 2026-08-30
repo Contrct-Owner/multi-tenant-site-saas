@@ -38,6 +38,7 @@ export type PublicSite = {
 };
 
 export type PublicSiteDetail = PublicSite & {
+  attributes: { key: string; label: string; value: string | number | boolean }[];
   addressLine1?: string;
   postalCode?: string;
   countryCode?: string;

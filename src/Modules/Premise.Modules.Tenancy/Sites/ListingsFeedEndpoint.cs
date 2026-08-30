@@ -29,7 +29,8 @@ public sealed record ListingRecord(
     double? Latitude,
     double? Longitude,
     string PublicUrl,
-    IReadOnlyList<ListingHours> Hours
+    IReadOnlyList<ListingHours> Hours,
+    System.Text.Json.JsonElement Attributes
 );
 
 public sealed record ListingsFeedResponse(
@@ -110,7 +111,10 @@ public static class ListingsFeedEndpoint
                         sc.ClosesLocal.ToString("HH:mm"),
                         sc.ExDates
                     ))
-                    .ToList()
+                    .ToList(),
+                System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                    s.AttributesJson
+                )
             ))
             .ToList();
         return Results.Ok(new ListingsFeedResponse(DateTimeOffset.UtcNow, org.Name, listings));

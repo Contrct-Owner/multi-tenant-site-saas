@@ -61,6 +61,17 @@ function SitePage() {
             </a>
           </p>
         )}
+        {site.attributes?.length > 0 && (
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {site.attributes.map((a) => (
+              <li key={a.key}>
+                {typeof a.value === 'boolean'
+                  ? `${a.value ? '✓' : '✗'} ${a.label}`
+                  : `${a.label}: ${a.value}`}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Hours this week</h2>

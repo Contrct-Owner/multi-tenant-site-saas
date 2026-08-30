@@ -37,6 +37,13 @@ public sealed class Site : IPathScoped
     public string? CountryCode { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+
+    /// <summary>
+    /// Org-defined attribute values (ADR 46), keyed by definition Key. Raw
+    /// JSON text mapped to jsonb - endpoints validate against the org's
+    /// definitions before anything lands here.
+    /// </summary>
+    public string AttributesJson { get; set; } = "{}";
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     LTree IPathScoped.Path => Path;

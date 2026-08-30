@@ -260,6 +260,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_sites_attributes
+         * @description GET_api_sites_attributes
+         */
+        get: operations["GET_api_sites_attributes"];
+        put?: never;
+        /**
+         * POST_api_sites_attributes
+         * @description POST_api_sites_attributes
+         */
+        post: operations["POST_api_sites_attributes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/attributes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DELETE_api_sites_attributes_id
+         * @description DELETE_api_sites_attributes_id
+         */
+        delete: operations["DELETE_api_sites_attributes_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -2590,6 +2634,13 @@ export interface components {
             /** Format: int32 */
             expiresInDays?: null | number | string;
         };
+        CreateAttributeDefinitionRequest: {
+            key: string;
+            label: string;
+            type: string;
+            /** @default false */
+            public: boolean;
+        };
         CreateConnectorRequest: {
             name: string;
             url: string;
@@ -2667,6 +2718,7 @@ export interface components {
         IssueContactLinkRequest: {
             email: string;
         };
+        JsonElement: unknown;
         MoveNodeRequest: {
             /** Format: uuid */
             newParentId: string;
@@ -2737,6 +2789,7 @@ export interface components {
             latitude: null | number | string;
             /** Format: double */
             longitude: null | number | string;
+            attributes: components["schemas"]["JsonElement"];
         };
         /** @enum {unknown} */
         SiteStatus: "ComingSoon" | "Open" | "TemporarilyClosed" | "Closed" | null;
@@ -2778,6 +2831,7 @@ export interface components {
             latitude?: null | number | string;
             /** Format: double */
             longitude?: null | number | string;
+            attributes?: null | Record<string, never>;
             /** Format: uint32 */
             version?: null | number | string;
         };
@@ -3271,6 +3325,99 @@ export interface operations {
         };
     };
     GET_public_sites_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_sites_attributes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_sites_attributes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAttributeDefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_sites_attributes_id: {
         parameters: {
             query?: never;
             header?: never;

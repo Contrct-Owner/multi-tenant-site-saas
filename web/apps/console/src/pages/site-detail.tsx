@@ -16,7 +16,9 @@ type Site = {
   addressLine1: string | null; city: string | null;
   postalCode: string | null; countryCode: string | null;
   latitude: number | null; longitude: number | null;
+  attributes: Record<string, string | number | boolean>;
 };
+type AttributeDefinition = { id: string; key: string; label: string; type: string; public: boolean };
 type Schedule = {
   id: string; name: string; rRule: string;
   anchorDate: string; opens: string; closes: string; exDates: string[];
@@ -78,6 +80,7 @@ export function SiteDetailPage() {
         name: string; timeZone: string; status: string;
         addressLine1: string; city: string; postalCode: string; countryCode: string;
         latitude: number; longitude: number;
+        attributes: Record<string, string | number | boolean | null>;
       }>,
     ) =>
       // echo the version we loaded: a 409 means someone else saved first
@@ -107,6 +110,11 @@ export function SiteDetailPage() {
   const [editCountry, setEditCountry] = useState('');
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
+  const [editAttributes, setEditAttributes] = useState<Record<string, string>>({});
+  const { data: definitions } = useQuery({
+    queryKey: ['site-attributes'],
+    queryFn: () => api.get<AttributeDefinition[]>('/api/sites/attributes'),
+  });
   const { data: closures } = useQuery({
     queryKey: ['closures', siteId],
     queryFn: () => api.get<string[]>(`/api/sites/${siteId}/closures`),
@@ -162,6 +170,11 @@ export function SiteDetailPage() {
                     setEditCountry(site.countryCode ?? '');
                     setEditLat(site.latitude?.toString() ?? '');
                     setEditLng(site.longitude?.toString() ?? '');
+                    setEditAttributes(
+                      Object.fromEntries(
+                        Object.entries(site.attributes ?? {}).map(([k, v]) => [k, String(v)]),
+                      ),
+                    );
                   }}
                 >
                   Edit
@@ -218,6 +231,27 @@ export function SiteDetailPage() {
                 <p className="text-xs text-muted-foreground">
                   Coordinates put this site on the public locator map.
                 </p>
+                {definitions?.map((d) => (
+                  <div key={d.id} className="space-y-1">
+                    <Label htmlFor={`attr-${d.key}`}>{d.label}</Label>
+                    {d.type === 'Boolean' ? (
+                      <label className="flex items-center gap-2 text-sm">
+                        <input id={`attr-${d.key}`} type="checkbox" className="size-4 accent-primary"
+                          checked={editAttributes[d.key] === 'true'}
+                          onChange={(e) =>
+                            setEditAttributes({ ...editAttributes, [d.key]: String(e.target.checked) })
+                          } />
+                        {d.label}
+                      </label>
+                    ) : (
+                      <Input id={`attr-${d.key}`} value={editAttributes[d.key] ?? ''}
+                        inputMode={d.type === 'Number' ? 'decimal' : undefined}
+                        onChange={(e) =>
+                          setEditAttributes({ ...editAttributes, [d.key]: e.target.value })
+                        } />
+                    )}
+                  </div>
+                ))}
                 <Button className="w-full"
                   disabled={!editName.trim() || update.isPending}
                   onClick={() =>
@@ -236,6 +270,15 @@ export function SiteDetailPage() {
                               longitude: Number.parseFloat(editLng),
                             }
                           : {}),
+                        attributes: Object.fromEntries(
+                          (definitions ?? []).map((d) => {
+                            const raw = editAttributes[d.key] ?? '';
+                            if (raw === '') return [d.key, null]; // cleared
+                            if (d.type === 'Boolean') return [d.key, raw === 'true'];
+                            if (d.type === 'Number') return [d.key, Number.parseFloat(raw)];
+                            return [d.key, raw];
+                          }),
+                        ),
                       },
                       { onSuccess: () => setEditOpen(false) },
                     )

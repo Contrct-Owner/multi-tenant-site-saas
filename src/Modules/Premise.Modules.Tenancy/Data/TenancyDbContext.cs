@@ -21,6 +21,8 @@ public sealed class TenancyDbContext(
     public DbSet<Site> Sites => Set<Site>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
     public DbSet<SiteOpenWindow> SiteOpenWindows => Set<SiteOpenWindow>();
+    public DbSet<Sites.SiteAttributeDefinition> SiteAttributeDefinitions =>
+        Set<Sites.SiteAttributeDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +99,7 @@ public sealed class TenancyDbContext(
                 .HasColumnType("xid")
                 .ValueGeneratedOnAddOrUpdate()
                 .IsConcurrencyToken();
+            b.Property(s => s.AttributesJson).HasColumnName("attributes").HasColumnType("jsonb");
             b.Property(s => s.OrgId).HasColumnName("org_id");
             b.Property(s => s.NodeId).HasColumnName("node_id");
             b.Property(s => s.Name).HasColumnName("name").HasMaxLength(200);
@@ -119,6 +122,20 @@ public sealed class TenancyDbContext(
             b.HasIndex(s => new { s.OrgId, s.ExternalId })
                 .IsUnique()
                 .HasFilter("external_id IS NOT NULL");
+        });
+
+        modelBuilder.Entity<Sites.SiteAttributeDefinition>(b =>
+        {
+            b.ToTable("site_attribute_definitions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.OrgId).HasColumnName("org_id");
+            b.Property(x => x.Key).HasColumnName("key").HasMaxLength(60);
+            b.Property(x => x.Label).HasColumnName("label").HasMaxLength(100);
+            b.Property(x => x.Type).HasColumnName("type").HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Public).HasColumnName("public");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => new { x.OrgId, x.Key }).IsUnique();
         });
 
         modelBuilder.Entity<SiteSchedule>(b =>

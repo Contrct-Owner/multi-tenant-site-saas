@@ -38,6 +38,7 @@ public sealed record UpdateSiteRequest(
     string? CountryCode = null,
     double? Latitude = null,
     double? Longitude = null,
+    System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>? Attributes = null,
     uint? Version = null
 );
 
@@ -63,7 +64,8 @@ public sealed record SiteResponse(
     string? PostalCode,
     string? CountryCode,
     double? Latitude,
-    double? Longitude
+    double? Longitude,
+    System.Text.Json.JsonElement Attributes
 );
 
 /// <summary>
@@ -296,6 +298,18 @@ public static class SiteEndpoints
             site.Latitude = latitude;
             site.Longitude = longitude;
         }
+        if (request.Attributes is { Count: > 0 } incoming)
+        {
+            var (error, merged) = await SiteAttributeEndpoints.MergeAttributesAsync(
+                db,
+                site.AttributesJson,
+                incoming,
+                ct
+            );
+            if (error is not null)
+                return Results.BadRequest(new { error });
+            site.AttributesJson = merged!;
+        }
         await db.SaveChangesAsync(ct);
 
         // The rebuild trigger everyone forgets (ADR 28): a timezone change
@@ -369,7 +383,10 @@ public static class SiteEndpoints
             s.PostalCode,
             s.CountryCode,
             s.Latitude,
-            s.Longitude
+            s.Longitude,
+            System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                s.AttributesJson
+            )
         );
 }
 

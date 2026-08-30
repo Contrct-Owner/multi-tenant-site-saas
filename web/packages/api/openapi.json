@@ -714,6 +714,115 @@
         }
       }
     },
+    "/api/sites/attributes": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
+        ],
+        "summary": "GET_api_sites_attributes",
+        "description": "GET_api_sites_attributes",
+        "operationId": "GET_api_sites_attributes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
+        ],
+        "summary": "POST_api_sites_attributes",
+        "description": "POST_api_sites_attributes",
+        "operationId": "POST_api_sites_attributes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAttributeDefinitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/attributes/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
+        ],
+        "summary": "DELETE_api_sites_attributes_id",
+        "description": "DELETE_api_sites_attributes_id",
+        "operationId": "DELETE_api_sites_attributes_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -4763,6 +4872,29 @@
           }
         }
       },
+      "CreateAttributeDefinitionRequest": {
+        "required": [
+          "key",
+          "label",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "public": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "CreateConnectorRequest": {
         "required": [
           "name",
@@ -5073,6 +5205,7 @@
           }
         }
       },
+      "JsonElement": { },
       "MoveNodeRequest": {
         "required": [
           "newParentId"
@@ -5276,7 +5409,8 @@
           "postalCode",
           "countryCode",
           "latitude",
-          "longitude"
+          "longitude",
+          "attributes"
         ],
         "type": "object",
         "properties": {
@@ -5349,6 +5483,9 @@
               "string"
             ],
             "format": "double"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/JsonElement"
           }
         }
       },
@@ -5534,6 +5671,12 @@
             ],
             "format": "double"
           },
+          "attributes": {
+            "type": [
+              "null",
+              "object"
+            ]
+          },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -5562,6 +5705,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"

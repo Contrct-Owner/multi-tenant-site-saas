@@ -1,12 +1,15 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label } from '@premise/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
-import { useMe } from '../session';
+import { can, useMe } from '../session';
 
 type SsoStatus = { available: boolean; entitled: boolean };
+type AttributeDefinition = {
+  id: string; key: string; label: string; type: string; public: boolean;
+};
 
 type Billing = {
   provider: string;
@@ -197,6 +200,8 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {can(me, 'sites:manage') && <SiteAttributesCard />}
+
       <Card>
         <CardHeader><CardTitle>Public locator</CardTitle></CardHeader>
         <CardContent className="space-y-2">
@@ -267,5 +272,93 @@ export function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SiteAttributesCard() {
+  const [key, setKey] = useState('');
+  const [label, setLabel] = useState('');
+  const [type, setType] = useState('Text');
+  const [isPublic, setIsPublic] = useState(false);
+
+  const { data: definitions } = useQuery({
+    queryKey: ['site-attributes'],
+    queryFn: () => api.get<AttributeDefinition[]>('/api/sites/attributes'),
+  });
+  const create = useApiMutation({
+    mutationFn: () =>
+      api.post('/api/sites/attributes', { key: key.trim(), label: label.trim(), type, public: isPublic }),
+    invalidate: [['site-attributes']],
+    success: 'Attribute added',
+    onSuccess: () => {
+      setKey('');
+      setLabel('');
+      setIsPublic(false);
+    },
+  });
+  const remove = useApiMutation({
+    mutationFn: (id: string) => api.del(`/api/sites/attributes/${id}`),
+    invalidate: [['site-attributes'], ['site']],
+    success: 'Attribute removed - its values are gone from every site',
+  });
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Site attributes</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Your own fields on every site - a drive-thru flag, a cost center, a manager name.
+          Public attributes appear on the site&apos;s public page; the rest stay internal.
+        </p>
+        {definitions?.map((d) => (
+          <div key={d.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+            <span>
+              <span className="font-medium">{d.label}</span>
+              <span className="ml-2 text-muted-foreground">
+                {d.key} · {d.type}
+                {d.public && ' · public'}
+              </span>
+            </span>
+            <ConfirmButton size="sm" variant="ghost" confirmLabel="Delete? Values go too"
+              disabled={remove.isPending} onConfirm={() => remove.mutate(d.id)}>
+              Delete
+            </ConfirmButton>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="attr-label">Label</Label>
+            <Input id="attr-label" className="w-40" value={label} placeholder="Drive-thru"
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setKey(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
+              }} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="attr-key">Key</Label>
+            <Input id="attr-key" className="w-36 font-mono text-xs" value={key}
+              onChange={(e) => setKey(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="attr-type">Type</Label>
+            <Select id="attr-type" className="w-28" value={type}
+              onChange={(e) => setType(e.target.value)}>
+              <option>Text</option>
+              <option>Number</option>
+              <option>Boolean</option>
+            </Select>
+          </div>
+          <label className="flex h-9 items-center gap-1.5 text-sm">
+            <input type="checkbox" className="size-4 accent-primary" checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)} />
+            Public
+          </label>
+          <Button size="sm" disabled={!key.trim() || !label.trim() || create.isPending}
+            onClick={() => create.mutate()}>
+            Add
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
