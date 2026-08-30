@@ -120,7 +120,7 @@ and API must share a host through your reverse proxy. Route these path
 prefixes to the API and everything else to the console bundle:
 
 ```
-/api  /auth  /me(exact)  /objects  /openapi  /contact-links  /contact  /billing
+/api  /auth  /me(exact)  /objects  /openapi  /contact-links  /contact  /billing  /healthz
 ```
 
 (That list is mirrored by `web/apps/console/vite.config.ts` — keep them in

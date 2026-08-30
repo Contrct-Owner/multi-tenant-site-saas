@@ -15,7 +15,7 @@ export default defineConfig({
       // '^/me$' is a regex EXACT match: a plain '/me' prefix would swallow
       // hard navigations to /members (found by an E2E smoke - the page
       // proxied to the API and rendered a black 404)
-      ['/api', '/auth', '^/me$', '/objects', '/openapi', '/contact-links', '/contact', '/billing'].map(
+      ['/api', '/auth', '^/me$', '/objects', '/openapi', '/contact-links', '/contact', '/billing', '/healthz'].map(
         (p) => [p, { target: apiTarget, changeOrigin: false }],
       ),
     ),
