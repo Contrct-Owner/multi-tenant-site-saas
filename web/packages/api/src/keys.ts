@@ -9,6 +9,8 @@ export const CAPABILITIES = [
   'files:read',
   'files:manage',
   'ingest:manage',
+  'checklists:manage',
+  'checklists:complete',
   'audit:read',
   'audit:manage',
   'entitlements:manage',

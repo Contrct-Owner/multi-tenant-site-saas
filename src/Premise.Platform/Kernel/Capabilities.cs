@@ -17,6 +17,8 @@ public static class Capabilities
     public const string FilesRead = "files:read";
     public const string FilesManage = "files:manage";
     public const string IngestManage = "ingest:manage";
+    public const string ChecklistsManage = "checklists:manage";
+    public const string ChecklistsComplete = "checklists:complete";
     public const string AuditRead = "audit:read";
     public const string AuditManage = "audit:manage";
     public const string EntitlementsManage = "entitlements:manage";
@@ -37,6 +39,8 @@ public static class Capabilities
         FilesRead,
         FilesManage,
         IngestManage,
+        ChecklistsManage,
+        ChecklistsComplete,
         AuditRead,
         AuditManage,
         EntitlementsManage,

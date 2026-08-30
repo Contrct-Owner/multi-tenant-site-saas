@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Premise Console</title>
+    <!-- installable on a phone (ADR 45): the ops "mobile answer" is the
+         responsive console as a PWA - no offline service worker on purpose,
+         an ops tool that silently serves stale data is worse than one that
+         says it is offline -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#8c1d54" />
   </head>
   <body>
     <div id="root"></div>

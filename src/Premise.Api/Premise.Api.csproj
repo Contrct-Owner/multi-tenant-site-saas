@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Modules\Premise.Modules.Tenancy\Premise.Modules.Tenancy.csproj" />
+    <ProjectReference Include="..\Modules\Premise.Modules.Checklists\Premise.Modules.Checklists.csproj" />
     <ProjectReference Include="..\Modules\Premise.Modules.Identity\Premise.Modules.Identity.csproj" />
     <ProjectReference Include="..\Integrations\Premise.Integrations.WorkOS\Premise.Integrations.WorkOS.csproj" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

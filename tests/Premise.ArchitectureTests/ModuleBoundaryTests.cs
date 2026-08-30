@@ -13,6 +13,12 @@ public class ModuleBoundaryTests
     private static readonly Assembly[] ModuleAssemblies =
     [
         typeof(Modules.Tenancy.TenancyModule).Assembly,
+        typeof(Modules.Identity.IdentityModule).Assembly,
+        typeof(Modules.Entitlements.EntitlementsModule).Assembly,
+        typeof(Modules.Audit.AuditModule).Assembly,
+        typeof(Modules.Storage.StorageModule).Assembly,
+        typeof(Modules.Ingest.IngestModule).Assembly,
+        typeof(Modules.Checklists.ChecklistsModule).Assembly,
     ];
 
     private const string ModulePrefix = "Premise.Modules.";

@@ -53,6 +53,8 @@ public sealed class MigrationRunner(
             .Database.MigrateAsync(ct);
         await sp.GetRequiredService<Premise.Modules.Storage.Data.StorageDbContext>()
             .Database.MigrateAsync(ct);
+        await sp.GetRequiredService<Premise.Modules.Checklists.Data.ChecklistsDbContext>()
+            .Database.MigrateAsync(ct);
         await sp.GetRequiredService<Premise.Modules.Ingest.Data.IngestDbContext>()
             .Database.MigrateAsync(ct);
         await sp.GetRequiredService<Premise.Platform.Infra.PlatformDbContext>()
@@ -101,7 +103,7 @@ public sealed class MigrationRunner(
                     END;
                 END IF;
             END $$;
-            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit, storage, platform, ingest TO app_user;
+            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit, storage, platform, ingest, checklists TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA entitlements TO app_user;
@@ -109,6 +111,7 @@ public sealed class MigrationRunner(
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA storage TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA platform TO app_user;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA checklists TO app_user;
             """,
             ct
         );

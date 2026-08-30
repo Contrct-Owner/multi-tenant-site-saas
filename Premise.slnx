@@ -14,6 +14,7 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Premise.Modules.Audit/Premise.Modules.Audit.csproj" />
+    <Project Path="src/Modules/Premise.Modules.Checklists/Premise.Modules.Checklists.csproj" />
     <Project Path="src/Modules/Premise.Modules.Entitlements/Premise.Modules.Entitlements.csproj" />
     <Project Path="src/Modules/Premise.Modules.Identity/Premise.Modules.Identity.csproj" />
     <Project Path="src/Modules/Premise.Modules.Ingest/Premise.Modules.Ingest.csproj" />

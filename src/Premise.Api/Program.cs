@@ -9,6 +9,7 @@ using OpenTelemetry.Trace;
 using Premise.Api;
 using Premise.Integrations.WorkOS;
 using Premise.Modules.Audit;
+using Premise.Modules.Checklists;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
@@ -154,6 +155,7 @@ builder.Services.AddEntitlementsModule(runBackgroundWork: role == "worker");
 builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
+builder.Services.AddChecklistsModule();
 
 // Platform infra context (idempotency, ADR 29)
 builder.Services.AddDbContext<PlatformDbContext>(
@@ -337,6 +339,7 @@ builder.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(AuditModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(StorageModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IngestModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(Premise.Modules.Checklists.ChecklistsModule).Assembly);
 });
 
 if (role == "migrate")

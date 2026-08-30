@@ -3989,6 +3989,195 @@
         }
       }
     },
+    "/api/checklists/templates": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
+        ],
+        "summary": "GET_api_checklists_templates",
+        "description": "GET_api_checklists_templates",
+        "operationId": "GET_api_checklists_templates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
+        ],
+        "summary": "POST_api_checklists_templates",
+        "description": "POST_api_checklists_templates",
+        "operationId": "POST_api_checklists_templates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checklists/templates/{id}": {
+      "delete": {
+        "tags": [
+          "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
+        ],
+        "summary": "DELETE_api_checklists_templates_id",
+        "description": "DELETE_api_checklists_templates_id",
+        "operationId": "DELETE_api_checklists_templates_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checklists/today": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
+        ],
+        "summary": "GET_api_checklists_today",
+        "description": "GET_api_checklists_today",
+        "operationId": "GET_api_checklists_today",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checklists/check": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
+        ],
+        "summary": "POST_api_checklists_check",
+        "description": "POST_api_checklists_check",
+        "operationId": "POST_api_checklists_check",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/objects/upload/{token}": {
       "put": {
         "tags": [
@@ -4498,6 +4687,36 @@
           }
         }
       },
+      "CheckItemRequest": {
+        "required": [
+          "templateId",
+          "siteId",
+          "itemIndex",
+          "done"
+        ],
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        }
+      },
       "CheckoutRequest": {
         "required": [
           "planId",
@@ -4762,6 +4981,30 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "CreateTemplateRequest": {
+        "required": [
+          "name",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopePath": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5394,6 +5637,9 @@
     },
     {
       "name": "Premise.Modules.Ingest.IngestEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Checklists.Checklists.ChecklistEndpoints"
     },
     {
       "name": "Premise.Api"

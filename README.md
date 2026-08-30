@@ -13,8 +13,9 @@ it.
 ## What's in the box
 
 - **Vertically sliced modular monolith** — C# / .NET 10 / EF Core / PostgreSQL,
-  Wolverine for mediation, messaging, and the transactional outbox. Seven
-  modules (tenancy, identity, entitlements, audit, storage, ingest + platform),
+  Wolverine for mediation, messaging, and the transactional outbox. Eight
+  modules (tenancy, identity, entitlements, audit, storage, ingest,
+  checklists + platform),
   each with its own schema, DbContext, and migration history.
 - **Two-axis tenancy, three gates.** Every request passes entitlement (402,
   upsell) → grant (403) → scope (never fails — it *filters*). Row-level

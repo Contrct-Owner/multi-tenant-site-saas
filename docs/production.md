@@ -12,7 +12,7 @@ One image, three roles, selected by the `ROLE` environment variable (ADR 34):
 
 | Role | What it does | Runs |
 |---|---|---|
-| `migrate` | Applies all seven modules' EF migrations with **owner** credentials, provisions the unprivileged `app_user` role, reassigns schema ownership, exits | Once per deploy, before the others |
+| `migrate` | Applies all eight modules' EF migrations with **owner** credentials, provisions the unprivileged `app_user` role, reassigns schema ownership, exits | Once per deploy, before the others |
 | `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas |
 | `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas |
 

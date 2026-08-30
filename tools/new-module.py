@@ -96,10 +96,12 @@ public static class {name}Module
     {{
         services.AddDbContextWithWolverineIntegration<{name}DbContext>((sp, options) =>
         {{
+            // Options are SINGLETON: never resolve scoped services here (dev
+            // scope-validation rejects it). v1 is single-region (ADR 35);
+            // multi-region moves connection selection to a per-scope interceptor.
             var regions = sp.GetRequiredService<IRegionDataSources>();
-            var tenant = sp.GetRequiredService<ITenantContext>();
             options
-                .UseNpgsql(regions.For(tenant.Region), npgsql =>
+                .UseNpgsql(regions.For(RegionId.Default), npgsql =>
                     npgsql.MigrationsHistoryTable("__ef_migrations_history", "{schema}"))
                 .AddInterceptors(
                     TenantSessionInterceptor.Instance,
@@ -118,8 +120,9 @@ Finish the wiring (each is one line):
  3. Program.cs:  builder.Services.Add{name}Module();
  4. Program.cs:  opts.Discovery.IncludeAssembly(typeof({name}Module).Assembly);
  5. tests/Premise.ArchitectureTests ModuleBoundaryTests: add typeof(Modules.{name}.{name}Module).Assembly
- 6. tests ApiFixture: migrate {name}DbContext + GRANT on schema "{schema}"
- 7. First migration (RLS checklist in the new-migration skill):
+ 6. src/Premise.Api/MigrationRunner.cs: migrate {name}DbContext + add "{schema}" to BOTH grant lines
+ 7. tests ApiFixture: migrate {name}DbContext + GRANT on schema "{schema}"
+ 8. First migration (RLS checklist in the new-migration skill):
     dotnet ef migrations add Initial --project src/Modules/Premise.Modules.{name} --startup-project src/Modules/Premise.Modules.{name}
 
 Remember (CLAUDE.md): one Wolverine handler class per message; [Transactional(typeof({name}DbContext))]
