@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading.RateLimiting;
 using JasperFx;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -146,7 +147,13 @@ builder
         options.Cookie.Name = "premise_session";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        // Production is a hard floor: Always, so a fork that forgets to
+        // trust its proxy's X-Forwarded-Proto gets broken logins (loud)
+        // instead of session cookies over plain HTTP (silent). Elsewhere
+        // SameAsRequest keeps http://localhost working.
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         // API, not a browser app: never redirect to a login page.
@@ -397,6 +404,25 @@ var app = builder.Build();
 
 if (role == "api")
 {
+    // Behind the documented TLS-terminating proxy the request arrives as
+    // HTTP: without this, cookies lose the Secure flag and every URL built
+    // from Request.Scheme/Host (billing returns, SSO portal returns) comes
+    // out http://. Opt-in because trusting these headers from an UNKNOWN
+    // peer lets clients spoof scheme/host/ip - only enable it when the
+    // immediate proxy strips inbound X-Forwarded-* (reverse proxies do).
+    if (builder.Configuration.GetValue("Proxy:TrustForwardedHeaders", false))
+    {
+        var forwarded = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto
+                | ForwardedHeaders.XForwardedHost,
+        };
+        forwarded.KnownIPNetworks.Clear(); // trust the immediate peer: the proxy
+        forwarded.KnownProxies.Clear();
+        app.UseForwardedHeaders(forwarded);
+    }
     app.UseMiddleware<UnhandledErrorMiddleware>();
     app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseAuthentication();

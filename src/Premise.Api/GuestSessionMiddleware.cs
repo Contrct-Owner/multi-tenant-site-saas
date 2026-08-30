@@ -7,7 +7,7 @@ namespace Premise.Api;
 /// cookie that is the rate-limit subject (ADR 30) and, later, the CSRF anchor.
 /// Not an auth cookie - it identifies a browser, not a person.
 /// </summary>
-public sealed class GuestSessionMiddleware(RequestDelegate next)
+public sealed class GuestSessionMiddleware(RequestDelegate next, IHostEnvironment environment)
 {
     public const string CookieName = "premise_guest";
 
@@ -25,6 +25,10 @@ public sealed class GuestSessionMiddleware(RequestDelegate next)
                 {
                     HttpOnly = true,
                     SameSite = SameSiteMode.Lax,
+                    // same policy as the session cookie: Secure whenever the
+                    // (forwarded-header-resolved) request is HTTPS, and a
+                    // hard floor in Production
+                    Secure = context.Request.IsHttps || environment.IsProduction(),
                     MaxAge = TimeSpan.FromDays(30),
                     IsEssential = true,
                 }

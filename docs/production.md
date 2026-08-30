@@ -57,6 +57,7 @@ Everything the image reads. Section syntax (`A:B`) maps to env vars as
 | `ConnectionStrings:premise` | yes | Owner credentials; rewritten for api/worker |
 | `Database:AppUser` / `Database:AppPassword` | api/worker | The RLS-subject identity |
 | `Public:HostTemplate` | yes | e.g. `https://{slug}.yourproduct.com` — contact links are minted from this |
+| `Proxy:TrustForwardedHeaders` | yes, behind a proxy | Honors `X-Forwarded-Proto/Host/For` from the immediate peer. **Required in the documented topology**: without it, TLS terminates at the proxy, the app sees HTTP, session cookies lose the `Secure` flag and scheme-built URLs (billing returns, SSO portal returns) come out `http://`. Only enable when the proxy strips inbound `X-Forwarded-*` from clients (reverse proxies do). Production also hard-floors cookies to `Secure` regardless — a forgotten flag breaks logins loudly instead of leaking cookies silently |
 
 ### Auth (ADR 14)
 
