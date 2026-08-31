@@ -461,7 +461,13 @@ if (role == "api")
     app.UseMiddleware<AccessLogMiddleware>();
     app.MapLocalObjectStore();
 
-    app.MapOpenApi();
+    // The OpenAPI spec publishes the full API surface. It's on by default so
+    // the console's developer page can link it, but a fork that treats its
+    // API shape as non-public sets Api:ExposeOpenApi=false (or gates
+    // /openapi at the proxy). The contract snapshot test hits the spec
+    // in-process, so codegen is unaffected either way.
+    if (builder.Configuration.GetValue("Api:ExposeOpenApi", true))
+        app.MapOpenApi();
     if (!app.Environment.IsProduction())
         app.MapGet(
                 "/dev/boom",

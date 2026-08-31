@@ -86,4 +86,15 @@ public class HttpHardeningTests(TinyRateLimitFixture fixture) : IClassFixture<Ti
         priv.EnsureSuccessStatusCode();
         Assert.Null(priv.Headers.CacheControl?.Public);
     }
+
+    [Fact]
+    public async Task Openapi_is_served_by_default()
+    {
+        // default-on so the developer page's spec link works; the off path
+        // is a one-line config flip (Api:ExposeOpenApi=false), not worth a
+        // second fixture
+        var response = await fixture.GuestClient().GetAsync("/openapi/v1.json");
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("/api/sites", await response.Content.ReadAsStringAsync());
+    }
 }

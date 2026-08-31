@@ -102,6 +102,7 @@ contact links land in spam and that reads as "login is broken."
 | `Secrets:LocalMasterKey` | **Dev/test only — refuses to boot in Production.** Register a KMS adapter (`KmsKeyWrapper`, ADR 31) |
 | `RateLimits:GuestPerMinute` / `RateLimits:UserPerMinute` | Defaults 60 / 300; per-org API quota comes from the entitlement |
 | `Impersonation:TtlSeconds` | Support-session length (default 3600) |
+| `Api:ExposeOpenApi` | Serve `/openapi/v1.json` (default true; the console developer page links it). Set false to hide the API surface |
 | `Webhooks:RetryBaseSeconds` | Outbound webhook backoff base (default suits production; tests shrink it) |
 | `Audit:PolicyCacheTtlSeconds` | Per-org audit-policy cache |
 
