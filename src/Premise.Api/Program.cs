@@ -453,6 +453,7 @@ if (role == "api")
     app.UseAuthentication();
     app.UseMiddleware<SessionValidationMiddleware>();
     app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+    app.UseMiddleware<CsrfOriginMiddleware>();
     app.UseMiddleware<GuestSessionMiddleware>();
     app.UseMiddleware<GuestOrgMiddleware>();
     app.UseRateLimiter();

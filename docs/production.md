@@ -184,8 +184,11 @@ CSPs; a KMS for `Secrets:*` and the data-protection keyring; DNS-rebinding
 protection at the webhook egress if your threat model needs it (the
 registration-time resolve check is a floor, not a guarantee against a host
 that rebinds after validation); and a WAF/DDoS layer. CSRF defence is
-SameSite=Lax with no state-changing GETs — add anti-forgery tokens if a
-fork introduces cookie-authenticated cross-origin form posts. The OpenAPI
+layered: SameSite=Lax (strips the cookie from cross-site POSTs), no
+state-changing GETs, AND an Origin check that refuses an unsafe
+cookie-authenticated request whose Origin doesn't match the host. That
+covers browser CSRF without a token dance; add synchronizer tokens only if
+a fork needs to accept cookie-authenticated cross-origin posts on purpose. The OpenAPI
 spec is served unauthenticated (the console's developer page links it);
 gate `/openapi` at the proxy if you treat your API surface as secret.
 
