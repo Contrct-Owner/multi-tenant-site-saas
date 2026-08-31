@@ -122,7 +122,11 @@ The two frontends deploy differently (`pnpm build` in `web/`):
   web-standard `fetch` handler) plus client assets — it is NOT a static
   drop. It must run as a process on a Node or serverless/edge host, with
   `PREMISE_API` pointing at the API's internal URL (SSR fetches run
-  server-to-server) and reachable from the org subdomains.
+  server-to-server) and reachable from the org subdomains. The API stamps
+  `Cache-Control` on `/public/*` (60s) and on `sitemap.xml`/`robots.txt`
+  (longer) so a CDN in front of the API or the public app absorbs crawler
+  and embed traffic; put the public app behind a CDN to cache the rendered
+  HTML too.
 
 The session cookie is HttpOnly on a shared origin (ADR 21), so the console
 and API must share a host through your reverse proxy. Route these path

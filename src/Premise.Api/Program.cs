@@ -449,6 +449,7 @@ if (role == "api")
     }
     app.UseMiddleware<UnhandledErrorMiddleware>();
     app.UseMiddleware<SecurityHeadersMiddleware>();
+    app.UseMiddleware<PublicCacheMiddleware>();
     app.UseAuthentication();
     app.UseMiddleware<SessionValidationMiddleware>();
     app.UseMiddleware<ApiKeyAuthenticationMiddleware>();

@@ -70,4 +70,20 @@ public class HttpHardeningTests(TinyRateLimitFixture fixture) : IClassFixture<Ti
         Assert.False(string.IsNullOrWhiteSpace(quoted));
         Assert.Equal(quoted, boom.Headers.GetValues("X-Trace-Id").Single());
     }
+
+    [Fact]
+    public async Task Public_reads_are_cacheable_and_private_reads_are_not()
+    {
+        var guest = fixture.GuestClient();
+        guest.DefaultRequestHeaders.Add("X-Forwarded-Host", "org-a.localhost");
+        var pub = await guest.GetAsync("/public/sites");
+        pub.EnsureSuccessStatusCode();
+        Assert.Contains("max-age=60", pub.Headers.CacheControl?.ToString() ?? string.Empty);
+
+        // authenticated/private surface must never advertise itself cacheable
+        var owner = await fixture.LoginAsync(ApiFixture.UserA);
+        var priv = await owner.GetAsync("/api/sites?limit=1");
+        priv.EnsureSuccessStatusCode();
+        Assert.Null(priv.Headers.CacheControl?.Public);
+    }
 }

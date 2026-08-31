@@ -18,7 +18,7 @@ export const Route = createFileRoute('/sitemap.xml')({
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
           urls.map((u) => `  <url><loc>${u}</loc></url>`).join('\n') +
           '\n</urlset>\n';
-        return new Response(xml, { headers: { 'Content-Type': 'application/xml' } });
+        return new Response(xml, { headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600' } });
       },
     },
   },

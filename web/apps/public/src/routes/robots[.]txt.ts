@@ -8,7 +8,7 @@ export const Route = createFileRoute('/robots.txt')({
         const host = getRequestHeader('host') ?? 'localhost';
         return new Response(
           `User-agent: *\nAllow: /\nSitemap: https://${host}/sitemap.xml\n`,
-          { headers: { 'Content-Type': 'text/plain' } },
+          { headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=86400' } },
         );
       },
     },
