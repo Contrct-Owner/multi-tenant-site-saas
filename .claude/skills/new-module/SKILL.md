@@ -44,3 +44,18 @@ rather than re-do
    - temporal columns typed as one of the four kinds (ADR 26/27)
    - UUIDv7 keys (ADR 35)
    - fact tables stamp hierarchy path + business date (ADR 2/26)
+
+## Wolverine traps that only fail at runtime
+
+- `[Transactional(typeof(X))]` must name a context the endpoint's dependency
+  chain actually supplies. Naming an absent one fails at HOST STARTUP, which
+  looks like every test in every class failing at 1ms with no message.
+  `TransactionalAttributeTests` catches it at build time instead.
+- An endpoint returning `Task<IResult>` with no declared 200 type generates a
+  client that accepts anything. Declare
+  `[ProducesResponseType(typeof(T), StatusCodes.Status200OK)]`, and prefer
+  echoing a typed state record over returning 204 - the typed-response ratchet
+  fails newcomers.
+- Register services by TYPE (`AddScoped<IFoo, Foo>()`), never lambda factories.
+- Registering a DERIVED interface does not satisfy a BASE one: if something
+  resolves the base port, register it explicitly.

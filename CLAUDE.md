@@ -62,6 +62,11 @@ don't restate them here.
   endpoint/handler whose dependency chain touches more than one DbContext
   (injecting `IScopeResolver` is enough — it uses IdentityDbContext) must
   declare its transaction owner: `[Transactional(typeof(TenancyDbContext))]`.
+  Name a context the chain does NOT supply and the host dies at startup, so
+  every test fails at 1ms with no usable message — `TransactionalAttributeTests`
+  turns that into a named build failure. An endpoint returning `IResult` with
+  no `[ProducesResponseType(typeof(T), 200)]` generates an untyped client:
+  echo a typed state record rather than returning 204 (the ratchet enforces it).
 - **Contract consumption follows the ladder** (ADR 37): Tenancy consumes no
   module's contracts; Identity reads org data only via its org_directory read
   model; every org-writing flow publishes `OrganizationUpserted`. Consuming a
