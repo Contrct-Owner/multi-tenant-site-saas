@@ -51,6 +51,13 @@ migration files; always add a new one.
      gated lookup is the point: a predicate on reads only would leave a
      removed member able to write. For a single-owner parent use
      `AddOwnerAndRecipientsFilter` instead of `AddRecipientListFilter`.
+     A CHILD of the shared thing (share members, shared bulletins) sets
+     `parentKeyColumn` to the column holding the parent's key - the lookup is
+     then `access.share_id = share_members.share_id`, not the row's own id -
+     and `parentTable`/`parentOwnerColumn` let the PARENT's owner administer
+     the child without appearing on the access list. That clause reaches UP
+     to the parent only; the parent's policy must not name the child back, or
+     the pair recurses.
    - **Recursion rule.** A policy may reference ANOTHER table, never its own -
      a self-referencing policy recurses and the query fails at runtime. For
      "can this org see it through a grant", anchor visibility on one

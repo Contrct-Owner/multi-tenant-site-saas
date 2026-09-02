@@ -240,21 +240,27 @@ public class TenancyShapeRlsTests(ApiFixture fixture) : IClassFixture<ApiFixture
 
     // ---- item 16: status-gated recipients, and recipient-written rows ----
 
+    /// <summary>
+    /// Drop every table whose POLICY references share_access_probe before the
+    /// access table itself. Postgres refuses to drop a table a policy still
+    /// names - the ordering trap the migration skill warns about for Down(),
+    /// and these tests share a fixture in a shuffled order, so leftovers from
+    /// any other test must be cleared first.
+    /// </summary>
+    private async Task DropAccessDependentsAsync()
+    {
+        await using var admin = new NpgsqlConnection(fixture.PostgresConnectionString);
+        await admin.OpenAsync();
+        await using var drop = new NpgsqlCommand(
+            "DROP TABLE IF EXISTS platform.share_probe, platform.share_member_probe",
+            admin
+        );
+        await drop.ExecuteNonQueryAsync();
+    }
+
     private async Task SetupShareAsync(bool writableByRecipient)
     {
-        // drop the DEPENDENT table first: share_probe's policy references
-        // share_access_probe, and Postgres refuses to drop a table a policy
-        // still names - the same ordering trap the migration skill warns
-        // about for Down()
-        await using (var admin = new NpgsqlConnection(fixture.PostgresConnectionString))
-        {
-            await admin.OpenAsync();
-            await using var drop = new NpgsqlCommand(
-                "DROP TABLE IF EXISTS platform.share_probe",
-                admin
-            );
-            await drop.ExecuteNonQueryAsync();
-        }
+        await DropAccessDependentsAsync();
 
         await SetupAsync(
             "share_access_probe",
@@ -379,5 +385,195 @@ public class TenancyShapeRlsTests(ApiFixture fixture) : IClassFixture<ApiFixture
             edit.ExecuteNonQueryAsync()
         );
         Assert.Equal("42501", refused.SqlState);
+    }
+
+    // ---- item 18: children keyed on the parent, and parent-owner writes ----
+
+    /// <summary>
+    /// Network's real shape: share_members hangs off a SHARE, so the access
+    /// lookup matches share_id to share_id rather than to the row's own id,
+    /// and the share's owner administers member rows without being on the
+    /// access list.
+    /// </summary>
+    private async Task SetupShareChildAsync(bool withParentOwner)
+    {
+        await DropAccessDependentsAsync();
+
+        await SetupAsync(
+            "share_access_probe",
+            "id uuid primary key, share_id uuid not null, org_id uuid not null, status text not null",
+            RlsMigrationExtensions.TwoPartySql("platform", "share_access_probe", "org_id")
+        );
+        // the parent share: single-owner, so its owner column is the anchor
+        await SetupAsync(
+            "share_parent_probe",
+            "id uuid primary key, owner_org_id uuid not null",
+            RlsMigrationExtensions.TenantSql("platform", "share_parent_probe", "owner_org_id")
+        );
+        await SetupAsync(
+            "share_member_probe",
+            "id uuid primary key, share_id uuid not null, org_id uuid not null, note text",
+            RlsMigrationExtensions.RecipientListSql(
+                "platform",
+                "share_member_probe",
+                "share_access_probe",
+                "share_id",
+                "org_id",
+                counterpartyColumn: null,
+                orgColumn: "org_id",
+                recipientPredicate: "status <> 'Removed'",
+                writableByRecipient: true,
+                parentKeyColumn: "share_id",
+                parentTable: withParentOwner ? "share_parent_probe" : null,
+                parentOwnerColumn: "owner_org_id"
+            )
+        );
+    }
+
+    private async Task SeedShareChildAsync(
+        Guid shareId,
+        Guid member,
+        string status,
+        bool withChildRow = true,
+        bool withParentRow = true
+    )
+    {
+        if (withParentRow)
+        {
+            await using var owner = await AsOrg(OrgOwner);
+            await using var parent = new NpgsqlCommand(
+                "INSERT INTO platform.share_parent_probe VALUES ($1, $2)",
+                owner
+            );
+            parent.Parameters.AddWithValue(shareId);
+            parent.Parameters.AddWithValue(OrgOwner);
+            await parent.ExecuteNonQueryAsync();
+        }
+
+        await using (var recipient = await AsOrg(member))
+        {
+            await using var access = new NpgsqlCommand(
+                "INSERT INTO platform.share_access_probe VALUES (gen_random_uuid(), $1, $2, $3)",
+                recipient
+            );
+            access.Parameters.AddWithValue(shareId);
+            access.Parameters.AddWithValue(member);
+            access.Parameters.AddWithValue(status);
+            await access.ExecuteNonQueryAsync();
+
+            if (withChildRow)
+            {
+                // the member's own row on the child table
+                await using var child = new NpgsqlCommand(
+                    "INSERT INTO platform.share_member_probe VALUES (gen_random_uuid(), $1, $2, 'original')",
+                    recipient
+                );
+                child.Parameters.AddWithValue(shareId);
+                child.Parameters.AddWithValue(member);
+                await child.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task A_child_keyed_on_its_parent_is_visible_through_the_access_list()
+    {
+        // The probe row is owned by the PUBLISHER, not the reader - modelling
+        // shared_bulletins. That matters: if the row were owned by the member,
+        // `org_id = current` would satisfy the policy on its own and the test
+        // would pass even with the parent key ignored, proving nothing about
+        // the join.
+        await SetupShareChildAsync(withParentOwner: false);
+        var shareId = Guid.NewGuid();
+        await SeedShareChildAsync(shareId, OrgCounterparty, "Active", withChildRow: false);
+
+        await using (var publisher = await AsOrg(OrgOwner))
+        {
+            await using var bulletin = new NpgsqlCommand(
+                "INSERT INTO platform.share_member_probe VALUES (gen_random_uuid(), $1, $2, 'posted')",
+                publisher
+            );
+            bulletin.Parameters.AddWithValue(shareId);
+            bulletin.Parameters.AddWithValue(OrgOwner);
+            await bulletin.ExecuteNonQueryAsync();
+        }
+
+        // the member's ONLY path is share_access.share_id = probe.share_id
+        await using (var member = await AsOrg(OrgCounterparty))
+            Assert.Equal(1, await CountAsync(member, "share_member_probe"));
+
+        await using (var stranger = await AsOrg(OrgStranger))
+            Assert.Equal(0, await CountAsync(stranger, "share_member_probe"));
+    }
+
+    [Fact]
+    public async Task The_parent_owner_may_administer_the_child_without_being_listed()
+    {
+        await SetupShareChildAsync(withParentOwner: true);
+        var shareId = Guid.NewGuid();
+        await SeedShareChildAsync(shareId, OrgCounterparty, "Active");
+
+        // the owner is on no access row, yet administers the membership
+        await using (var owner = await AsOrg(OrgOwner))
+        {
+            Assert.Equal(1, await CountAsync(owner, "share_member_probe"));
+            await using var evict = new NpgsqlCommand(
+                "UPDATE platform.share_member_probe SET note = 'by parent owner'",
+                owner
+            );
+            Assert.Equal(1, await evict.ExecuteNonQueryAsync());
+        }
+
+        // a stranger still cannot: owning SOME share is not owning this one
+        await using (var stranger = await AsOrg(OrgStranger))
+        {
+            Assert.Equal(0, await CountAsync(stranger, "share_member_probe"));
+            await using var write = new NpgsqlCommand(
+                "UPDATE platform.share_member_probe SET note = 'by stranger'",
+                stranger
+            );
+            Assert.Equal(0, await write.ExecuteNonQueryAsync());
+        }
+    }
+
+    [Fact]
+    public async Task A_removed_member_loses_the_child_even_with_a_parent_owner_clause()
+    {
+        // the two clauses are independent: adding parent-owner writes must not
+        // widen what a lapsed member can reach.
+        //
+        // The probe row belongs to ANOTHER member on purpose. A removed member
+        // still sees its OWN row through org_id - that is ownership, not
+        // access, and is the correct behaviour; what removal must take away is
+        // everything it could only reach through the access list.
+        await SetupShareChildAsync(withParentOwner: true);
+        var shareId = Guid.NewGuid();
+        await SeedShareChildAsync(shareId, OrgCounterparty, "Active");
+        await SeedShareChildAsync(
+            shareId,
+            OrgStranger,
+            "Removed",
+            withChildRow: false,
+            withParentRow: false
+        );
+
+        await using var removed = await AsOrg(OrgStranger);
+        Assert.Equal(0, await CountAsync(removed, "share_member_probe"));
+        await using var write = new NpgsqlCommand(
+            "UPDATE platform.share_member_probe SET note = 'by removed'",
+            removed
+        );
+        Assert.Equal(0, await write.ExecuteNonQueryAsync());
+    }
+
+    [Fact]
+    public async Task The_parent_owner_clause_does_not_recurse()
+    {
+        // it reaches UP to the parent, whose own policy is single-owner and
+        // names nothing here; a real read in both directions proves it
+        await SetupShareChildAsync(withParentOwner: true);
+        await using var reader = await AsOrg(OrgOwner);
+        Assert.Equal(0, await CountAsync(reader, "share_member_probe"));
+        Assert.Equal(0, await CountAsync(reader, "share_parent_probe"));
     }
 }
