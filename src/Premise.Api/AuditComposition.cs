@@ -1,6 +1,7 @@
 using Premise.Contracts;
 using Premise.Platform.Audit;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 
 namespace Premise.Api;
@@ -42,8 +43,8 @@ public sealed class AuditedScopeResolver(
                         TenantId = org.Value.ToString(),
                         Headers =
                         {
-                            ["premise-actor-tier"] = "user",
-                            ["premise-actor-id"] = userId.ToString(),
+                            [AuditHeaders.Tier] = "user",
+                            [AuditHeaders.ActorId] = userId.ToString(),
                         },
                     }
                 );
@@ -95,10 +96,10 @@ public sealed class AccessLogMiddleware(RequestDelegate next)
         var options = new DeliveryOptions
         {
             TenantId = orgId.Value.ToString(),
-            Headers = { ["premise-actor-tier"] = tier },
+            Headers = { [AuditHeaders.Tier] = tier },
         };
         if (actorId is { } id)
-            options.Headers["premise-actor-id"] = id.ToString();
+            options.Headers[AuditHeaders.ActorId] = id.ToString();
         await bus.PublishAsync(
             new RecordAccessAudit(context.Request.Method, path, context.Response.StatusCode),
             options

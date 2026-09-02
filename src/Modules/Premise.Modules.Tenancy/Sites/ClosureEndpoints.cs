@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
@@ -164,22 +165,11 @@ public static class ClosureEndpoints
     )
     {
         var actor = accessor.Current as Principal.User;
-        return bus.PublishAsync(
-                new Premise.Contracts.RecordDomainAudit(
-                    eventName,
-                    System.Text.Json.JsonSerializer.Serialize(
-                        new { siteId = site.Id.Value, date = date.ToString("yyyy-MM-dd") }
-                    )
-                ),
-                new DeliveryOptions
-                {
-                    TenantId = site.OrgId.Value.ToString(),
-                    Headers =
-                    {
-                        ["premise-actor-tier"] = "user",
-                        ["premise-actor-id"] = actor?.UserId.ToString() ?? "",
-                    },
-                }
+        return bus.AuditAsync(
+                site.OrgId,
+                actor is { } user ? AuditActor.User(user.UserId) : AuditActor.System,
+                eventName,
+                new { siteId = site.Id.Value, date = date.ToString("yyyy-MM-dd") }
             )
             .AsTask();
     }

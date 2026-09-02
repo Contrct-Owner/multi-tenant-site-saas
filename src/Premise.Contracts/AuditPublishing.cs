@@ -27,9 +27,9 @@ public static class AuditPublishing
     )
     {
         var options = new DeliveryOptions { TenantId = org.Value.ToString() };
-        options.Headers["premise-actor-tier"] = actor.Tier;
+        options.Headers[AuditHeaders.Tier] = actor.Tier;
         if (actor.Id is { } id)
-            options.Headers["premise-actor-id"] = id.ToString();
+            options.Headers[AuditHeaders.ActorId] = id.ToString();
 
         return bus.PublishAsync(
             new RecordDomainAudit(eventName, JsonSerializer.Serialize(payload)),
