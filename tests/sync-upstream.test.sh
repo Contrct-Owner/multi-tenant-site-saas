@@ -20,10 +20,14 @@ upstream="$work/upstream"
 git clone -q "$template" "$upstream"
 git -C "$upstream" config user.email t@example.com
 git -C "$upstream" config user.name Test
-# the test's own copies of the tooling under test
+# The working-tree copies of the tooling, so the test exercises what is being
+# changed rather than what is committed. Identical to HEAD is the normal case
+# once a change lands, and `git commit` exits non-zero on an empty commit -
+# which under `set -e` would fail the test for the wrong reason.
 cp "$template/tools/init.py" "$template/tools/sync-upstream.sh" "$upstream/tools/"
 git -C "$upstream" add -A
-git -C "$upstream" commit -q -m "tooling under test"
+git -C "$upstream" diff --cached --quiet \
+  || git -C "$upstream" commit -q -m "tooling under test"
 
 # Fork it.
 fork="$work/fork"
