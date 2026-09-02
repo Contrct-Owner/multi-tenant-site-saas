@@ -27,6 +27,11 @@ jobs:
         run: dotnet test tests/Premise.ArchitectureTests -c Release --no-build
       - name: Wolverine codegen (catches fails-at-first-request wiring at CI time)
         run: dotnet run --project src/Premise.Api -c Release --no-build -- codegen write
+      - name: Fork sync (item 15: the SECOND sync is the one that broke)
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+          tests/sync-upstream.test.sh
         env:
           ConnectionStrings__premise: "Host=localhost;Port=1;Database=x;Username=x;Password=x"
           ASPNETCORE_ENVIRONMENT: Testing
