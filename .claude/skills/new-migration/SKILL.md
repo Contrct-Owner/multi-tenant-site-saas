@@ -29,6 +29,14 @@ migration files; always add a new one.
      `EnablePublishedCatalogRls(schema, table)` on `IPublishedCatalogScoped`.
      This is deliberately TWO policies - a single `FOR ALL` policy allowing
      published reads would also allow published *writes* by any tenant.
+   - **Recipient list** (owner + optional counterparty + every org in a side
+     table: a broadcast and its recipients, a share and its members):
+     `EnableRecipientListRls(schema, table, recipientsTable, fkColumn,
+     recipientOrgColumn)`, paired with `AddRecipientListFilter` in the
+     context. The side table gets its OWN plain policy, never one referencing
+     the parent. Being on the list grants READ only - the WITH CHECK omits
+     the recipient clause, so a recipient cannot edit the parent (award a
+     request to itself); Postgres refuses that write loudly (42501).
    - **Recursion rule.** A policy may reference ANOTHER table, never its own -
      a self-referencing policy recurses and the query fails at runtime. For
      "can this org see it through a grant", anchor visibility on one
