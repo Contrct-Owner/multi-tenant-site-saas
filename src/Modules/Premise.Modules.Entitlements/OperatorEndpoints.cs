@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,6 +6,7 @@ using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine.Attributes;
 using Wolverine.Http;
 
@@ -130,20 +132,11 @@ public static class OperatorEntitlementEndpoints
                 await db.SaveChangesAsync(ct);
 
                 await sp.GetRequiredService<Wolverine.IMessageBus>()
-                    .PublishAsync(
-                        new RecordDomainAudit(
-                            "entitlement.set",
-                            System.Text.Json.JsonSerializer.Serialize(new { code, request.Value })
-                        ),
-                        new Wolverine.DeliveryOptions
-                        {
-                            TenantId = target.Value.ToString(),
-                            Headers =
-                            {
-                                ["premise-actor-tier"] = "user",
-                                ["premise-actor-id"] = operatorId.ToString(),
-                            },
-                        }
+                    .AuditAsync(
+                        target,
+                        AuditActor.User(operatorId),
+                        "entitlement.set",
+                        new { code, request.Value }
                     );
                 return Results.NoContent();
             }

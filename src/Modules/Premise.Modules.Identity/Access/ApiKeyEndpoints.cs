@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -228,21 +230,5 @@ public static class ApiKeyEndpoints
         string eventName,
         Guid keyId,
         string name
-    ) =>
-        bus.PublishAsync(
-                new RecordDomainAudit(
-                    eventName,
-                    System.Text.Json.JsonSerializer.Serialize(new { keyId, name })
-                ),
-                new DeliveryOptions
-                {
-                    TenantId = org.Value.ToString(),
-                    Headers =
-                    {
-                        ["premise-actor-tier"] = "user",
-                        ["premise-actor-id"] = actorId.ToString(),
-                    },
-                }
-            )
-            .AsTask();
+    ) => bus.AuditAsync(org, AuditActor.User(actorId), eventName, new { keyId, name }).AsTask();
 }

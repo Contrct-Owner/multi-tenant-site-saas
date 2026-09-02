@@ -4,6 +4,7 @@ using System.Text.Json;
 using Premise.Contracts;
 using Premise.Modules.Storage.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Storage;
 using Wolverine;
 using Wolverine.Attributes;
@@ -84,25 +85,14 @@ public static class ExportAuditTrailHandler
             }
         );
 
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "audit.exported",
-                JsonSerializer.Serialize(
-                    new
-                    {
-                        fileId = id,
-                        truncatedKinds = sections.Where(s => s.Truncated).Select(s => s.Kind),
-                    }
-                )
-            ),
-            new DeliveryOptions
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(message.RequestedBy),
+            "audit.exported",
+            new
             {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = message.RequestedBy.ToString(),
-                },
+                fileId = id,
+                truncatedKinds = sections.Where(s => s.Truncated).Select(s => s.Kind),
             }
         );
     }

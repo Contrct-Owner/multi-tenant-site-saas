@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Ingest.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Secrets;
 using Premise.Platform.Storage;
 using Wolverine;
@@ -181,20 +182,11 @@ public static class IngestEndpoints
         batch.Status = BatchStatus.Discarded;
         await db.StagedSites.Where(s => s.BatchId == id).ExecuteDeleteAsync(ct);
         await db.SaveChangesAsync(ct);
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "ingest.batch_discarded",
-                JsonSerializer.Serialize(new { batchId = batch.Id })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(userId),
+            "ingest.batch_discarded",
+            new { batchId = batch.Id }
         );
         return Results.NoContent();
     }
@@ -216,7 +208,8 @@ public static class IngestEndpoints
     )
     {
         if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
+            accessor.Current
+                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
             || !await scopes.CanAsync(principal, Capabilities.IngestManage, ct)
         )
             return Results.Unauthorized();
@@ -246,12 +239,13 @@ public static class IngestEndpoints
 
         batch.Status = BatchStatus.Committed;
         await db.SaveChangesAsync(ct);
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "ingest.batch_committed",
-                JsonSerializer.Serialize(new { batchId = batch.Id, applied = actionable.Count })
-            ),
-            new DeliveryOptions { TenantId = org.Value.ToString() }
+        // was published with no actor headers at all: the trail recorded that a
+        // batch was committed but never who committed it
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(userId),
+            "ingest.batch_committed",
+            new { batchId = batch.Id, applied = actionable.Count }
         );
         return Results.Ok(new { applied = actionable.Count });
     }
@@ -376,20 +370,11 @@ public static class IngestEndpoints
             return Results.NotFound();
         db.Connectors.Remove(connector);
         await db.SaveChangesAsync(ct);
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "connector.deleted",
-                JsonSerializer.Serialize(new { connectorId = id, connector.Name })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(userId),
+            "connector.deleted",
+            new { connectorId = id, connector.Name }
         );
         return Results.NoContent();
     }

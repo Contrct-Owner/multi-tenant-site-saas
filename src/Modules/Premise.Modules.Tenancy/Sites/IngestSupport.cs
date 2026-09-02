@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
@@ -102,19 +103,16 @@ public static class SiteChangeRequestedHandler
             {
                 site.Status = SiteStatus.Closed;
                 await db.SaveChangesAsync(ct);
-                await bus.PublishAsync(
-                    new RecordDomainAudit(
-                        "site.closed",
-                        System.Text.Json.JsonSerializer.Serialize(
-                            new
-                            {
-                                siteId = site.Id.Value,
-                                site.Name,
-                                source = "ingest",
-                            }
-                        )
-                    ),
-                    new DeliveryOptions { TenantId = org.Value.ToString() }
+                await bus.AuditAsync(
+                    org,
+                    AuditActor.System,
+                    "site.closed",
+                    new
+                    {
+                        siteId = site.Id.Value,
+                        site.Name,
+                        source = "ingest",
+                    }
                 );
                 break;
             }

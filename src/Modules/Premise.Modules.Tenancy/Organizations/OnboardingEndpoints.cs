@@ -4,6 +4,7 @@ using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Auth;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -80,20 +81,11 @@ public static class OnboardingEndpoints
             new ProvisionFounderMembership(userId, org.Id),
             new DeliveryOptions { TenantId = org.Id.Value.ToString() }
         );
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "org.created",
-                System.Text.Json.JsonSerializer.Serialize(new { org.Name, org.Slug })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Id.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org.Id,
+            AuditActor.User(userId),
+            "org.created",
+            new { org.Name, org.Slug }
         );
         return Results.Ok(new { orgId = org.Id.Value, org.Slug });
     }
@@ -144,20 +136,11 @@ public static class OrgSettingsEndpoints
                 org.IsPlatform
             )
         );
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "org.renamed",
-                System.Text.Json.JsonSerializer.Serialize(new { from = previous, to = org.Name })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Id.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org.Id,
+            AuditActor.User(userId),
+            "org.renamed",
+            new { from = previous, to = org.Name }
         );
         return Results.Ok(new { org.Name });
     }

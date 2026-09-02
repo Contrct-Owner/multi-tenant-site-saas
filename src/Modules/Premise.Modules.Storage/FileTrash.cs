@@ -44,22 +44,15 @@ public static class PurgeFileTrashHandler
                 await store.DeleteAsync(previewKey, ct);
             file.Status = FileStatus.Erased;
             file.PreviewKey = null;
-            await bus.PublishAsync(
-                new RecordDomainAudit(
-                    "file.erased",
-                    System.Text.Json.JsonSerializer.Serialize(
-                        new
-                        {
-                            file.Id,
-                            file.Name,
-                            source = "trash-window",
-                        }
-                    )
-                ),
-                new DeliveryOptions
+            await bus.AuditAsync(
+                org,
+                AuditActor.System,
+                "file.erased",
+                new
                 {
-                    TenantId = org.Value.ToString(),
-                    Headers = { ["premise-actor-tier"] = "system" },
+                    file.Id,
+                    file.Name,
+                    source = "trash-window",
                 }
             );
         }

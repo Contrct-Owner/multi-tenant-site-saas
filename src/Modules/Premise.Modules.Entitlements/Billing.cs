@@ -5,6 +5,7 @@ using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Billing;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -144,16 +145,11 @@ public static class BillingSubscriptionChangedHandler
                 ),
                 new DeliveryOptions { TenantId = org.Value.ToString() }
             );
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "billing.subscription_changed",
-                JsonSerializer.Serialize(new { planId = message.PlanId, status = message.Status })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers = { ["premise-actor-tier"] = "system" },
-            }
+        await bus.AuditAsync(
+            org,
+            AuditActor.System,
+            "billing.subscription_changed",
+            new { planId = message.PlanId, status = message.Status }
         );
     }
 }

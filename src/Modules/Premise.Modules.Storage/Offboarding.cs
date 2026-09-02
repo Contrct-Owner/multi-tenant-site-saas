@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Storage.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Storage;
 using Wolverine;
 using Wolverine.Attributes;
@@ -93,22 +94,11 @@ public static class ExportOrgDataHandler
             }
         );
 
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "org.exported",
-                JsonSerializer.Serialize(
-                    new { fileId = id, sections = exporters.Select(e => e.Section).Order() }
-                )
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = message.RequestedBy.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(message.RequestedBy),
+            "org.exported",
+            new { fileId = id, sections = exporters.Select(e => e.Section).Order() }
         );
     }
 }

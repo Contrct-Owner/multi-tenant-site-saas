@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -78,20 +80,11 @@ public static class OrgClosureEndpoints
         await db.SaveChangesAsync(ct);
         var purgesAt = org.CloseRequestedAt.Value.AddDays(GraceDays(configuration));
 
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "org.close_requested",
-                System.Text.Json.JsonSerializer.Serialize(new { purgesAt })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = orgId.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            orgId,
+            AuditActor.User(userId),
+            "org.close_requested",
+            new { purgesAt }
         );
         await bus.PublishAsync(
             new SendOrgNotice(
@@ -129,18 +122,7 @@ public static class OrgClosureEndpoints
 
         org.CloseRequestedAt = null;
         await db.SaveChangesAsync(ct);
-        await bus.PublishAsync(
-            new RecordDomainAudit("org.close_canceled", "{}"),
-            new DeliveryOptions
-            {
-                TenantId = orgId.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
-            }
-        );
+        await bus.AuditAsync(orgId, AuditActor.User(userId), "org.close_canceled", new { });
         return Results.NoContent();
     }
 }

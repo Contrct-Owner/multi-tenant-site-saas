@@ -240,18 +240,7 @@ public static class LifecycleEndpoints
         await db.SaveChangesAsync(ct);
 
         // the audit record goes first: purge handlers race it, the trail survives it
-        await bus.PublishAsync(
-            new RecordDomainAudit("org.offboarded", "{}"),
-            new DeliveryOptions
-            {
-                TenantId = org.Id.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = operatorId.ToString(),
-                },
-            }
-        );
+        await bus.AuditAsync(org.Id, AuditActor.User(operatorId), "org.offboarded", new { });
         await OrgPurgeFanOut.PublishAsync(bus, target, org.ExternalId);
         return Results.NoContent();
     }

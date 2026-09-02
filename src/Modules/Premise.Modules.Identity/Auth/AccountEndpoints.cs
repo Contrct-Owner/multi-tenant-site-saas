@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
@@ -11,6 +12,7 @@ using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Platform.Auth;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Notifications;
 using Wolverine;
 
@@ -249,17 +251,11 @@ public static class AccountEndpoints
                                 .ExecuteDeleteAsync(ct);
                         }
                     );
-                    await bus.PublishAsync(
-                        new RecordDomainAudit("account.deleted", "{}"),
-                        new DeliveryOptions
-                        {
-                            TenantId = membership.OrgId.Value.ToString(),
-                            Headers =
-                            {
-                                ["premise-actor-tier"] = "user",
-                                ["premise-actor-id"] = userId.ToString(),
-                            },
-                        }
+                    await bus.AuditAsync(
+                        membership.OrgId,
+                        AuditActor.User(userId),
+                        "account.deleted",
+                        new { }
                     );
                 }
 

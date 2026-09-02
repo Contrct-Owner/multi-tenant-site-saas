@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 
 namespace Premise.Modules.Tenancy.Organizations;
@@ -55,13 +57,11 @@ public static class ProcessOrgClosureHandler
                 org.IsPlatform
             )
         );
-        await bus.PublishAsync(
-            new RecordDomainAudit("org.offboarded", """{"source":"self-serve-closure"}"""),
-            new DeliveryOptions
-            {
-                TenantId = org.Id.Value.ToString(),
-                Headers = { ["premise-actor-tier"] = "system" },
-            }
+        await bus.AuditAsync(
+            org.Id,
+            AuditActor.System,
+            "org.offboarded",
+            new { source = "self-serve-closure" }
         );
         await OrgPurgeFanOut.PublishAsync(bus, orgId, org.ExternalId);
     }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Audit.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -155,26 +156,15 @@ public static class AuditEndpoints
         config.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                "audit.config_changed",
-                JsonSerializer.Serialize(
-                    new
-                    {
-                        before,
-                        after = new { request.LogGrants, request.LogReads },
-                        changedBy = userId,
-                    }
-                )
-            ),
-            new DeliveryOptions
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(userId),
+            "audit.config_changed",
+            new
             {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = userId.ToString(),
-                },
+                before,
+                after = new { request.LogGrants, request.LogReads },
+                changedBy = userId,
             }
         );
         return Results.NoContent();

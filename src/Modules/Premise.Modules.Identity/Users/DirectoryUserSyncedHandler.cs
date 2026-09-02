@@ -3,6 +3,7 @@ using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Auth;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 
@@ -97,16 +98,5 @@ public static class DirectoryUserSyncedHandler
         OrgId org,
         string action,
         string email
-    ) =>
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                action,
-                System.Text.Json.JsonSerializer.Serialize(new { email, source = "directory" })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers = { ["premise-actor-tier"] = "system" },
-            }
-        );
+    ) => await bus.AuditAsync(org, AuditActor.System, action, new { email, source = "directory" });
 }

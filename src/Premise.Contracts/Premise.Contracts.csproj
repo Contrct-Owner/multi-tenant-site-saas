@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="WolverineFx" />
     <ProjectReference Include="..\Premise.Platform\Premise.Platform.csproj" />
   </ItemGroup>
 

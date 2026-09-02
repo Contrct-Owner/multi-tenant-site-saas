@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -120,18 +122,7 @@ public static class OperatorOrgEndpoints
                 org.IsPlatform
             )
         );
-        await bus.PublishAsync(
-            new RecordDomainAudit(eventName, "{}"),
-            new DeliveryOptions
-            {
-                TenantId = org.Id.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = operatorId.ToString(),
-                },
-            }
-        );
+        await bus.AuditAsync(org.Id, AuditActor.User(operatorId), eventName, new { });
         return Results.NoContent();
     }
 }

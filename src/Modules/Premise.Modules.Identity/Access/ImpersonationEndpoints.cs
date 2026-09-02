@@ -8,6 +8,7 @@ using Premise.Contracts;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -132,19 +133,10 @@ public static class ImpersonationEndpoints
         string operatorEmail,
         DateTimeOffset? expiresAt
     ) =>
-        await bus.PublishAsync(
-            new RecordDomainAudit(
-                action,
-                System.Text.Json.JsonSerializer.Serialize(new { operatorEmail, expiresAt })
-            ),
-            new DeliveryOptions
-            {
-                TenantId = org.Value.ToString(),
-                Headers =
-                {
-                    ["premise-actor-tier"] = "user",
-                    ["premise-actor-id"] = operatorId.ToString(),
-                },
-            }
+        await bus.AuditAsync(
+            org,
+            AuditActor.User(operatorId),
+            action,
+            new { operatorEmail, expiresAt }
         );
 }
