@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Premise.Modules.Tenancy.Data;
+using Premise.Platform.Messaging;
 using Wolverine;
 
 namespace Premise.Modules.Tenancy.Sites;
@@ -11,31 +12,8 @@ namespace Premise.Modules.Tenancy.Sites;
 /// that itself touches no tenant data - it reads the platform-global org list
 /// and enqueues one tenant-scoped message per org. Runs in the worker role.
 /// </summary>
-public sealed class HorizonRollService(IServiceProvider services) : BackgroundService
+public sealed class HorizonRollService(IServiceProvider services)
+    : PerOrgSweepService<RollOccurrenceHorizons>(services)
 {
-    public static readonly TimeSpan Interval = TimeSpan.FromHours(24);
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(Interval);
-        try
-        {
-            do
-            {
-                await RollAsync(stoppingToken);
-            } while (await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException) { } // shutdown
-    }
-
-    private async Task RollAsync(CancellationToken ct)
-    {
-        await using var scope = services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<TenancyDbContext>();
-        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
-        // organizations are platform-global: readable with no tenant set
-        var orgIds = await db.Organizations.Select(o => o.Id).ToListAsync(ct);
-        foreach (var orgId in orgIds)
-            await bus.PublishForOrgAsync(orgId, new RollOccurrenceHorizons());
-    }
+    protected override TimeSpan Interval => TimeSpan.FromHours(24);
 }

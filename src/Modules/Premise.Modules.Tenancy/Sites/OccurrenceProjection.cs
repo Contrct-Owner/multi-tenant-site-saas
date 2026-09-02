@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Scheduling;
 using Wolverine;
 using Wolverine.Attributes;

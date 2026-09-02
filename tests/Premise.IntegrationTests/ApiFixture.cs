@@ -340,7 +340,7 @@ public class ApiFixture : IAsyncLifetime
     {
         await using var scope = Factory.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
-        await Premise.Modules.Tenancy.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
+        await Premise.Platform.Messaging.TenantedMessaging.PublishForOrgAsync(bus, OrgA, message);
     }
 
     public Task<HttpClient> OperatorClient() => LoginAsync(Operator);

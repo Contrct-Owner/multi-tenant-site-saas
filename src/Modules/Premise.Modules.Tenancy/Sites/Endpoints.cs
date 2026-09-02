@@ -6,6 +6,7 @@ using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Platform.Data;
 using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;

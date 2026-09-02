@@ -1,5 +1,6 @@
 using Premise.Contracts;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 
 namespace Premise.Modules.Tenancy.Organizations;

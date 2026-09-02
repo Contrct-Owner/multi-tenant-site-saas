@@ -3,14 +3,18 @@ using Premise.Platform.Kernel;
 namespace Premise.Contracts;
 
 /// <summary>Cross-module read contract implemented by the Tenancy module.</summary>
-public interface IOrganizationLookup
+public interface IOrganizationLookup : Premise.Platform.Messaging.IOrganizationEnumerator
 {
     Task<OrgSummary?> FindBySlugAsync(string slug, CancellationToken ct = default);
     Task<OrgSummary?> FindByExternalIdAsync(string externalId, CancellationToken ct = default);
     Task<OrgSummary?> GetAsync(OrgId id, CancellationToken ct = default);
 
-    /// <summary>All org ids - for platform enumerators fanning out per-org work (ADR 24).</summary>
-    Task<IReadOnlyList<OrgId>> ListIdsAsync(CancellationToken ct = default);
+    /// <summary>
+    /// All org ids - for platform enumerators fanning out per-org work
+    /// (ADR 24). Declared by IOrganizationEnumerator, the narrow port
+    /// PerOrgSweepService depends on.
+    /// </summary>
+    new Task<IReadOnlyList<OrgId>> ListIdsAsync(CancellationToken ct = default);
 }
 
 public sealed record OrgSummary(

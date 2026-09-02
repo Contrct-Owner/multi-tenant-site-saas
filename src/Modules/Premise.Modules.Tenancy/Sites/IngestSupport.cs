@@ -3,6 +3,7 @@ using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 using Wolverine.Attributes;
 
