@@ -9,6 +9,22 @@ Every module is a vertical slice owning its own Postgres schema and DbContext
 (ADR 17). Never hand-roll one - missing a step here is the main way module
 boundaries erode.
 
+## The generator wires itself
+
+`python3 tools/new-module.py <Name>` now APPLIES the wiring rather than
+printing it: solution entry, the API project reference, the Program.cs using +
+registration + Wolverine discovery, and the `ModuleCatalog` entry - which is
+the single line that makes migrations, app-role grants, RLS coverage, the
+migration round-trip and the test fixture pick the module up. Any edit it
+cannot place is reported with the exact line to add by hand.
+
+It also scaffolds the module's `IOrgDataExporter`, because an architecture
+test requires every module to contribute an org-export section (a module
+without one drops out of offboarding silently). Fill in its projection.
+
+Left to you: the first migration, the exporter body, and - if the module owns
+tenant rows - a `PurgeOrg<Name>` message published from `OrgPurgeFanOut`.
+
 ## Run the generator first
 
 ```bash
