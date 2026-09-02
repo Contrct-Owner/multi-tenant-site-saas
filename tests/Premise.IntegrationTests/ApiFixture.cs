@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
@@ -344,6 +346,68 @@ public class ApiFixture : IAsyncLifetime
     }
 
     public Task<HttpClient> OperatorClient() => LoginAsync(Operator);
+
+    /// <summary>
+    /// The org's hierarchy root, creating it if absent. Eighteen test classes
+    /// wrote this dance out; idempotence matters as much as brevity, because
+    /// a seed that creates rather than reuses is how order-dependent tests
+    /// are born (see RandomOrderer).
+    /// </summary>
+    public static async Task<Guid> EnsureRootAsync(
+        HttpClient client,
+        string name = "Test Org",
+        string[]? levels = null
+    )
+    {
+        var existing = await client.GetAsync("/api/hierarchy");
+        if (existing.IsSuccessStatusCode)
+            return (await existing.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("nodes")
+                .EnumerateArray()
+                .First(n => n.GetProperty("depth").GetInt32() == 0)
+                .GetProperty("id")
+                .GetGuid();
+
+        var created = await client.PostAsJsonAsync(
+            "/api/hierarchy",
+            new { name, levels = levels ?? ["Region"] }
+        );
+        created.EnsureSuccessStatusCode();
+        return (await created.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("rootNodeId")
+            .GetGuid();
+    }
+
+    /// <summary>
+    /// A site with this name under the org's root, reused if it already
+    /// exists. Returns its id.
+    /// </summary>
+    public static async Task<Guid> EnsureSiteAsync(
+        HttpClient client,
+        string name,
+        string timeZone = "Etc/UTC",
+        double? latitude = null,
+        double? longitude = null
+    )
+    {
+        foreach (var site in (await GetItemsAsync(client, "/api/sites")).EnumerateArray())
+            if (site.GetProperty("name").GetString() == name)
+                return site.GetProperty("id").GetGuid();
+
+        var created = await client.PostAsJsonAsync(
+            "/api/sites",
+            new
+            {
+                nodeId = await EnsureRootAsync(client),
+                name,
+                timeZone,
+                latitude,
+                longitude,
+            }
+        );
+        created.EnsureSuccessStatusCode();
+        return (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+    }
 
     /// <summary>Unwrap a paged list envelope ({ items, total, nextOffset }) to its items.</summary>
     public static async Task<System.Text.Json.JsonElement> GetItemsAsync(

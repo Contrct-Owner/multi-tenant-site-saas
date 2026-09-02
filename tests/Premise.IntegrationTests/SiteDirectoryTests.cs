@@ -17,28 +17,7 @@ public class SiteDirectoryTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     public async Task Site_info_carries_hierarchy_id_and_location()
     {
         var owner = await fixture.LoginAsync(ApiFixture.UserA);
-        var tree = await owner.GetAsync("/api/hierarchy");
-        Guid rootId;
-        if (tree.IsSuccessStatusCode)
-        {
-            rootId = (await tree.Content.ReadFromJsonAsync<JsonElement>())
-                .GetProperty("nodes")
-                .EnumerateArray()
-                .First(n => n.GetProperty("depth").GetInt32() == 0)
-                .GetProperty("id")
-                .GetGuid();
-        }
-        else
-        {
-            var hierarchy = await owner.PostAsJsonAsync(
-                "/api/hierarchy",
-                new { name = "Org A", levels = new[] { "Region" } }
-            );
-            hierarchy.EnsureSuccessStatusCode();
-            rootId = (await hierarchy.Content.ReadFromJsonAsync<JsonElement>())
-                .GetProperty("rootNodeId")
-                .GetGuid();
-        }
+        var rootId = await ApiFixture.EnsureRootAsync(owner, "Org A");
 
         var created = await owner.PostAsJsonAsync(
             "/api/sites",
