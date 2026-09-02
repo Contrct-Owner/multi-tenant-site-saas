@@ -44,8 +44,17 @@ public class PublicJourneyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                 .GetGuid();
         }
 
+        // idempotent: three tests call SeedSites, and creating a second
+        // "Public Open Store" each time made the by-name lookup below throw
+        // on a duplicate key - a latent order dependency that only stayed
+        // hidden while this test happened to run first
+        var existing = await ApiFixture.GetItemsAsync(owner, "/api/sites");
         async Task<Guid> Site(string name)
         {
+            foreach (var candidate in existing.EnumerateArray())
+                if (candidate.GetProperty("name").GetString() == name)
+                    return candidate.GetProperty("id").GetGuid();
+
             var response = await owner.PostAsJsonAsync(
                 "/api/sites",
                 new
