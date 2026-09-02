@@ -27,9 +27,11 @@ migration files; always add a new one.
      owner's aggregate holds who-it-is-shared-with as DATA, publishes an
      event, and a handler materializes an `IOrgScoped` row in EACH other
      org's tenant (`PublishForOrgAsync` to that org, so it lands under their
-     RLS session). `org_directory` is the worked example. Read ADR 48 before
-     modeling any cross-org feature; it maps every old shape to its owned
-     equivalent and explains the costs.
+     RLS session). `org_directory` is the worked example. Read ADR 48 and
+     `docs/cross-tenant-sharing.md` before modeling any cross-org feature:
+     the recipe covers targeted push (`FanOutAsync`) versus open pull (a
+     platform-global projection), and maps every removed shape to its owned
+     equivalent.
    - Workflow authority ("may a vendor award?") is a command on the object
      you own, never a `WITH CHECK` clause.
    - Raw SQL goes in the migration via `migrationBuilder.Sql(...)`.

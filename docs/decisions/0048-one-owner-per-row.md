@@ -86,6 +86,11 @@ request id, kept consistent by events.
 
 ### The recipe
 
+The full recipe - targeted push versus open pull, the engagement join,
+snapshot-versus-live criteria, and where authority lives - is
+`docs/cross-tenant-sharing.md`. `FanOutAsync` in Platform is the push
+primitive. In brief:
+
 1. **The owner's aggregate** is an ordinary `IOrgScoped` row in the owner's
    tenant. It knows who it was shared with as DATA (a list of org ids, a
    status per recipient) - never as a policy.
