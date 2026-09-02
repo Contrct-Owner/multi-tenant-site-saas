@@ -270,6 +270,25 @@ builder.Services.AddOpenApi(); // ADR 16: the spec is the contract; TS client + 
 // Notifications (ADR 32): email is on the auth critical path (magic links),
 // so Production must configure a real transport - the built-in SMTP adapter
 // reaches every mainstream provider, forks add vendor SDKs behind the port.
+// SMS egress (a seam, not a feature): "off" is the default and is safe in
+// Production - a fork that needs texting registers its own adapter here.
+switch (builder.Configuration["Notifications:Sms"] ?? "off")
+{
+    case "off":
+        builder.Services.AddSingleton<ISmsTransport, NoSmsTransport>();
+        break;
+    case "local" when !builder.Environment.IsProduction():
+        builder.Services.AddSingleton<LocalSmsCatcher>();
+        builder.Services.AddSingleton<ISmsTransport>(sp =>
+            sp.GetRequiredService<LocalSmsCatcher>()
+        );
+        break;
+    default:
+        throw new InvalidOperationException(
+            "Notifications:Sms 'local' is dev/test only; use 'off' or a fork adapter in Production."
+        );
+}
+
 switch (builder.Configuration["Notifications:Transport"] ?? "local")
 {
     case "smtp":
