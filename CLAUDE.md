@@ -17,7 +17,7 @@ subtree it belongs to). Every request passes **three gates**, in order:
 
 ## Architectural decisions
 
-All 47 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
+All 48 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
 README). **Consult them before proposing structural changes.** Decisions marked
 `pinned: true` are expensive to reverse once data exists — do not contradict them
 without the maintainer explicitly reopening the decision.
@@ -46,6 +46,11 @@ don't restate them here.
   the client only displays (ADR 27).
 - **New tenant-scoped tables need an RLS policy** in the same migration. CI asserts
   coverage, but write it up front — use the `new-migration` skill.
+- **Every row has exactly one owning org** (ADR 48, pinned). No counterparty
+  columns, recipient side tables, or `published` flags on a tenant's row.
+  Another org that needs to see or act on it gets ITS OWN `IOrgScoped` row,
+  materialized through the outbox (the `org_directory` pattern). Authority
+  is which object you own plus which commands exist - never an RLS clause.
 - **Keys are UUIDv7**, never database sequences (ADR 35 preconditions).
 - **Never put tenant/site/actor on metric labels** — traces and logs only, as
   baggage (ADR 33).
