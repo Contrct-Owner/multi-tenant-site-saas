@@ -49,49 +49,51 @@ public class ApiFixture : IAsyncLifetime
     public const string Operator = "operator@premise.local"; // member: platform org
     public OrgId PlatformOrg { get; } = OrgId.New();
 
+    private static Premise.Platform.Data.ModuleDbContext CreateCatalogContext(
+        Premise.Platform.Modules.ModuleDescriptor module,
+        string connectionString
+    )
+    {
+        var build = typeof(ApiFixture)
+            .GetMethod(
+                nameof(CreateModuleContext),
+                System.Reflection.BindingFlags.NonPublic
+                    | System.Reflection.BindingFlags.Public
+                    | System.Reflection.BindingFlags.Static
+            )!
+            .MakeGenericMethod(module.DbContextType);
+        return (Premise.Platform.Data.ModuleDbContext)
+            build.Invoke(null, [connectionString, module.Schema])!;
+    }
+
     public virtual async Task InitializeAsync()
     {
         await _postgres.StartAsync();
 
         var adminCs = _postgres.GetConnectionString();
-        await using (var tenancy = CreateTenancyContext(adminCs))
-            await tenancy.Database.MigrateAsync();
-        await using (var identity = CreateIdentityContext(adminCs))
-            await identity.Database.MigrateAsync();
-        await using (var ents = CreateEntitlementsContext(adminCs))
-            await ents.Database.MigrateAsync();
-        await using (var audit = CreateAuditContext(adminCs))
-            await audit.Database.MigrateAsync();
-        await using (var storage = CreateModuleContext<StorageDbContext>(adminCs, "storage"))
-            await storage.Database.MigrateAsync();
-        await using (var platform = CreateModuleContext<PlatformDbContext>(adminCs, "platform"))
-            await platform.Database.MigrateAsync();
-        await using (var ingest = CreateModuleContext<IngestDbContext>(adminCs, "ingest"))
-            await ingest.Database.MigrateAsync();
-        await using (
-            var checklists =
-                CreateModuleContext<Premise.Modules.Checklists.Data.ChecklistsDbContext>(
-                    adminCs,
-                    "checklists"
-                )
-        )
-            await checklists.Database.MigrateAsync();
+        // migrate + grant straight from the module catalog, so a new module
+        // needs no fixture edit (a fork found Checklists missing from lists
+        // exactly like these)
+        foreach (var module in Premise.Api.ModuleCatalog.AllWithPlatform)
+        {
+            await using var context = CreateCatalogContext(module, adminCs);
+            await context.Database.MigrateAsync();
+        }
 
+        var grants = string.Join(
+            "\n",
+            Premise.Api.ModuleCatalog.Schemas.Select(schema =>
+                $"GRANT USAGE ON SCHEMA {schema} TO app_user; "
+                + $"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {schema} TO app_user;"
+            )
+        );
         await _postgres.ExecScriptAsync(
             """
             CREATE ROLE app_user LOGIN PASSWORD 'app_user' NOSUPERUSER;
             -- Wolverine owns its envelope schema; the app creates it at startup
             GRANT CREATE ON DATABASE postgres TO app_user;
-            GRANT USAGE ON SCHEMA tenancy, identity, entitlements, audit, storage, platform, ingest, checklists TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tenancy TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA checklists TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA entitlements TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA audit TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA storage TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA platform TO app_user;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO app_user;
-            """
+            {GRANTS}
+            """.Replace("{GRANTS}", grants)
         );
         AppConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(adminCs)
         {

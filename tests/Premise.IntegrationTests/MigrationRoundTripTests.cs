@@ -27,8 +27,9 @@ public sealed class MigrationDbFixture : IAsyncLifetime
 
 public class MigrationRoundTripTests(MigrationDbFixture fixture) : IClassFixture<MigrationDbFixture>
 {
+    // from the one catalog: a new module is round-tripped automatically
     public static TheoryData<string> Modules =>
-        ["tenancy", "identity", "entitlements", "audit", "storage", "platform", "ingest"];
+        [.. Premise.Api.ModuleCatalog.AllWithPlatform.Select(m => m.Name)];
 
     [Theory]
     [MemberData(nameof(Modules))]
@@ -50,23 +51,19 @@ public class MigrationRoundTripTests(MigrationDbFixture fixture) : IClassFixture
         Assert.Equal(applied, (await db.Database.GetAppliedMigrationsAsync()).ToList());
     }
 
+    // resolved from the catalog through the generic builder below - no
+    // per-module switch arm to forget when a module is added
     private Premise.Platform.Data.ModuleDbContext CreateContext(string module)
     {
-        var cs = fixture.ConnectionString;
-        return module switch
-        {
-            "tenancy" => Build<Premise.Modules.Tenancy.Data.TenancyDbContext>(cs, module),
-            "identity" => Build<Premise.Modules.Identity.Data.IdentityDbContext>(cs, module),
-            "entitlements" => Build<Premise.Modules.Entitlements.Data.EntitlementsDbContext>(
-                cs,
-                module
-            ),
-            "audit" => Build<Premise.Modules.Audit.Data.AuditDbContext>(cs, module),
-            "storage" => Build<Premise.Modules.Storage.Data.StorageDbContext>(cs, module),
-            "platform" => Build<Premise.Platform.Infra.PlatformDbContext>(cs, module),
-            "ingest" => Build<Premise.Modules.Ingest.Data.IngestDbContext>(cs, module),
-            _ => throw new ArgumentOutOfRangeException(nameof(module)),
-        };
+        var descriptor = Premise.Api.ModuleCatalog.AllWithPlatform.Single(m => m.Name == module);
+        var build = typeof(MigrationRoundTripTests)
+            .GetMethod(
+                nameof(Build),
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static
+            )!
+            .MakeGenericMethod(descriptor.DbContextType);
+        return (Premise.Platform.Data.ModuleDbContext)
+            build.Invoke(null, [fixture.ConnectionString, descriptor.Schema])!;
     }
 
     private static T Build<T>(string cs, string schema)
