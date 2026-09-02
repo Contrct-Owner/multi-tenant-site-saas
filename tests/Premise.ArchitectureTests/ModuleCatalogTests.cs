@@ -36,6 +36,33 @@ public class ModuleCatalogTests
     }
 
     [Fact]
+    public void Every_module_contributes_an_org_data_export_section()
+    {
+        // the Checklists bug in the flesh: a module with tenant data but no
+        // IOrgDataExporter drops out of the org export silently, which is
+        // data loss on offboarding and a GDPR-portability hole
+        var missing = ModuleCatalog
+            .All.Where(module =>
+                !module
+                    .DbContextType.Assembly.GetTypes()
+                    .Any(t =>
+                        t is { IsAbstract: false, IsInterface: false }
+                        && typeof(Premise.Contracts.IOrgDataExporter).IsAssignableFrom(t)
+                    )
+            )
+            .Select(m => m.Name)
+            .Order()
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            "modules with no IOrgDataExporter - their rows would never leave with "
+                + "an org's data export: "
+                + string.Join(", ", missing)
+        );
+    }
+
+    [Fact]
     public void Catalog_names_and_schemas_are_unique_and_lowercase()
     {
         foreach (var module in ModuleCatalog.AllWithPlatform)

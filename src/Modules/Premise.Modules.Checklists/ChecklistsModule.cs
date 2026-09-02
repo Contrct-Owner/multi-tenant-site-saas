@@ -30,6 +30,8 @@ public static class ChecklistsModule
                     );
             }
         );
+        services.AddScoped<Premise.Contracts.IOrgDataExporter, ChecklistsExporter>();
+
         return services;
     }
 }

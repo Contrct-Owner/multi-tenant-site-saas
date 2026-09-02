@@ -63,12 +63,7 @@ public static class ProcessOrgClosureHandler
                 Headers = { ["premise-actor-tier"] = "system" },
             }
         );
-        await bus.PublishForOrgAsync(orgId, new PurgeOrgSites());
-        await bus.PublishForOrgAsync(orgId, new PurgeOrgFiles());
-        await bus.PublishForOrgAsync(orgId, new PurgeOrgEntitlements());
-        await bus.PublishForOrgAsync(orgId, new PurgeOrgIngest());
-        await bus.PublishForOrgAsync(orgId, new PurgeOrgWebhooks());
-        await bus.PublishForOrgAsync(orgId, new OrganizationDeleted(org.Id, org.ExternalId));
+        await OrgPurgeFanOut.PublishAsync(bus, orgId, org.ExternalId);
     }
 }
 
