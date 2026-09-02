@@ -127,7 +127,9 @@ don't restate them here.
   `pnpm codegen:keys` (capability/entitlement unions). A dirty openapi.json
   after tests means the contract changed - review it like code.
 - New module: `python3 tools/new-module.py <Name>` (prints the wiring list)
-- Fork init: `python3 tools/init.py <ProductName>` (one-way rename)
+- Fork init: `python3 tools/init.py <ProductName>` (one-way rename; also adds
+  the `template` remote and creates `template-renamed` at the init commit)
+- Pull the template forward into a fork: `tools/sync-upstream.sh` (ADR 36)
 
 ## For forks
 
