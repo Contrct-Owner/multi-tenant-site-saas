@@ -21,6 +21,11 @@ migration files; always add a new one.
    shape you have; never hand-write the policy SQL:
    - Single owner (the common case): `migrationBuilder.EnableTenantRls(schema, table)`
      on an entity implementing `IOrgScoped`.
+   - **Two-party with a REQUIRED counterparty** (a quote has no meaning
+     without a vendor): implement `IRequiredCounterpartyScoped` and use the
+     same `EnableTwoPartyRls`. Do NOT use the nullable interface for a NOT
+     NULL column - that forces `required OrgId?` plus `.IsRequired()` plus a
+     null-forgiving accessor on the entity, and the `!` lies about the model.
    - **Two-party** (owner + counterparty: a request and its vendor, a shared
      case): `EnableTwoPartyRls(schema, table, "counterparty_org_id")` on an
      entity implementing `ITwoPartyScoped`. Both sides read and write; the

@@ -77,6 +77,8 @@ public abstract class ModuleDbContext(DbContextOptions options, ITenantContext t
                 InvokeFilter(nameof(AddTenantFilter), entity.ClrType, modelBuilder);
             if (typeof(ITwoPartyScoped).IsAssignableFrom(entity.ClrType))
                 InvokeFilter(nameof(AddTwoPartyFilter), entity.ClrType, modelBuilder);
+            if (typeof(IRequiredCounterpartyScoped).IsAssignableFrom(entity.ClrType))
+                InvokeFilter(nameof(AddRequiredCounterpartyFilter), entity.ClrType, modelBuilder);
             if (typeof(IPublishedCatalogScoped).IsAssignableFrom(entity.ClrType))
                 InvokeFilter(nameof(AddPublishedCatalogFilter), entity.ClrType, modelBuilder);
             if (typeof(ISoftDeletable).IsAssignableFrom(entity.ClrType))
@@ -98,6 +100,17 @@ public abstract class ModuleDbContext(DbContextOptions options, ITenantContext t
     // so a fork cannot accidentally stack two tenant filters on one entity
     private void AddTwoPartyFilter<TEntity>(ModelBuilder modelBuilder)
         where TEntity : class, ITwoPartyScoped =>
+        modelBuilder
+            .Entity<TEntity>()
+            .HasQueryFilter(
+                TenantFilter,
+                e => e.OrgId == CurrentOrg || e.CounterpartyOrgId == CurrentOrg
+            );
+
+    // same either-side predicate as the nullable shape; separate only because
+    // the property types differ
+    private void AddRequiredCounterpartyFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, IRequiredCounterpartyScoped =>
         modelBuilder
             .Entity<TEntity>()
             .HasQueryFilter(
