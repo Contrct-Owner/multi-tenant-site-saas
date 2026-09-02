@@ -27,7 +27,7 @@ jobs:
         run: dotnet test tests/Premise.ArchitectureTests -c Release --no-build
       - name: Wolverine codegen (catches fails-at-first-request wiring at CI time)
         run: dotnet run --project src/Premise.Api -c Release --no-build -- codegen write
-      - name: Fork sync (item 15: the SECOND sync is the one that broke)
+      - name: "Fork sync: the SECOND sync is the one that broke (item 15)"
         run: |
           git config --global user.email ci@example.com
           git config --global user.name CI
