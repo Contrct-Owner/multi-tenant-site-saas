@@ -16,7 +16,10 @@ namespace Premise.Platform.Messaging;
 /// shutdown, opening a scope per tick rather than per process, and never
 /// letting one org's failure kill the sweep for the rest.
 ///
-/// Subclasses supply the interval and the message; everything else is here.
+/// Subclasses supply the interval and the message; everything else is here -
+/// including the per-period lease (<see cref="ISweepLease"/>): with several
+/// worker replicas each ticking its own timer, only the first to claim a
+/// period publishes, so a fleet produces one logical sweep per period.
 /// </summary>
 /// <typeparam name="TMessage">
 /// A parameterless message - the org travels on the envelope, never in the body.
@@ -35,6 +38,9 @@ public abstract class PerOrgSweepService<TMessage>(IServiceProvider services) : 
             do
             {
                 await using var scope = services.CreateAsyncScope();
+                var lease = scope.ServiceProvider.GetRequiredService<ISweepLease>();
+                if (!await lease.TryClaimAsync(typeof(TMessage).Name, Interval, stoppingToken))
+                    continue; // another replica owns this period
                 var orgs = scope.ServiceProvider.GetRequiredService<IOrganizationEnumerator>();
                 var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
                 foreach (var org in await orgs.ListIdsAsync(stoppingToken))

@@ -16,7 +16,8 @@ namespace Premise.Modules.Identity.Migrations
                 table: "org_directory",
                 type: "bigint",
                 nullable: false,
-                defaultValue: 0L);
+                defaultValue: 0L
+            );
         }
 
         /// <inheritdoc />
@@ -25,7 +26,8 @@ namespace Premise.Modules.Identity.Migrations
             migrationBuilder.DropColumn(
                 name: "source_version",
                 schema: "identity",
-                table: "org_directory");
+                table: "org_directory"
+            );
         }
     }
 }

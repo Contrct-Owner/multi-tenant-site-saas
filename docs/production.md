@@ -14,7 +14,7 @@ One image, three roles, selected by the `ROLE` environment variable (ADR 34):
 |---|---|---|
 | `migrate` | Applies all eight modules' EF migrations with **owner** credentials, provisions the unprivileged `app_user` role, reassigns schema ownership, exits | Once per deploy, before the others |
 | `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas |
-| `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas |
+| `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas — every recurring sweep is leased per period in `platform.sweep_runs` (first replica to claim `(sweep, period)` runs it, the rest skip), so replicas never duplicate a sweep |
 
 Ordering matters: `api`/`worker` should start (or restart) after `migrate`
 exits successfully — the Aspire graph does this with `WaitForCompletion`;

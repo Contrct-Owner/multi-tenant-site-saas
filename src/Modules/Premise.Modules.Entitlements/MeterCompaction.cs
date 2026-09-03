@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Wolverine;
 
 namespace Premise.Modules.Entitlements;
@@ -78,25 +79,8 @@ public static class CompactMetersHandler
 }
 
 /// <summary>Daily enumerator fanning out per-org compaction (ADR 24 pattern).</summary>
-public sealed class MeterCompactionService(IServiceProvider services) : BackgroundService
+public sealed class MeterCompactionService(IServiceProvider services)
+    : PerOrgSweepService<CompactMeters>(services)
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
-        try
-        {
-            do
-            {
-                await using var scope = services.CreateAsyncScope();
-                var orgs = scope.ServiceProvider.GetRequiredService<IOrganizationLookup>();
-                var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
-                foreach (var orgId in await orgs.ListIdsAsync(stoppingToken))
-                    await bus.PublishAsync(
-                        new CompactMeters(),
-                        new DeliveryOptions { TenantId = orgId.Value.ToString() }
-                    );
-            } while (await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException) { } // shutdown
-    }
+    protected override TimeSpan Interval => TimeSpan.FromHours(24);
 }

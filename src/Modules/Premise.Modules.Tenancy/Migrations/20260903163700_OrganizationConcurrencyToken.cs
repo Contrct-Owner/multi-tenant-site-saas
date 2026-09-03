@@ -17,16 +17,14 @@ namespace Premise.Modules.Tenancy.Migrations
                 type: "xid",
                 rowVersion: true,
                 nullable: false,
-                defaultValue: 0u);
+                defaultValue: 0u
+            );
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "xmin",
-                schema: "tenancy",
-                table: "organizations");
+            migrationBuilder.DropColumn(name: "xmin", schema: "tenancy", table: "organizations");
         }
     }
 }

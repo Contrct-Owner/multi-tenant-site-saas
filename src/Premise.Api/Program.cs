@@ -25,6 +25,7 @@ using Premise.Platform.Auth;
 using Premise.Platform.Data;
 using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
+using Premise.Platform.Messaging;
 using Premise.Platform.Notifications;
 using Premise.Platform.Secrets;
 using Premise.Platform.Storage;
@@ -207,20 +208,9 @@ builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 builder.Services.AddChecklistsModule();
 
-// Platform infra context (idempotency, ADR 29)
-builder.Services.AddDbContext<PlatformDbContext>(
-    (sp, options) =>
-    {
-        // singleton options: default region only (see module registrations / ADR 35)
-        var regions = sp.GetRequiredService<IRegionDataSources>();
-        options
-            .UseNpgsql(
-                regions.For(RegionId.Default),
-                npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", "platform")
-            )
-            .AddInterceptors(TenantSessionInterceptor.Instance);
-    }
-);
+// Platform infra context (idempotency, ADR 29; sweep leases)
+builder.Services.AddScoped<ISweepLease, SweepLease>(); // by TYPE: Wolverine codegen refuses factories
+builder.Services.AddModuleDbContext<PlatformDbContext>("platform", audited: false); // by TYPE, not a factory: a handler that takes this context (CleanupIdempotencyHandler) is refused by Wolverine codegen otherwise
 if (role == "worker")
     builder.Services.AddHostedService<IdempotencyCleanupService>();
 
