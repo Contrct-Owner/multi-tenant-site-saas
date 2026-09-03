@@ -159,6 +159,19 @@ too, that a policy must never reference its own table. Under this model those
 are not properties to test; they are consequences of every row having one
 owner.
 
+## Adoption note (2026-09-03)
+
+Deleting the shape helpers broke the first fork that had used them: its
+applied migrations - which this ADR itself says must never be edited -
+stopped compiling. A helper called from a migration is part of that
+migration's frozen text. The helpers are back as `FrozenMigrationHelpers`,
+signature and SQL unchanged, marked as not for new migrations and refused by
+`MigrationHelperTests` in any migration stamped after 2026-09-02. That is
+the rule from here on: a migration-time helper is frozen, never removed. A
+fork that froze its own copy per module (the first one did, as
+`Migrations/LegacyTenancyShapes.cs`) may keep it; the module's copy wins
+extension-method lookup, so nothing is ambiguous.
+
 ## Why pinned
 
 "One owner per row" is a data-model invariant. Once a fork has tables with
