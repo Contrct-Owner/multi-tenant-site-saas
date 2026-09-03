@@ -483,6 +483,13 @@ builder.UseWolverine(opts =>
     if (role == "migrate")
         opts.Durability.Mode = Wolverine.DurabilityMode.MediatorOnly;
     opts.Policies.AutoApplyTransactions();
+    // The image build runs `codegen write` first (checks.yml, image job), so
+    // Production loads the pre-generated handler code instead of generating
+    // and compiling it on every boot. Auto rather than Static: a fork that
+    // publishes without the codegen step still boots (generating at start,
+    // as in dev) instead of dying with a stale-cache error. Dev stays Dynamic.
+    if (builder.Environment.IsProduction())
+        opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
@@ -650,11 +657,6 @@ app.MapGet(
             )
 ); // described: it is in the published contract snapshot; /livez is a probe only
 
-// JasperFx command line only when a command is given (design-debt close):
-// `-- codegen write` really writes the generated handler code, so CI
-// catches "fails at first request" codegen errors at build time. The
-// no-args path stays plain app.Run() - WebApplicationFactory (the whole
-// integration suite) hooks that and NOT the JasperFx runner.
 // JasperFx command line only when a command is given (design-debt close):
 // `-- codegen write` really writes the generated handler code, so CI
 // catches "fails at first request" codegen errors at build time. Two

@@ -158,16 +158,31 @@ DNS: `console.yourproduct.com` (console + API) and a wildcard
 what `Public:HostTemplate` must match). Production subdomains do not share
 cookies; only localhost's port-blind cookies do (the dev quirk in CLAUDE.md).
 
-## Before go-live: Wolverine codegen
+## Building the image
 
-Wolverine generates handler plumbing at startup; the default Dynamic mode
-(fine in dev) does that work on every boot and says so in the log. For
-production images, pre-build the generated types
-(`dotnet run -- codegen write` during the image build, and set
-`opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static` under a
-production check) to cut startup time and memory. The template leaves
-Dynamic as the default because Static with a stale cache fails the boot -
-adopt it together with your CI image build, not before.
+There is no Dockerfile to drift. The SDK builds the OCI image:
+
+```bash
+dotnet run --project src/Premise.Api -c Release -- codegen write   # pre-generate Wolverine handler code
+dotnet publish src/Premise.Api -c Release -p:PublishProfile=DefaultContainer -p:ContainerImageTag=<tag> -p:Version=<version>
+```
+
+The image runs as the base image's non-root `app` user, listens on 8080,
+and is the one artifact all three roles run from. CI (`checks.yml`, the
+`image` job) builds it on every push and smokes it: `tools/smoke-image.sh`
+boots `migrate`, `api` and `worker` from the image in **Production** mode
+against a real PostgreSQL and asserts the migrate role exits cleanly and
+both long-running roles answer `/livez` and `/healthz`. That run is also the
+boot guards' negative control - a production-valid configuration must not
+be refused. `-p:Version` becomes `Build:Version`'s fallback in `/healthz`.
+
+### Wolverine codegen
+
+Wolverine generates handler plumbing at startup; in dev that happens on
+every boot. In Production the host loads the pre-generated code the image
+build wrote (`TypeLoadMode.Auto`): faster boot, less memory, and a fork
+that publishes without the codegen step still starts - it generates at
+boot as dev does, rather than dying with a stale-cache error.
 
 ## Incidents
 

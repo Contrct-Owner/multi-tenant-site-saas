@@ -142,9 +142,36 @@ jobs:
         working-directory: web
         run: pnpm build
 
+  image:
+    # The production artifact, built and smoked: one non-root OCI image from
+    # `dotnet publish` (no Dockerfile to drift), pre-generated Wolverine code
+    # inside it, and all three ROLEs booted from it in Production mode against
+    # a real PostgreSQL - which is also the boot guards' negative control: a
+    # production-valid configuration must NOT be refused.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build src/Premise.Api -c Release
+      - name: Pre-generate Wolverine handler code into the artifact
+        run: dotnet run --project src/Premise.Api -c Release --no-build -- codegen write
+        env:
+          ConnectionStrings__premise: "Host=localhost;Port=1;Database=x;Username=x;Password=x"
+          ASPNETCORE_ENVIRONMENT: Testing
+          ROLE: api
+      - name: Publish the image
+        run: |
+          dotnet publish src/Premise.Api -c Release -p:PublishProfile=DefaultContainer \
+            -p:ContainerImageTag=ci -p:Version=0.0.0-ci
+          docker image inspect premise:ci --format 'user={{.Config.User}} ports={{.Config.ExposedPorts}}'
+      - name: Smoke the three roles from the image
+        run: tools/smoke-image.sh premise:ci
+
   checks:
     # the one status branch protection requires
-    needs: [architecture, unit, integration, contract, frontend]
+    needs: [architecture, unit, integration, contract, frontend, image]
     runs-on: ubuntu-latest
     steps:
       - run: echo "all checks green"

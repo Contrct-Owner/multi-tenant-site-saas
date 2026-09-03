@@ -3,6 +3,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The production artifact (docs/production.md): `dotnet publish -p:PublishProfile=DefaultContainer`
+         builds the OCI image with no Dockerfile. Non-root by default (the base image's `app` user),
+         one port, and CI smokes all three ROLEs from it before it can be called green. -->
+    <ContainerRepository>premise</ContainerRepository>
+    <ContainerUser>app</ContainerUser>
+    <ContainerPort>8080</ContainerPort>
   </PropertyGroup>
 
   <ItemGroup>

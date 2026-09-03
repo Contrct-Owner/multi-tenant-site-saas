@@ -32,6 +32,13 @@ public abstract class PerOrgSweepService<TMessage>(IServiceProvider services) : 
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Hosted services start in registration order and the modules register
+        // before Wolverine: a first tick that publishes before Wolverine's own
+        // hosted service has started throws WolverineHasNotStartedException
+        // and, under the host's default StopHost behaviour, takes the process
+        // down. Seen in the image smoke, never in the test host (timing). Wait
+        // for the host to be fully started before the first tick.
+        await HostStarted.WaitAsync(services, stoppingToken);
         using var timer = new PeriodicTimer(Interval);
         try
         {
