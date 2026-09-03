@@ -42,8 +42,14 @@ builder.Host.UseDefaultServiceProvider(o =>
     o.ValidateOnBuild = false; // Wolverine registers open generics that trip build validation
 });
 
-// Role flag (ADR 34): one image, run as "api" or "worker".
+// Role flag (ADR 34): one image, run as "migrate", "api" or "worker". An
+// unknown value used to start a host that mapped nothing and swept nothing
+// - a typo in a manifest looked like a healthy process. Refused instead.
 var role = builder.Configuration["ROLE"] ?? "api";
+if (role is not ("migrate" or "api" or "worker"))
+    throw new InvalidOperationException(
+        $"ROLE '{role}' is not a role this image runs; use migrate, api or worker (ADR 34)."
+    );
 
 // "What version are you running?" must be answerable (maturity review,
 // hole 4): CI stamps Build:Version (see docs/production.md); local builds
@@ -610,29 +616,49 @@ if (role == "api")
     app.MapOperatorOverviewEndpoint();
     app.MapOperatorHealthEndpoint();
     app.MapWolverineEndpoints();
-    app.MapGet(
-        "/healthz",
-        (ReadinessState readiness) =>
-            readiness.Ready
-                ? Results.Ok(
-                    new
-                    {
-                        status = "ok",
-                        role,
-                        version = buildVersion,
-                    }
-                )
-                : Results.Json(
-                    new
-                    {
-                        status = "starting",
-                        role,
-                        version = buildVersion,
-                    },
-                    statusCode: StatusCodes.Status503ServiceUnavailable
-                )
-    );
 }
+
+// Probes for EVERY role (the worker had none, and the guide told operators
+// to wire /healthz to the deployed process). /livez answers as soon as the
+// process serves requests: liveness, restart if it stops. /healthz is
+// readiness: 503 until the role's dependencies are usable (in Development
+// the api's bootstrap flips it after migrations and seed), take the pod out
+// of rotation while it is not.
+app.MapGet(
+        "/livez",
+        () =>
+            Results.Ok(
+                new
+                {
+                    status = "alive",
+                    role,
+                    version = buildVersion,
+                }
+            )
+    )
+    .ExcludeFromDescription();
+app.MapGet(
+    "/healthz",
+    (ReadinessState readiness) =>
+        readiness.Ready
+            ? Results.Ok(
+                new
+                {
+                    status = "ok",
+                    role,
+                    version = buildVersion,
+                }
+            )
+            : Results.Json(
+                new
+                {
+                    status = "starting",
+                    role,
+                    version = buildVersion,
+                },
+                statusCode: StatusCodes.Status503ServiceUnavailable
+            )
+); // described: it is in the published contract snapshot; /livez is a probe only
 
 // JasperFx command line only when a command is given (design-debt close):
 // `-- codegen write` really writes the generated handler code, so CI

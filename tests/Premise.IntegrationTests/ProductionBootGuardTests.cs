@@ -80,6 +80,16 @@ public class ProductionBootGuardTests
     }
 
     [Fact]
+    public void An_unknown_role_is_refused_before_anything_else()
+    {
+        // a typo in a manifest used to start a host that mapped nothing
+        var settings = ProductionValid();
+        settings["ROLE"] = "apu";
+
+        Assert.Contains("ROLE 'apu' is not a role this image runs", BootRefusal(settings)!.Message);
+    }
+
+    [Fact]
     public void An_unknown_provider_is_refused_in_every_environment()
     {
         // a typo must not fall through to a default adapter

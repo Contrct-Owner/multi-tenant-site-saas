@@ -21,8 +21,11 @@ exits successfully — the Aspire graph does this with `WaitForCompletion`;
 in Kubernetes use an init container or a migration Job; in Compose use
 `depends_on: condition: service_completed_successfully`.
 
-`GET /healthz` returns 200 when the process is ready (503 while starting) and
-reports its role — wire it to your readiness probe.
+Every role serves two probes. `GET /livez` returns 200 as soon as the process
+serves requests — wire it to your liveness probe (restart on failure).
+`GET /healthz` returns 200 when the role's dependencies are usable (503 while
+starting) and reports its role and version — wire it to your readiness probe
+(out of rotation while failing). An unknown `ROLE` refuses to start.
 
 ## The database role split (ADR 38 — do not skip)
 

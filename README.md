@@ -71,8 +71,8 @@ python3 tools/new-module.py Booking     # scaffold a vertical slice
 
 The rules that keep the template's guarantees intact live in
 [CLAUDE.md](CLAUDE.md) (agents and humans alike), and every structural
-decision has an ADR in [docs/decisions/](docs/decisions/README.md) — 42 of
-them, indexed. **Read an ADR before contradicting it**; the pinned ones are
+decision has an ADR in [docs/decisions/](docs/decisions/README.md), indexed
+there with its status. **Read an ADR before contradicting it**; the pinned ones are
 expensive to reverse once data exists.
 
 Deploying a fork to production: [docs/production.md](docs/production.md) —
