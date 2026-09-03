@@ -119,6 +119,7 @@ public static class OperatorOrgEndpoints
                 org.Slug,
                 org.Region,
                 org.ExternalId,
+                org.Version,
                 org.Status.ToString(),
                 org.IsPlatform
             )

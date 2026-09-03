@@ -73,6 +73,7 @@ public static class OnboardingEndpoints
                 org.Slug,
                 org.Region,
                 org.ExternalId,
+                org.Version,
                 org.Status.ToString(),
                 org.IsPlatform
             )
@@ -130,6 +131,7 @@ public static class OrgSettingsEndpoints
                 org.Slug,
                 org.Region,
                 org.ExternalId,
+                org.Version,
                 org.Status.ToString(),
                 org.IsPlatform
             )

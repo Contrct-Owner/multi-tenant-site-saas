@@ -216,7 +216,8 @@ public class ApiFixture : IAsyncLifetime
                     "Org A",
                     "org-a",
                     RegionId.Default,
-                    null
+                    null,
+                    SourceVersion: 1
                 )
             );
             await bus.PublishAsync(
@@ -225,7 +226,8 @@ public class ApiFixture : IAsyncLifetime
                     "Org B",
                     "org-b",
                     RegionId.Default,
-                    null
+                    null,
+                    SourceVersion: 1
                 )
             );
             await bus.PublishAsync(
@@ -235,6 +237,7 @@ public class ApiFixture : IAsyncLifetime
                     "platform-ops",
                     RegionId.Default,
                     null,
+                    1,
                     "Active",
                     IsPlatform: true
                 )
