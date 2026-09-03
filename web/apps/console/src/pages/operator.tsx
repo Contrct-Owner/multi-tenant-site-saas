@@ -16,29 +16,35 @@ type Effective = Record<string, { value: string; shape: string; policy: string }
 export function OperatorPage() {
   const { data: orgs } = useQuery({
     queryKey: ['operator-orgs'],
-    queryFn: () => api.get<OperatedOrg[]>('/api/operator/orgs'),
+    queryFn: () => (api.get('/api/operator/orgs') as Promise<OperatedOrg[]>),
   });
   const [selected, setSelected] = useState<OperatedOrg | null>(null);
 
   const transition = useApiMutation({
     mutationFn: (input: { orgId: string; action: 'suspend' | 'reactivate' }) =>
-      api.post(`/api/operator/orgs/${input.orgId}/${input.action}`),
+      api.post(
+        input.action === 'suspend'
+          ? '/api/operator/orgs/{orgId}/suspend'
+          : '/api/operator/orgs/{orgId}/reactivate',
+        undefined,
+        { path: { orgId: input.orgId } },
+      ),
     invalidate: [['operator-orgs']],
     success: 'Status updated',
   });
   const exportOrg = useApiMutation({
-    mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/export`),
+    mutationFn: (orgId: string) => api.post('/api/operator/orgs/{orgId}/export', undefined, { path: { orgId } }),
     success: "Export queued - it lands in the org's Files",
   });
   const impersonate = useApiMutation({
     mutationFn: (orgId: string) =>
-      api.post<{ expiresAt: string }>(`/api/operator/orgs/${orgId}/impersonate`),
+      (api.post('/api/operator/orgs/{orgId}/impersonate', undefined, { path: { orgId } }) as Promise<{ expiresAt: string }>),
     onSuccess: () => {
       location.href = '/'; // full reload: the whole session re-resolves as the target org
     },
   });
   const offboard = useApiMutation({
-    mutationFn: (orgId: string) => api.post(`/api/operator/orgs/${orgId}/offboard`),
+    mutationFn: (orgId: string) => api.post('/api/operator/orgs/{orgId}/offboard', undefined, { path: { orgId } }),
     invalidate: [['operator-orgs']],
     success: 'Offboarding started',
     onSuccess: () => setSelected(null),
@@ -164,7 +170,7 @@ type HealthCheck = { name: string; ok: boolean; latencyMs: number; error: string
 function Dependencies() {
   const { data } = useQuery({
     queryKey: ['operator-health'],
-    queryFn: () => api.get<{ checks: HealthCheck[] }>('/api/operator/health'),
+    queryFn: () => (api.get('/api/operator/health') as Promise<{ checks: HealthCheck[] }>),
     refetchInterval: 60_000,
   });
   if (!data) return null;
@@ -194,10 +200,10 @@ function Suppressions() {
   const { data: rows } = useQuery({
     queryKey: ['suppressions', q],
     queryFn: () =>
-      api.get<Suppression[]>(`/api/operator/suppressions${q.trim() ? `?q=${encodeURIComponent(q)}` : ''}`),
+      (api.get('/api/operator/suppressions', { query: { q: q.trim() || undefined } }) as Promise<Suppression[]>),
   });
   const unsuppress = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/operator/suppressions/${id}`),
+    mutationFn: (id: string) => api.del('/api/operator/suppressions/{id}', { path: { id } }),
     invalidate: [['suppressions']],
     success: 'Unsuppressed - sending to this address resumes',
   });
@@ -243,7 +249,7 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
   const [q, setQ] = useState('');
   const { data: hits } = useQuery({
     queryKey: ['operator-users', q],
-    queryFn: () => api.get<FoundUser[]>(`/api/operator/users?q=${encodeURIComponent(q)}`),
+    queryFn: () => (api.get('/api/operator/users', { query: { q } }) as Promise<FoundUser[]>),
     enabled: q.trim().length >= 2,
   });
   return (
@@ -289,7 +295,7 @@ type Overview = {
 function PlatformOverview() {
   const { data } = useQuery({
     queryKey: ['operator-overview'],
-    queryFn: () => api.get<Overview>('/api/operator/overview'),
+    queryFn: () => (api.get('/api/operator/overview') as Promise<Overview>),
     refetchInterval: 30_000,
   });
   if (!data) return null;
@@ -331,16 +337,16 @@ type DeadLetter = {
 function DeadLetters() {
   const { data } = useQuery({
     queryKey: ['dead-letters'],
-    queryFn: () => api.get<{ total: number; items: DeadLetter[] }>('/api/operator/dead-letters'),
+    queryFn: () => (api.get('/api/operator/dead-letters') as Promise<{ total: number; items: DeadLetter[] }>),
     refetchInterval: 30_000,
   });
   const replay = useApiMutation({
-    mutationFn: (id: string) => api.post(`/api/operator/dead-letters/${id}/replay`),
+    mutationFn: (id: string) => api.post('/api/operator/dead-letters/{id}/replay', undefined, { path: { id } }),
     invalidate: [['dead-letters']],
     success: 'Requeued for delivery',
   });
   const discard = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/operator/dead-letters/${id}`),
+    mutationFn: (id: string) => api.del('/api/operator/dead-letters/{id}', { path: { id } }),
     invalidate: [['dead-letters']],
     success: 'Discarded',
   });
@@ -390,13 +396,13 @@ function DeadLetters() {
 function OrgEntitlements({ orgId }: { orgId: string }) {
   const { data: effective } = useQuery({
     queryKey: ['operator-entitlements', orgId],
-    queryFn: () => api.get<Effective>(`/api/operator/orgs/${orgId}/entitlements`),
+    queryFn: () => (api.get('/api/operator/orgs/{orgId}/entitlements', { path: { orgId } }) as Promise<Effective>),
   });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const set = useApiMutation({
     mutationFn: (input: { code: string; value: string }) =>
-      api.put(`/api/operator/orgs/${orgId}/entitlements/${input.code}`, { value: input.value }),
+      api.put('/api/operator/orgs/{orgId}/entitlements/{code}', { value: input.value }, { path: { orgId, code: input.code } }),
     invalidate: [['operator-entitlements', orgId]],
     success: 'Entitlement updated',
     errorFallback: 'Update failed',

@@ -25,7 +25,9 @@ export function FilesPage() {
   const filesQuery = useInfiniteQuery({
     queryKey: ['files', 'list', trash],
     queryFn: ({ pageParam }) =>
-      api.get<Page<StoredFile>>(`/api/files?limit=50&offset=${pageParam}${trash ? '&trash=true' : ''}`),
+      (api.get('/api/files', {
+        query: { limit: 50, offset: pageParam, trash: trash ? true : undefined },
+      }) as Promise<Page<StoredFile>>),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
@@ -42,25 +44,25 @@ export function FilesPage() {
   });
   const hold = useApiMutation({
     mutationFn: (input: { id: string; hold: boolean }) =>
-      api.post(`/api/files/${input.id}/hold`, { hold: input.hold }),
+      api.post('/api/files/{id}/hold', { hold: input.hold }, { path: { id: input.id } }),
     invalidate: [['files']],
     success: 'Legal hold updated',
   });
   const erase = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/files/${id}`),
+    mutationFn: (id: string) => api.del('/api/files/{id}', { path: { id } }),
     invalidate: [['files']],
     success: 'Moved to trash - restorable for 30 days',
     errorFallback: 'Delete failed',
   });
   const restore = useApiMutation({
-    mutationFn: (id: string) => api.post(`/api/files/${id}/restore`),
+    mutationFn: (id: string) => api.post('/api/files/{id}/restore', undefined, { path: { id } }),
     invalidate: [['files']],
     success: 'File restored',
   });
   const fileInput = useRef<HTMLInputElement>(null);
 
   const download = async (id: string) => {
-    const { url } = await api.get<{ url: string }>(`/api/files/${id}/download`);
+    const { url } = await (api.get('/api/files/{id}/download', { path: { id } }) as Promise<{ url: string }>);
     window.open(url, '_blank');
   };
 

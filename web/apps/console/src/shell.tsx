@@ -256,7 +256,7 @@ export function Shell({ children }: { children: ReactNode }) {
 function ApiVersion() {
   const { data } = useQuery({
     queryKey: ['healthz'],
-    queryFn: () => api.get<{ version: string }>('/healthz'),
+    queryFn: () => (api.get('/healthz') as Promise<{ version: string }>),
     staleTime: Infinity,
   });
   if (!data?.version) return null;
@@ -354,10 +354,10 @@ function CreateOrgScreen() {
     setCreating(true);
     setError(null);
     try {
-      const { orgId } = await api.post<{ orgId: string }>('/api/orgs', { name, slug });
+      const { orgId } = await (api.post('/api/orgs', { name, slug }) as Promise<{ orgId: string }>);
       // founder membership arrives via the outbox: poll, then switch in
       for (let attempt = 0; attempt < 50; attempt++) {
-        const me = await api.get<Me>('/me');
+        const me = await (api.get('/me') as Promise<Me>);
         if (me.tier === 'user' && me.organizations.some((o) => o.id === orgId)) break;
         await new Promise((resolve) => setTimeout(resolve, 200));
       }

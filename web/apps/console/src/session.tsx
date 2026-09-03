@@ -16,7 +16,7 @@ export type Me =
     };
 
 export function useMe() {
-  return useQuery({ queryKey: ['me'], queryFn: () => api.get<Me>('/me') });
+  return useQuery({ queryKey: ['me'], queryFn: () => (api.get('/me') as Promise<Me>) });
 }
 
 /** Hide/disable instead of surfacing 403s: the /me bootstrap drives the UI. */

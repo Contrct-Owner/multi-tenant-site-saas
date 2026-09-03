@@ -24,12 +24,12 @@ export function ChecklistsPage() {
 
   const { data: sites } = useQuery({
     queryKey: ['sites', 'picker'],
-    queryFn: async () => (await api.get<Page<Site>>('/api/sites?limit=200')).items,
+    queryFn: async () => (await (api.get('/api/sites', { query: { limit: 200 } }) as Promise<Page<Site>>)).items,
   });
   const activeSite = siteId || sites?.[0]?.id || '';
   const { data: today } = useQuery({
     queryKey: ['checklists', 'today', activeSite],
-    queryFn: () => api.get<Today>(`/api/checklists/today?siteId=${activeSite}`),
+    queryFn: () => (api.get('/api/checklists/today', { query: { siteId: activeSite } }) as Promise<Today>),
     enabled: !!activeSite,
   });
   const check = useApiMutation({
@@ -117,7 +117,7 @@ function TemplatesCard() {
 
   const { data: templates } = useQuery({
     queryKey: ['checklists', 'templates'],
-    queryFn: () => api.get<Template[]>('/api/checklists/templates'),
+    queryFn: () => (api.get('/api/checklists/templates') as Promise<Template[]>),
   });
   const create = useApiMutation({
     mutationFn: () =>
@@ -134,7 +134,7 @@ function TemplatesCard() {
     },
   });
   const remove = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/checklists/templates/${id}`),
+    mutationFn: (id: string) => api.del('/api/checklists/templates/{id}', { path: { id } }),
     invalidate: [['checklists']],
     success: 'Checklist deleted',
   });

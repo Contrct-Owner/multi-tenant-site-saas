@@ -28,16 +28,16 @@ const grantKey = (g: Grant) => `${g.domain}:${g.action}`;
 export function RolesPage() {
   const { data: roles } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => api.get<Role[]>('/api/roles'),
+    queryFn: () => (api.get('/api/roles') as Promise<Role[]>),
   });
   const { data: members } = useQuery({
     queryKey: ['members', 'picker'],
     queryFn: async () =>
-      (await api.get<{ items: Member[] }>('/api/members?limit=200')).items,
+      (await (api.get('/api/members', { query: { limit: 200 } }) as Promise<{ items: Member[] }>)).items,
   });
   const { data: hierarchy } = useQuery({
     queryKey: ['hierarchy'],
-    queryFn: () => api.get<Hierarchy>('/api/hierarchy'),
+    queryFn: () => (api.get('/api/hierarchy') as Promise<Hierarchy>),
     retry: false,
   });
 
@@ -66,7 +66,7 @@ export function RolesPage() {
         return { domain, action };
       });
       return editing
-        ? api.put(`/api/roles/${editing}`, { name: name.trim(), grants })
+        ? api.put('/api/roles/{id}', { name: name.trim(), grants }, { path: { id: editing } })
         : api.post('/api/roles', { name: name.trim(), grants });
     },
     invalidate: [['roles']],
@@ -75,7 +75,7 @@ export function RolesPage() {
     onSuccess: () => setEditorOpen(false),
   });
   const remove = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/roles/${id}`),
+    mutationFn: (id: string) => api.del('/api/roles/{id}', { path: { id } }),
     invalidate: [['roles']],
     success: 'Role deleted',
     errorFallback: 'Delete failed',
@@ -195,7 +195,7 @@ function AssignDialog({ roles, members, nodes }: { roles: Role[]; members: Membe
 
   const assign = useApiMutation({
     mutationFn: () =>
-      api.post(`/api/roles/${roleId}/assign`, { userId, scopePath: scopePath || null }),
+      api.post('/api/roles/{id}/assign', { userId, scopePath: scopePath || null }, { path: { id: roleId } }),
     invalidate: [['roles'], ['members']],
     success: 'Role assigned',
     onSuccess: () => {
@@ -257,7 +257,7 @@ function AssignDialog({ roles, members, nodes }: { roles: Role[]; members: Membe
 function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }) {
   const { data: exceptions } = useQuery({
     queryKey: ['grant-exceptions'],
-    queryFn: () => api.get<GrantException[]>('/api/grant-exceptions'),
+    queryFn: () => (api.get('/api/grant-exceptions') as Promise<GrantException[]>),
   });
   const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState('');
@@ -288,7 +288,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
     },
   });
   const revoke = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/grant-exceptions/${id}`),
+    mutationFn: (id: string) => api.del('/api/grant-exceptions/{id}', { path: { id } }),
     invalidate: [['grant-exceptions']],
     success: 'Exception revoked',
   });

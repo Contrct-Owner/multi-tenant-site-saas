@@ -31,7 +31,7 @@ export function IngestPage() {
     mutationFn: async (file: File) => {
       const fileId = await uploadFile(file, 'text/csv', setPhase);
       setPhase('Computing diff…');
-      const staged = await api.post<{ batchId: string }>('/api/ingest/uploads', { fileId });
+      const staged = await (api.post('/api/ingest/uploads', { fileId }) as Promise<{ batchId: string }>);
       return staged.batchId;
     },
     onSuccess: (id) => {
@@ -43,12 +43,16 @@ export function IngestPage() {
 
   const { data: preview } = useQuery({
     queryKey: ['ingest-batch', batchId],
-    queryFn: () => api.get<Preview>(`/api/ingest/batches/${batchId}`),
+    // enabled only with a batch; the typed path refuses a null id
+    queryFn: () => (api.get('/api/ingest/batches/{id}', { path: { id: batchId ?? '' } }) as Promise<Preview>),
     enabled: batchId !== null,
   });
 
   const commit = useMutation({
-    mutationFn: () => api.post<{ applied: number }>(`/api/ingest/batches/${batchId}/commit`),
+    mutationFn: () => {
+      if (batchId === null) throw new Error('no staged batch to commit');
+      return api.post('/api/ingest/batches/{id}/commit', undefined, { path: { id: batchId } }) as Promise<{ applied: number }>;
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ingest-batch', batchId] });
       void queryClient.invalidateQueries({ queryKey: ['ingest-batches'] });
@@ -57,10 +61,10 @@ export function IngestPage() {
   });
   const { data: batches } = useQuery({
     queryKey: ['ingest-batches'],
-    queryFn: () => api.get<Batch[]>('/api/ingest/batches'),
+    queryFn: () => (api.get('/api/ingest/batches') as Promise<Batch[]>),
   });
   const discard = useApiMutation({
-    mutationFn: (id: string) => api.post(`/api/ingest/batches/${id}/discard`),
+    mutationFn: (id: string) => api.post('/api/ingest/batches/{id}/discard', undefined, { path: { id } }),
     invalidate: [['ingest-batches']],
     success: 'Batch discarded',
     onSuccess: (_, id) => {
@@ -207,7 +211,7 @@ export function IngestPage() {
 function ConnectorsCard() {
   const { data: connectors } = useQuery({
     queryKey: ['connectors'],
-    queryFn: () => api.get<Connector[]>('/api/connectors'),
+    queryFn: () => (api.get('/api/connectors') as Promise<Connector[]>),
   });
   const empty = { name: '', url: '', apiKey: '', interval: '' };
   const [form, setForm] = useState(empty);
@@ -239,7 +243,7 @@ function ConnectorsCard() {
         syncIntervalHours: form.interval ? Number(form.interval) : null,
       };
       return editing
-        ? api.put(`/api/connectors/${editing}`, body)
+        ? api.put('/api/connectors/{id}', body, { path: { id: editing } })
         : api.post('/api/connectors', { ...body, apiKey: form.apiKey });
     },
     invalidate: [['connectors']],
@@ -247,12 +251,12 @@ function ConnectorsCard() {
     onSuccess: () => setOpen(false),
   });
   const sync = useApiMutation({
-    mutationFn: (id: string) => api.post(`/api/connectors/${id}/sync`),
+    mutationFn: (id: string) => api.post('/api/connectors/{id}/sync', undefined, { path: { id } }),
     invalidate: [['ingest-batches']],
     success: 'Sync queued - the batch lands under Batches',
   });
   const remove = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/connectors/${id}`),
+    mutationFn: (id: string) => api.del('/api/connectors/{id}', { path: { id } }),
     invalidate: [['connectors']],
     success: 'Connector deleted',
   });

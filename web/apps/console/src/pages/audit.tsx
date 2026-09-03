@@ -24,7 +24,7 @@ export function AuditPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const { data: rows } = useQuery({
     queryKey: ['audit', kind, limit],
-    queryFn: () => api.get<Row[]>(`/api/audit/${kind}?limit=${limit}`),
+    queryFn: () => (api.get('/api/audit/{kind}', { path: { kind }, query: { limit } }) as Promise<Row[]>),
   });
   const exportTrail = useApiMutation({
     mutationFn: () => api.post('/api/audit/export'),

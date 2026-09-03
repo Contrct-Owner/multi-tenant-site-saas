@@ -18,9 +18,9 @@ export function SitesPage() {
   const sitesQuery = useInfiniteQuery({
     queryKey: ['sites', 'list', filter],
     queryFn: ({ pageParam }) =>
-      api.get<Page<Site>>(
-        `/api/sites?limit=50&offset=${pageParam}${filter ? `&q=${encodeURIComponent(filter)}` : ''}`,
-      ),
+      (api.get('/api/sites', {
+        query: { limit: 50, offset: pageParam, q: filter || undefined },
+      }) as Promise<Page<Site>>),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
@@ -28,7 +28,7 @@ export function SitesPage() {
   const total = sitesQuery.data?.pages[0]?.total;
   const { data: hierarchy } = useQuery({
     queryKey: ['hierarchy'],
-    queryFn: () => api.get<Hierarchy>('/api/hierarchy'),
+    queryFn: () => (api.get('/api/hierarchy') as Promise<Hierarchy>),
   });
   const [name, setName] = useState('');
   const [timeZone, setTimeZone] = useState('America/New_York');

@@ -11,7 +11,7 @@ type Hierarchy = { id: string; name: string; levels: string[]; nodes: Node[] };
 export function HierarchyPage() {
   const { data, isError } = useQuery({
     queryKey: ['hierarchy'],
-    queryFn: () => api.get<Hierarchy>('/api/hierarchy'),
+    queryFn: () => (api.get('/api/hierarchy') as Promise<Hierarchy>),
     retry: false,
   });
   const [levels, setLevels] = useState('Region, Market');
@@ -41,13 +41,13 @@ export function HierarchyPage() {
   const [editName, setEditName] = useState('');
   const rename = useApiMutation({
     mutationFn: (input: { id: string; name: string }) =>
-      api.put(`/api/hierarchy/nodes/${input.id}`, { name: input.name }),
+      api.put('/api/hierarchy/nodes/{id}', { name: input.name }, { path: { id: input.id } }),
     invalidate: [['hierarchy']],
     success: 'Node renamed',
     onSuccess: () => setEditingId(null),
   });
   const removeNode = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/hierarchy/nodes/${id}`),
+    mutationFn: (id: string) => api.del('/api/hierarchy/nodes/{id}', { path: { id } }),
     invalidate: [['hierarchy']],
     success: 'Node deleted',
     errorFallback: 'Delete failed',

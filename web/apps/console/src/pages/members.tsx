@@ -19,22 +19,22 @@ export function MembersPage() {
   const membersQuery = useInfiniteQuery({
     queryKey: ['members', 'list'],
     queryFn: ({ pageParam }) =>
-      api.get<Page<Member>>(`/api/members?limit=50&offset=${pageParam}`),
+      (api.get('/api/members', { query: { limit: 50, offset: pageParam } }) as Promise<Page<Member>>),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
   });
   const members = membersQuery.data?.pages.flatMap((p) => p.items);
   const { data: roles } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => api.get<Role[]>('/api/roles'),
+    queryFn: () => (api.get('/api/roles') as Promise<Role[]>),
   });
   const { data: invitations } = useQuery({
     queryKey: ['invitations'],
-    queryFn: () => api.get<Invitation[]>('/api/members/invitations'),
+    queryFn: () => (api.get('/api/members/invitations') as Promise<Invitation[]>),
   });
   const { data: contacts } = useQuery({
     queryKey: ['contacts'],
-    queryFn: () => api.get<Contact[]>('/api/contacts'),
+    queryFn: () => (api.get('/api/contacts') as Promise<Contact[]>),
   });
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState('');
@@ -52,12 +52,12 @@ export function MembersPage() {
     },
   });
   const revoke = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/members/invitations/${id}`),
+    mutationFn: (id: string) => api.del('/api/members/invitations/{invitationId}', { path: { invitationId: id } }),
     invalidate: [['invitations']],
     success: 'Invitation revoked',
   });
   const remove = useApiMutation({
-    mutationFn: (userId: string) => api.del(`/api/members/${userId}`),
+    mutationFn: (userId: string) => api.del('/api/members/{userId}', { path: { userId } }),
     invalidate: [['members']],
     success: 'Member removed',
     errorFallback: 'Removal failed',
@@ -66,7 +66,7 @@ export function MembersPage() {
     mutationFn: (input: { roleName: string; userId: string }) => {
       const role = roles?.find((r) => r.name === input.roleName);
       if (!role) throw new Error('unknown role');
-      return api.del(`/api/roles/${role.id}/assign/${input.userId}`);
+      return api.del('/api/roles/{id}/assign/{userId}', { path: { id: role.id, userId: input.userId } });
     },
     invalidate: [['members']],
     success: 'Role unassigned',
@@ -85,7 +85,7 @@ export function MembersPage() {
     },
   });
   const revokeContact = useApiMutation({
-    mutationFn: (id: string) => api.del(`/api/contacts/${id}`),
+    mutationFn: (id: string) => api.del('/api/contacts/{id}', { path: { id } }),
     invalidate: [['contacts']],
     success: 'Contact revoked',
   });

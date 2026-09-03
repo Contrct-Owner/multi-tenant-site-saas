@@ -1,4 +1,4 @@
-import { api } from '@premise/api';
+import { api, type components } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
   Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   TimeZoneSelect } from '@premise/ui';
@@ -24,6 +24,7 @@ type Schedule = {
   anchorDate: string; opens: string; closes: string; exDates: string[];
 };
 type Window = { startsAtUtc: string; endsAtUtc: string; localDate: string };
+type UpdateSite = components['schemas']['UpdateSiteRequest'];
 
 const DAYS = [
   { code: 'MO', label: 'Mon' }, { code: 'TU', label: 'Tue' }, { code: 'WE', label: 'Wed' },
@@ -53,15 +54,15 @@ export function SiteDetailPage() {
 
   const { data: site } = useQuery({
     queryKey: ['site', siteId],
-    queryFn: () => api.get<Site>(`/api/sites/${siteId}`),
+    queryFn: () => (api.get('/api/sites/{id}', { path: { id: siteId } }) as Promise<Site>),
   });
   const { data: schedules } = useQuery({
     queryKey: ['schedules', siteId],
-    queryFn: () => api.get<Schedule[]>(`/api/sites/${siteId}/schedules`),
+    queryFn: () => (api.get('/api/sites/{id}/schedules', { path: { id: siteId } }) as Promise<Schedule[]>),
   });
   const { data: windows } = useQuery({
     queryKey: ['windows', siteId],
-    queryFn: () => api.get<Window[]>(`/api/sites/${siteId}/windows?days=7`),
+    queryFn: () => (api.get('/api/sites/{id}/windows', { path: { id: siteId }, query: { days: 7 } }) as Promise<Window[]>),
   });
 
   const invalidate = () => {
@@ -75,28 +76,42 @@ export function SiteDetailPage() {
   };
 
   const update = useApiMutation({
-    mutationFn: (
-      body: Partial<{
-        name: string; timeZone: string; status: string;
-        addressLine1: string; city: string; postalCode: string; countryCode: string;
-        latitude: number; longitude: number;
-        attributes: Record<string, string | number | boolean | null>;
-      }>,
-    ) =>
-      // echo the version we loaded: a 409 means someone else saved first
-      api.post(`/api/sites/${siteId}`, { ...body, version: site?.version }),
+    mutationFn: (body: Partial<Omit<UpdateSite, 'version' | 'attributes'>> & {
+      attributes?: Record<string, string | number | boolean | null>;
+    }) =>
+      api.post(
+        '/api/sites/{id}',
+        {
+          // the contract requires the three core fields; null means "unchanged"
+          name: body.name ?? null,
+          timeZone: body.timeZone ?? null,
+          status: body.status ?? null,
+          addressLine1: body.addressLine1,
+          city: body.city,
+          postalCode: body.postalCode,
+          countryCode: body.countryCode,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          // an untyped JSON dictionary in the contract renders as an empty record
+          attributes: body.attributes as UpdateSite['attributes'],
+          // echo the version we loaded: a 409 means someone else saved first
+          version: site?.version,
+        },
+        { path: { id: siteId } },
+      ),
     success: 'Site updated',
     onSuccess: invalidate,
     onError: invalidate, // a conflict means our copy is stale - reload it
   });
   const addSchedule = useApiMutation({
-    mutationFn: (body: object) => api.post(`/api/sites/${siteId}/schedules`, body),
+    mutationFn: (body: components['schemas']['CreateScheduleRequest']) =>
+      api.post('/api/sites/{id}/schedules', body, { path: { id: siteId } }),
     success: 'Hours added',
     onSuccess: invalidate,
   });
   const removeSchedule = useApiMutation({
     mutationFn: (scheduleId: string) =>
-      api.del(`/api/sites/${siteId}/schedules/${scheduleId}`),
+      api.del('/api/sites/{id}/schedules/{scheduleId}', { path: { id: siteId, scheduleId } }),
     success: 'Hours removed',
     onSuccess: invalidate,
   });
@@ -113,21 +128,21 @@ export function SiteDetailPage() {
   const [editAttributes, setEditAttributes] = useState<Record<string, string>>({});
   const { data: definitions } = useQuery({
     queryKey: ['site-attributes'],
-    queryFn: () => api.get<AttributeDefinition[]>('/api/sites/attributes'),
+    queryFn: () => (api.get('/api/sites/attributes') as Promise<AttributeDefinition[]>),
   });
   const { data: closures } = useQuery({
     queryKey: ['closures', siteId],
-    queryFn: () => api.get<string[]>(`/api/sites/${siteId}/closures`),
+    queryFn: () => (api.get('/api/sites/{id}/closures', { path: { id: siteId } }) as Promise<string[]>),
   });
   const addClosure = useApiMutation({
-    mutationFn: (date: string) => api.post(`/api/sites/${siteId}/closures`, { date }),
+    mutationFn: (date: string) => api.post('/api/sites/{id}/closures', { date }, { path: { id: siteId } }),
     invalidate: [['closures', siteId]],
     success: 'Day closed',
     errorFallback: 'Could not close that day',
     onSuccess: invalidate,
   });
   const removeClosure = useApiMutation({
-    mutationFn: (date: string) => api.del(`/api/sites/${siteId}/closures/${date}`),
+    mutationFn: (date: string) => api.del('/api/sites/{id}/closures/{date}', { path: { id: siteId, date } }),
     invalidate: [['closures', siteId]],
     success: 'Day reopened',
     onSuccess: invalidate,

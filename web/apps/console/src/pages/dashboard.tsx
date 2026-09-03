@@ -22,21 +22,21 @@ export function DashboardPage() {
 
   const { data: entitlements } = useQuery({
     queryKey: ['entitlements'],
-    queryFn: () => api.get<Effective>('/api/entitlements'),
+    queryFn: () => (api.get('/api/entitlements') as Promise<Effective>),
   });
   const { data: sites } = useQuery({
     queryKey: ['sites', 'summary'],
-    queryFn: () => api.get<SitesSummary>('/api/sites?limit=1'),
+    queryFn: () => (api.get('/api/sites', { query: { limit: 1 } }) as Promise<SitesSummary>),
     enabled: seesSites,
   });
   const { data: invitations } = useQuery({
     queryKey: ['invitations'],
-    queryFn: () => api.get<Invitation[]>('/api/members/invitations'),
+    queryFn: () => (api.get('/api/members/invitations') as Promise<Invitation[]>),
     enabled: seesMembers,
   });
   const { data: events } = useQuery({
     queryKey: ['audit', 'events', 5],
-    queryFn: () => api.get<AuditEvent[]>('/api/audit/events?limit=5'),
+    queryFn: () => (api.get('/api/audit/{kind}', { path: { kind: 'events' }, query: { limit: 5 } }) as Promise<AuditEvent[]>),
     enabled: seesAudit,
   });
 

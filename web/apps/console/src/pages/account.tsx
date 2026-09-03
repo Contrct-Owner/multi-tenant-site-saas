@@ -45,7 +45,7 @@ export function AccountPage() {
 
   const { data: sessions } = useQuery({
     queryKey: ['sessions'],
-    queryFn: () => api.get<Session[]>('/auth/sessions'),
+    queryFn: () => (api.get('/auth/sessions') as Promise<Session[]>),
   });
 
   const rename = useApiMutation({
@@ -58,7 +58,7 @@ export function AccountPage() {
     success: 'Reset email sent',
   });
   const revoke = useApiMutation({
-    mutationFn: (id: string) => api.del(`/auth/sessions/${id}`),
+    mutationFn: (id: string) => api.del('/auth/sessions/{id}', { path: { id } }),
     invalidate: [['sessions']],
     success: 'Session revoked',
   });
