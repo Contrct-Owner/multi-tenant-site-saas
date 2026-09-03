@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Platform.Data;
@@ -113,16 +114,7 @@ public static class SiteEndpoints
             ct
         );
         if (!decision.IsAllowed)
-            return Results.Json(
-                new
-                {
-                    error = "plan limit reached",
-                    decision.Code,
-                    decision.Limit,
-                    current = siteCount,
-                },
-                statusCode: StatusCodes.Status402PaymentRequired
-            );
+            return GateResults.LimitReached(decision);
 
         var id = SiteId.New();
         var site = new Site

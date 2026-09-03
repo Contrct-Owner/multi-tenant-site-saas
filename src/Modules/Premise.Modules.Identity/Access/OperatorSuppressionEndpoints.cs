@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
@@ -26,8 +27,9 @@ public static class OperatorSuppressionEndpoints
         CancellationToken ct
     )
     {
-        if (!await operators.IsOperatorAsync(accessor.Current, ct))
-            return Results.Unauthorized();
+        var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
+        if (gate is not GateOutcome.Allowed)
+            return gate.ToResult();
         var query = db.EmailSuppressions.AsQueryable();
         if (!string.IsNullOrWhiteSpace(q))
             query = query.Where(s => EF.Functions.ILike(s.Email, $"%{q.Trim()}%"));
@@ -55,8 +57,9 @@ public static class OperatorSuppressionEndpoints
         CancellationToken ct
     )
     {
-        if (!await operators.IsOperatorAsync(accessor.Current, ct))
-            return Results.Unauthorized();
+        var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
+        if (gate is not GateOutcome.Allowed)
+            return gate.ToResult();
         var suppression = await db.EmailSuppressions.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (suppression is null)
             return Results.NotFound();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Organizations;
@@ -29,8 +30,9 @@ public static class OperatorOverviewEndpoint
                 CancellationToken ct
             ) =>
             {
-                if (!await operators.IsOperatorAsync(accessor.Current, ct))
-                    return Results.Unauthorized();
+                var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
+                if (gate is not GateOutcome.Allowed)
+                    return gate.ToResult();
                 var orgsByStatus = await tenancy
                     .Organizations.Where(o => !o.IsPlatform)
                     .GroupBy(o => o.Status)

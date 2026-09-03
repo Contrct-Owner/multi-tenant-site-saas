@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Platform.Kernel;
 using Premise.Platform.Storage;
 
@@ -32,8 +33,9 @@ public static class OperatorHealthEndpoint
                 CancellationToken ct
             ) =>
             {
-                if (!await operators.IsOperatorAsync(accessor.Current, ct))
-                    return Results.Unauthorized();
+                var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
+                if (gate is not GateOutcome.Allowed)
+                    return gate.ToResult();
 
                 var checks = new List<object>
                 {

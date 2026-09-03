@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
@@ -26,8 +27,9 @@ public static class OperatorUserLookupEndpoint
         CancellationToken ct
     )
     {
-        if (!await operators.IsOperatorAsync(accessor.Current, ct))
-            return Results.Unauthorized();
+        var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
+        if (gate is not GateOutcome.Allowed)
+            return gate.ToResult();
         var term = q.Trim();
         if (term.Length < 2)
             return Results.BadRequest(new { error = "search needs at least 2 characters" });

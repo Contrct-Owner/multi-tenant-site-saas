@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
 using Premise.Platform.Billing;
 using Premise.Platform.Kernel;
@@ -49,11 +50,9 @@ public static class BillingEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.OrgManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
         var subscription = await db
             .Subscriptions.Where(s => s.OrgId == org)
             .Select(s => new
@@ -97,11 +96,9 @@ public static class BillingEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.OrgManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
         if (PlanCatalog.Find(request.PlanId) is null)
             return Results.BadRequest(new { error = "unknown plan" });
         var returnPath = SafePath(request.ReturnPath);
@@ -128,11 +125,9 @@ public static class BillingEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.OrgManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
         var customerRef = await db
             .Subscriptions.Where(s => s.OrgId == org)
             .Select(s => s.CustomerRef)

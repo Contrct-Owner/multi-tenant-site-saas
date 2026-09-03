@@ -39,11 +39,11 @@ public static class ImpersonationEndpoints
         CancellationToken ct
     )
     {
+        var gate = await Gate.RequireOperatorAsync(accessor, operators, ct);
         if (
-            !await operators.IsOperatorAsync(accessor.Current, ct)
-            || accessor.Current is not Principal.User { UserId: var operatorId }
+            gate is not GateOutcome.Allowed { Principal: Principal.User { UserId: var operatorId } }
         )
-            return Results.Unauthorized();
+            return gate.ToResult();
         var target = new OrgId(orgId);
         var entry = await db.OrgDirectory.FirstOrDefaultAsync(d => d.OrgId == target, ct);
         if (entry is null)

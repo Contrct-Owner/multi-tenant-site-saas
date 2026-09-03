@@ -79,14 +79,7 @@ public static class ContactLinks
                 // Gate 1, both shapes: boolean feature switch + monthly meter
                 // (Grace absorbs the approximate live count, ADR 9).
                 if (!await entitlements.HasAsync(org, EntitlementCatalog.ContactLinksEnabled, ct))
-                    return Results.Json(
-                        new
-                        {
-                            error = "contact links are not part of this plan",
-                            code = EntitlementCatalog.ContactLinksEnabled,
-                        },
-                        statusCode: StatusCodes.Status402PaymentRequired
-                    );
+                    return GateResults.FeatureOff(EntitlementCatalog.ContactLinksEnabled);
                 var usage = await entitlements.RecordUsageAsync(
                     org,
                     EntitlementCatalog.ContactLinksMonthly,
@@ -94,16 +87,7 @@ public static class ContactLinks
                     ct
                 );
                 if (!usage.IsAllowed)
-                    return Results.Json(
-                        new
-                        {
-                            error = "monthly contact-link allowance exhausted",
-                            usage.Code,
-                            usage.Limit,
-                            usage.Current,
-                        },
-                        statusCode: StatusCodes.Status402PaymentRequired
-                    );
+                    return GateResults.LimitReached(usage);
 
                 // the CONTACT is the durable, revocable thing; the token is
                 // just a 30-minute key to it. Re-inviting a revoked contact
@@ -248,7 +232,7 @@ public static class ContactManagementEndpoints
     )
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.RolesManage, ct))
-            return Results.Unauthorized();
+            return new GateOutcome.Forbidden(Capabilities.RolesManage).ToResult();
         var contacts = await db
             .Contacts.OrderByDescending(c => c.CreatedAt)
             .Select(c => new
@@ -272,12 +256,10 @@ public static class ContactManagementEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current
-                is not Principal.User { ActiveOrg: { } org, UserId: var userId } principal
-            || !await scopes.CanAsync(principal, Capabilities.RolesManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.RolesManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
+        var userId = principal.UserId;
         var contact = await db.Contacts.FirstOrDefaultAsync(
             c => c.Id == id && c.RevokedAt == null,
             ct

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Auth;
 using Premise.Platform.Entitlements;
@@ -35,11 +36,9 @@ public static class SsoEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.OrgManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
         var entry = await db.OrgDirectory.FirstOrDefaultAsync(d => d.OrgId == org, ct);
         return Results.Ok(
             new SsoStatusResponse(
@@ -63,22 +62,13 @@ public static class SsoEndpoints
         CancellationToken ct
     )
     {
-        if (
-            accessor.Current is not Principal.User { ActiveOrg: { } org } principal
-            || !await scopes.CanAsync(principal, Capabilities.OrgManage, ct)
-        )
-            return Results.Unauthorized();
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.OrgManage, ct);
+        if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
+            return gate.ToResult();
         if (request.Intent is not ("sso" or "dsync"))
             return Results.BadRequest(new { error = "intent must be 'sso' or 'dsync'" });
         if (!await entitlements.HasAsync(org, EntitlementCatalog.SsoEnabled, ct))
-            return Results.Json(
-                new
-                {
-                    error = "single sign-on is not part of this plan",
-                    code = EntitlementCatalog.SsoEnabled,
-                },
-                statusCode: StatusCodes.Status402PaymentRequired
-            );
+            return GateResults.FeatureOff(EntitlementCatalog.SsoEnabled);
 
         var entry = await db.OrgDirectory.FirstOrDefaultAsync(d => d.OrgId == org, ct);
         if (provider is not IAdminPortal portal || entry?.ExternalId is not { } externalOrgId)
