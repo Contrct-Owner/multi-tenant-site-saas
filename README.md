@@ -79,6 +79,10 @@ Deploying a fork to production: [docs/production.md](docs/production.md) —
 topology, the database role split, the full configuration reference, and the
 guards that refuse to boot until dev-only adapters are replaced.
 
+Current engineering maturity and the prioritized path to production readiness:
+[software maturity review and forward roadmap](docs/software-maturity-review-details.md)
+(active; maintained by the project maintainers; last updated 2026-09-03).
+
 ## Layout
 
 ```
