@@ -132,6 +132,9 @@ don't restate them here.
 - Adding a public-app route: create the file, then `pnpm --filter public run
   routes` — `routeTree.gen.ts` is committed (so a fresh checkout typechecks)
   and goes stale otherwise; CI fails on drift, like `openapi.json`.
+- Browser + a11y suite (Docker, Playwright; the same script CI runs):
+  `tools/e2e-stack.sh` boots Postgres, migrate + api with the local provider,
+  the console dev server, then Playwright with an axe pass per page.
 - Frontend (web/): `pnpm install`, `pnpm typecheck`, `pnpm build`,
   `pnpm dev:console` (SPA, proxies to the API), `pnpm dev:public` (Start/SSR)
 - Contract codegen (ADR 16): run the integration tests (snapshots

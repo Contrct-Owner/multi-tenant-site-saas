@@ -260,7 +260,8 @@ function ApiVersion() {
     staleTime: Infinity,
   });
   if (!data?.version) return null;
-  return <span className="block truncate text-[10px] text-muted-foreground/70">{data.version}</span>;
+  // muted at full opacity and 12px: the 10px/70% version of this failed contrast on every page (axe)
+  return <span className="block truncate text-xs text-muted-foreground">{data.version}</span>;
 }
 
 function ImpersonationBanner({ orgName, expiresAt }: { orgName: string; expiresAt: string }) {

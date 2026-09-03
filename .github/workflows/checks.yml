@@ -169,9 +169,41 @@ jobs:
       - name: Smoke the three roles from the image
         run: tools/smoke-image.sh premise:ci
 
+  browser:
+    # The highest-value console flows in a real browser, with an axe pass on
+    # every page: sign-in by hint (the local provider, no credentials typed),
+    # the operator wall, keyboard navigation, creating and opening a site.
+    # tools/e2e-stack.sh boots Postgres, the migrate and api roles and the
+    # console dev server, the same way locally.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @premise/e2e exec playwright install --with-deps chromium
+      - name: Browser and accessibility suite
+        run: tools/e2e-stack.sh
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: web/tools/e2e/test-results/
+          if-no-files-found: ignore
+
   checks:
     # the one status branch protection requires
-    needs: [architecture, unit, integration, contract, frontend, image]
+    needs: [architecture, unit, integration, contract, frontend, image, browser]
     runs-on: ubuntu-latest
     steps:
       - run: echo "all checks green"

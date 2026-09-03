@@ -1,0 +1,13 @@
+{
+  "name": "@premise/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.58.0",
+    "typescript": "^7.0.2"
+  }
+}
