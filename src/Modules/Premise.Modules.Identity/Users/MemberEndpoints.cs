@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Identity.Data;
+using Premise.Modules.Identity.Users;
 using Premise.Platform.Auth;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
@@ -72,15 +73,7 @@ public static class MemberEndpoints
         // session still points at the org they left: reissue against the next
         // membership (or none - back to the day-zero screen)
         var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
-        var nextOrg = await db
-            .Memberships.Where(m => m.UserId == userId)
-            .OrderBy(m => m.CreatedAt)
-            // UUIDv7 tie-break: CreatedAt collides at Postgres microsecond
-            // resolution for memberships created together - without this the
-            // default org is a per-boot coin flip
-            .ThenBy(m => m.Id)
-            .Select(m => (OrgId?)m.OrgId)
-            .FirstOrDefaultAsync(ct);
+        var nextOrg = await db.DefaultOrgAsync(userId, ct);
         await http.SignInAsync(
             Microsoft
                 .AspNetCore

@@ -36,7 +36,7 @@ public sealed class RequestPrincipalAccessor(IHttpContextAccessor accessor) : IP
             if (
                 user.Identity?.IsAuthenticated == true
                 && user.FindFirst(PremiseClaims.Tier)?.Value == "contact"
-                && Guid.TryParse(user.FindFirst("premise:contact_id")?.Value, out var contactId)
+                && Guid.TryParse(user.FindFirst(PremiseClaims.ContactId)?.Value, out var contactId)
                 && Guid.TryParse(user.FindFirst(PremiseClaims.ActiveOrg)?.Value, out var contactOrg)
             )
             {

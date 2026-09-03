@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Premise.Contracts;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Identity.Data;
+using Premise.Modules.Identity.Users;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Wolverine;
@@ -101,14 +102,7 @@ public static class ImpersonationEndpoints
 
         // back to the operator's real default org, same rule as login
         var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
-        var homeOrg = await db
-            .Memberships.Where(m => m.UserId == userId)
-            .OrderBy(m => m.CreatedAt)
-            // UUIDv7 tie-break: CreatedAt collides at Postgres microsecond
-            // resolution for memberships created together
-            .ThenBy(m => m.Id)
-            .Select(m => (OrgId?)m.OrgId)
-            .FirstOrDefaultAsync(ct);
+        var homeOrg = await db.DefaultOrgAsync(userId, ct);
         await http.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             AuthEndpoints.BuildClaimsPrincipal(user, homeOrg, AuthEndpoints.GetSessionId(http.User))

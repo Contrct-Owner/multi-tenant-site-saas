@@ -9,4 +9,5 @@ public static class PremiseClaims
     public const string Tier = "premise:tier";
     public const string SessionId = "premise:session_id";
     public const string ImpersonationExpires = "premise:impersonation_expires";
+    public const string ContactId = "premise:contact_id";
 }

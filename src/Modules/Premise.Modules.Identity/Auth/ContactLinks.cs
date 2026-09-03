@@ -168,20 +168,12 @@ public static class ContactLinks
                 if (email is null)
                     return Results.BadRequest(new { error = "this link has been revoked" });
 
-                var claims = new List<Claim>
-                {
-                    new(PremiseClaims.Tier, "contact"),
-                    new("premise:contact_id", parts[0]),
-                    new(PremiseClaims.ActiveOrg, parts[1]),
-                    new(PremiseClaims.Email, email),
-                };
                 await http.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(
-                        new ClaimsIdentity(
-                            claims,
-                            CookieAuthenticationDefaults.AuthenticationScheme
-                        )
+                    AuthEndpoints.BuildContactClaimsPrincipal(
+                        Guid.Parse(parts[0]),
+                        new OrgId(Guid.Parse(parts[1])),
+                        email
                     )
                 );
                 // relative: through the public app's redeem proxy this is the
