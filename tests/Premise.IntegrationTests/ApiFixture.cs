@@ -176,16 +176,7 @@ public class ApiFixture : IAsyncLifetime
             foreach (var (org, ownerRole) in owners)
             {
                 seed.Roles.Add(ownerRole);
-                seed.RoleGrants.Add(
-                    new RoleGrant
-                    {
-                        Id = Guid.CreateVersion7(),
-                        OrgId = org,
-                        RoleId = ownerRole.Id,
-                        Domain = "*",
-                        Action = "*",
-                    }
-                );
+                seed.RoleGrants.Add(RoleGrant.Wildcard(ownerRole));
             }
             foreach (var (membership, isOwner) in memberships.Where(m => m.Item2))
                 seed.MembershipRoles.Add(
