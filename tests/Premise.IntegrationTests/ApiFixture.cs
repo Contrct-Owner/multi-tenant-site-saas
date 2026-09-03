@@ -51,7 +51,7 @@ public class ApiFixture : IAsyncLifetime
     public const string Operator = "operator@premise.local"; // member: platform org
     public OrgId PlatformOrg { get; } = OrgId.New();
 
-    private static Premise.Platform.Data.ModuleDbContext CreateCatalogContext(
+    internal static Premise.Platform.Data.ModuleDbContext CreateCatalogContext(
         Premise.Platform.Modules.ModuleDescriptor module,
         string connectionString
     )

@@ -44,8 +44,10 @@ migration files; always add a new one.
      refuses a removal and refuses a call to a frozen helper from any migration
      stamped after the freeze. ADR 48's removal broke a fork this way.
    - Platform-global tables (no org_id) are the exception - say so explicitly in
-     a migration comment AND add them to `RlsCoverageTests.PlatformGlobal`,
-     which is the assertion that would otherwise fail.
+     a migration comment AND declare them as `PlatformGlobal` on the module's
+     `ModuleCatalog` entry with a reason - `RlsCoverageTests` reads the
+     catalog and fails otherwise. It covers every `IOrgScoped` entity by its
+     mapped column, so `owner_org_id` is seen as well as `org_id`.
 4. **Column checklist:**
    - UUIDv7 keys, never sequences/identity for entity ids (ADR 35)
    - timestamptz for instants; document which temporal kind each column is (ADR 26)

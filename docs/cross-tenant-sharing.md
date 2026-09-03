@@ -60,8 +60,8 @@ just to announce something.
 Instead the owner publishes a **public projection** into a platform-global
 read model, and other orgs discover it by reading:
 
-1. A table with NO RLS, listed in `RlsCoverageTests.PlatformGlobal` with a
-   reason ("public projection of open requests; discovery only, holds
+1. A table with NO RLS, declared as `PlatformGlobal` on the module's
+   `ModuleCatalog` entry with a reason ("public projection of open requests; discovery only, holds
    nothing the owner keeps private").
 2. Fed by the owner's events - `RequestOpened` inserts, `RequestClosed`
    deletes - through a handler exactly like `OrgDirectorySync`.
@@ -176,8 +176,8 @@ writes itself.
       org holds, and give it its own `IOrgScoped` table.
 - [ ] Targeted or open? If targeted, `FanOutAsync` with the owner id as
       correlation, and an upsert keyed on it in the recipient handler. If
-      open, a platform-global projection carrying only public fields, in
-      the `PlatformGlobal` allowlist with a reason.
+      open, a platform-global projection carrying only public fields,
+      declared `PlatformGlobal` on the module's catalog entry with a reason.
 - [ ] Criteria? Snapshot or live - as an explicit field.
 - [ ] Every decision is a command on an owned object with a concurrency
       check. No policy clause encodes authority.
