@@ -98,8 +98,9 @@ contact links land in spam and that reads as "login is broken."
 
 | Key | Notes |
 |---|---|
-| `Storage:LocalRoot` | Local disk adapter — swap the `IObjectStore` registration in `Program.cs` to `S3ObjectStore` (`Storage:S3:*`) or `AzureBlobObjectStore` (`Storage:Azure:*`) for production; both are smoke-tested against MinIO/Azurite |
-| `Secrets:LocalMasterKey` | **Dev/test only — refuses to boot in Production.** Register a KMS adapter (`KmsKeyWrapper`, ADR 31) |
+| `Storage:Provider` | `s3` (`Storage:S3:BucketName`, optional `ServiceUrl`/`AccessKey`/`SecretKey`/`ForcePathStyle` for MinIO/R2) or `azure` (`Storage:Azure:ConnectionString`, `ContainerName`); both smoke-tested against MinIO/Azurite. `local` (`Storage:LocalRoot`) is **dev/test only — refuses to boot in Production**: tickets live in process memory and bytes on local disk |
+| `Scanner:Provider` | `clamav` (`Scanner:ClamAv:Host`, `Port` default 3310, `TimeoutSeconds` default 60; clamd with TCPSocket enabled) or a fork adapter behind `IVirusScanner`. `eicar` is **dev/test only — refuses to boot in Production**: it reads 128 KiB and knows one signature. A scanner that cannot answer keeps the object quarantined; it never reads as clean |
+| `Secrets:Provider` | `kms` (`Secrets:Kms:KeyId`, optional `ServiceUrl`/`AccessKey`/`SecretKey`; ADR 31, LocalStack-tested) or a fork adapter. `local` (`Secrets:LocalMasterKey`, the default when that key is set) is **dev/test only — refuses to boot in Production** |
 | `RateLimits:GuestPerMinute` / `RateLimits:UserPerMinute` | Defaults 60 / 300; per-org API quota comes from the entitlement |
 | `Impersonation:TtlSeconds` | Support-session length (default 3600) |
 | `Notifications:Sms` | `off` (default, and the only value allowed in Production without a fork adapter) or `local` (dev catcher). SMS is a SEAM: the template ships the port and an off transport, never a routing or consent policy |
@@ -110,8 +111,10 @@ contact links land in spam and that reads as "login is broken."
 ### Boot guards
 
 The image **refuses to start in Production** with any dev-only adapter
-still selected: local auth, local billing, local notifications, or the local
-key wrapper. Treat a failed boot here as the guard working, not a bug.
+still selected: local auth, local storage, the EICAR scanner, the local key
+wrapper, local billing, or local notifications - and with an unknown
+provider name in any environment. `ProductionBootGuardTests` proves each
+seam. Treat a failed boot here as the guard working, not a bug.
 
 ## Frontends and DNS
 
