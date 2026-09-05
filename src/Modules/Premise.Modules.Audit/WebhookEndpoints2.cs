@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Premise.Contracts;
@@ -15,6 +16,38 @@ namespace Premise.Modules.Audit;
 
 public sealed record CreateWebhookRequest(string Url, string[]? Events = null);
 
+public sealed record WebhookDeliverySummary(
+    string EventName,
+    bool Ok,
+    int? StatusCode,
+    DateTimeOffset OccurredAt
+);
+
+public sealed record WebhookResponse(
+    Guid Id,
+    string Url,
+    string[] Events,
+    bool Active,
+    DateTimeOffset CreatedAt,
+    WebhookDeliverySummary? LastDelivery
+);
+
+public sealed record WebhookSecretResponse(Guid Id, string Secret);
+
+public sealed record RotatedWebhookSecretResponse(
+    Guid Id,
+    string Secret,
+    DateTimeOffset? PreviousSecretExpiresAt
+);
+
+public sealed record WebhookDeliveryResponse(
+    string EventName,
+    int Attempt,
+    int? StatusCode,
+    bool Ok,
+    DateTimeOffset OccurredAt
+);
+
 /// <summary>
 /// Webhook custody (ADR 40): create shows the signing secret ONCE (verify
 /// with the same t=...,v1=HMAC scheme the template uses for inbound billing
@@ -25,6 +58,7 @@ public static class WebhookManagementEndpoints
 {
     [Transactional(typeof(AuditDbContext))]
     [WolverineGet("/api/webhooks")]
+    [ProducesResponseType(typeof(List<WebhookResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         AuditDbContext db,
         IPrincipalAccessor accessor,
@@ -62,6 +96,7 @@ public static class WebhookManagementEndpoints
 
     [Transactional(typeof(AuditDbContext))]
     [WolverinePost("/api/webhooks")]
+    [ProducesResponseType(typeof(WebhookSecretResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Create(
         CreateWebhookRequest request,
         AuditDbContext db,
@@ -126,7 +161,7 @@ public static class WebhookManagementEndpoints
         db.WebhookEndpoints.Add(endpoint);
         await db.SaveChangesAsync(ct);
         // the one and only time the signing secret leaves the server
-        return Results.Ok(new { endpoint.Id, secret });
+        return Results.Ok(new WebhookSecretResponse(endpoint.Id, secret));
     }
 
     /// <summary>
@@ -137,6 +172,7 @@ public static class WebhookManagementEndpoints
     /// </summary>
     [Transactional(typeof(AuditDbContext))]
     [WolverinePost("/api/webhooks/{id}/rotate-secret")]
+    [ProducesResponseType(typeof(RotatedWebhookSecretResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> RotateSecret(
         Guid id,
         AuditDbContext db,
@@ -169,17 +205,13 @@ public static class WebhookManagementEndpoints
         await db.SaveChangesAsync(ct);
         // the one and only time the new signing secret leaves the server
         return Results.Ok(
-            new
-            {
-                endpoint.Id,
-                secret,
-                previousSecretExpiresAt = endpoint.PreviousSecretExpiresAt,
-            }
+            new RotatedWebhookSecretResponse(endpoint.Id, secret, endpoint.PreviousSecretExpiresAt)
         );
     }
 
     [Transactional(typeof(AuditDbContext))]
     [WolverineDelete("/api/webhooks/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static async Task<IResult> Delete(
         Guid id,
         AuditDbContext db,
@@ -202,6 +234,7 @@ public static class WebhookManagementEndpoints
 
     [Transactional(typeof(AuditDbContext))]
     [WolverineGet("/api/webhooks/{id}/deliveries")]
+    [ProducesResponseType(typeof(List<WebhookDeliveryResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> Deliveries(
         Guid id,
         AuditDbContext db,
@@ -232,6 +265,7 @@ public static class WebhookManagementEndpoints
     /// <summary>A signed test delivery, so integrators can verify plumbing before real events.</summary>
     [Transactional(typeof(AuditDbContext))]
     [WolverinePost("/api/webhooks/{id}/ping")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public static async Task<IResult> Ping(
         Guid id,
         AuditDbContext db,

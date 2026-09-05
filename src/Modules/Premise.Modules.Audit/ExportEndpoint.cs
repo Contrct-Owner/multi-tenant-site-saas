@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Premise.Contracts;
 using Premise.Platform.Kernel;
 using Wolverine;
 using Wolverine.Http;
 
 namespace Premise.Modules.Audit;
+
+public sealed record AuditExportQueuedResponse(string Status, string Destination);
 
 /// <summary>
 /// Tenant-facing compliance export: the full trail (all four kinds, the whole
@@ -14,6 +17,7 @@ namespace Premise.Modules.Audit;
 public static class ExportEndpoint
 {
     [WolverinePost("/api/audit/export")]
+    [ProducesResponseType(typeof(AuditExportQueuedResponse), StatusCodes.Status202Accepted)]
     public static async Task<IResult> Export(
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -29,6 +33,6 @@ public static class ExportEndpoint
             new ExportAuditTrail(userId),
             new DeliveryOptions { TenantId = org.Value.ToString() }
         );
-        return Results.Accepted(value: new { status = "queued", destination = "files" });
+        return Results.Accepted(value: new AuditExportQueuedResponse("queued", "files"));
     }
 }

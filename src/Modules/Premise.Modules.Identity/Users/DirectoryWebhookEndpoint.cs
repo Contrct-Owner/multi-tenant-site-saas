@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Auth;
@@ -18,6 +19,7 @@ public static class DirectoryWebhookEndpoint
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverinePost("/auth/directory/webhook")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public static async Task<IResult> Receive(
         HttpContext http,
         IAuthProvider provider,

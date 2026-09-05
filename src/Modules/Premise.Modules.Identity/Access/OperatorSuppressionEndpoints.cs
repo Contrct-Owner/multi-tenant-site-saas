@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Identity.Data;
@@ -7,6 +8,13 @@ using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Identity.Access;
+
+public sealed record SuppressionResponse(
+    Guid Id,
+    string Email,
+    string Reason,
+    DateTimeOffset CreatedAt
+);
 
 /// <summary>
 /// The knob the product promises (maturity review, hole 3): contact-link
@@ -19,6 +27,7 @@ public static class OperatorSuppressionEndpoints
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverineGet("/api/operator/suppressions")]
+    [ProducesResponseType(typeof(List<SuppressionResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         IdentityDbContext db,
         IPrincipalAccessor accessor,
@@ -49,6 +58,7 @@ public static class OperatorSuppressionEndpoints
 
     [Transactional(typeof(IdentityDbContext))]
     [WolverineDelete("/api/operator/suppressions/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static async Task<IResult> Unsuppress(
         Guid id,
         IdentityDbContext db,
