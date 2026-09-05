@@ -6,21 +6,6 @@ import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { can, useMe } from '../session';
 
-type SsoStatus = { available: boolean; entitled: boolean };
-type AttributeDefinition = {
-  id: string; key: string; label: string; type: string; public: boolean;
-};
-
-type Billing = {
-  provider: string;
-  planId: string | null;
-  planName: string;
-  status: string | null;
-  currentPeriodEnd: string | null;
-  portalAvailable: boolean;
-  plans: { id: string; name: string; monthlyPriceUsd: number }[];
-};
-
 export function SettingsPage() {
   const { data: me } = useMe();
   const activeOrg =
@@ -39,33 +24,33 @@ export function SettingsPage() {
   });
   const { data: billing } = useQuery({
     queryKey: ['billing'],
-    queryFn: () => (api.get('/api/billing') as Promise<Billing>),
+    queryFn: ({ signal }) => api.get('/api/billing', { signal }),
   });
   const checkout = useApiMutation({
     mutationFn: (planId: string) =>
-      (api.post('/api/billing/checkout', { planId, returnPath: '/settings' }) as Promise<{ url: string }>),
+      api.post('/api/billing/checkout', { planId, returnPath: '/settings' }),
     onSuccess: ({ url }) => {
       location.href = url;
     },
   });
   const portal = useApiMutation({
-    mutationFn: () => (api.post('/api/billing/portal', { returnPath: '/settings' }) as Promise<{ url: string }>),
+    mutationFn: () => api.post('/api/billing/portal', { returnPath: '/settings' }),
     onSuccess: ({ url }) => {
       location.href = url;
     },
   });
   const { data: sso } = useQuery({
     queryKey: ['sso'],
-    queryFn: () => (api.get('/api/org/sso') as Promise<SsoStatus>),
+    queryFn: ({ signal }) => api.get('/api/org/sso', { signal }),
   });
   const { data: publicUrl } = useQuery({
     queryKey: ['public-url'],
-    queryFn: () => (api.get('/api/org/public-url') as Promise<{ url: string; embedSnippet: string }>),
+    queryFn: ({ signal }) => api.get('/api/org/public-url', { signal }),
   });
   const { data: closure } = useQuery({
     queryKey: ['closure'],
-    queryFn: () =>
-      (api.get('/api/org/closure') as Promise<{ requestedAt: string | null; purgesAt: string | null }>),
+    queryFn: ({ signal }) =>
+      api.get('/api/org/closure', { signal }),
   });
   const requestClose = useApiMutation({
     mutationFn: () => api.post('/api/org/close'),
@@ -79,7 +64,7 @@ export function SettingsPage() {
   });
   const ssoPortal = useApiMutation({
     mutationFn: (intent: 'sso' | 'dsync') =>
-      (api.post('/api/org/sso/portal', { intent, returnPath: '/settings' }) as Promise<{ url: string }>),
+      api.post('/api/org/sso/portal', { intent, returnPath: '/settings' }),
     onSuccess: ({ url }) => {
       location.href = url;
     },
@@ -283,7 +268,7 @@ function SiteAttributesCard() {
 
   const { data: definitions } = useQuery({
     queryKey: ['site-attributes'],
-    queryFn: () => (api.get('/api/sites/attributes') as Promise<AttributeDefinition[]>),
+    queryFn: ({ signal }) => api.get('/api/sites/attributes', { signal }),
   });
   const create = useApiMutation({
     mutationFn: () =>

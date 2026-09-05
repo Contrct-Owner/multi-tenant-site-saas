@@ -59,6 +59,7 @@ dotnet build Premise.slnx                       # build everything
 dotnet test tests/Premise.ArchitectureTests     # fast structural checks
 dotnet test tests/Premise.Platform.UnitTests    # pure logic
 dotnet test tests/Premise.IntegrationTests      # Testcontainers Postgres
+tools/scale-baseline.sh                         # optional sustained mixed-workload/bundle baseline
 cd web && pnpm install && pnpm typecheck        # frontends
 ```
 
@@ -81,7 +82,13 @@ guards that refuse to boot until dev-only adapters are replaced.
 
 Current engineering maturity and the prioritized path to production readiness:
 [software maturity review and forward roadmap](docs/software-maturity-review-details.md)
-(active; maintained by the project maintainers; last updated 2026-09-03).
+(follow-up remediation active; deployment readiness conditional; maintained by the project maintainers; last updated 2026-09-05).
+
+Public authentication failure behavior and verification:
+[public session recovery](docs/public-session-recovery.md).
+
+Checklist fleet navigation and failure behavior:
+[checklist site selection](docs/checklist-site-selection.md).
 
 ## Layout
 

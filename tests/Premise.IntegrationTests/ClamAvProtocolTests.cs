@@ -8,8 +8,8 @@ namespace Premise.IntegrationTests;
 /// The clamd INSTREAM wire format as pure logic (no daemon): framing and the
 /// verdict parse. Here rather than the unit project because unit projects
 /// may not reference integrations (UnitTestPurityTests); no fixture needed.
-/// The socket path is exercised only against a real clamd, which CI does not
-/// run - ClamAvScanner is under a hundred lines around these two functions.
+/// ClamAvScannerTests separately exercises the socket and quarantine pipeline
+/// against a real clamd container in the integration suite.
 /// </summary>
 public class ClamAvProtocolTests
 {

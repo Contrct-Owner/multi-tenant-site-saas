@@ -1,17 +1,14 @@
-import { api } from '@premise/api';
+import { api, ApiError } from '@premise/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
   Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useApiMutation } from '../lib/mutation';
 
-type Node = { id: string; parentId?: string; name: string; depth: number; path: string };
-type Hierarchy = { id: string; name: string; levels: string[]; nodes: Node[] };
-
 export function HierarchyPage() {
-  const { data, isError } = useQuery({
+  const { data, isPending, isError, error } = useQuery({
     queryKey: ['hierarchy'],
-    queryFn: () => (api.get('/api/hierarchy') as Promise<Hierarchy>),
+    queryFn: ({ signal }) => api.get('/api/hierarchy', { signal }),
     retry: false,
   });
   const [levels, setLevels] = useState('Region, Market');
@@ -53,7 +50,12 @@ export function HierarchyPage() {
     errorFallback: 'Delete failed',
   });
 
-  if (isError || !data) {
+  if (isPending)
+    return <p className="text-sm text-muted-foreground">Loading hierarchy…</p>;
+  if (isError && !(error instanceof ApiError && error.status === 404))
+    return <p className="text-sm text-destructive">Could not load hierarchy.</p>;
+
+  if (!data) {
     return (
       <div className="max-w-lg space-y-6">
         <h1 className="text-2xl font-semibold">Hierarchy</h1>
@@ -102,7 +104,7 @@ export function HierarchyPage() {
                 <option value="">Choose…</option>
                 {data.nodes.map((n) => (
                   <option key={n.id} value={n.id}>
-                    {' '.repeat(n.depth * 2)}{n.name}
+                    {' '.repeat(Number(n.depth) * 2)}{n.name}
                   </option>
                 ))}
               </Select>
@@ -120,12 +122,12 @@ export function HierarchyPage() {
           <ul className="space-y-1 text-sm">
             {data.nodes.map((n) => {
               const isLeaf =
-                !data.nodes.some((c) => c.parentId === n.id) && n.depth > 0;
+                !data.nodes.some((c) => c.parentId === n.id) && Number(n.depth) > 0;
               return (
                 <li
                   key={n.id}
                   className="group flex items-center gap-2"
-                  style={{ paddingLeft: `${n.depth * 1.25}rem` }}
+                  style={{ paddingLeft: `${Number(n.depth) * 1.25}rem` }}
                 >
                   {editingId === n.id ? (
                     <>
@@ -152,7 +154,7 @@ export function HierarchyPage() {
                   ) : (
                     <>
                       <span className="font-mono">
-                        {n.depth > 0 ? '└ ' : ''}{n.name}
+                        {Number(n.depth) > 0 ? '└ ' : ''}{n.name}
                       </span>
                       <span className="flex gap-1 opacity-50 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                         <Button

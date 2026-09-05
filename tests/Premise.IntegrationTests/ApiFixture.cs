@@ -325,6 +325,8 @@ public class ApiFixture : IAsyncLifetime
     /// <summary>Superuser connection for test ARRANGE steps (RLS does not gate the superuser).</summary>
     public string PostgresConnectionString => _postgres.GetConnectionString();
 
+    public Task StopDatabaseAsync() => _postgres.StopAsync();
+
     public async Task DeleteWindows(Guid siteId)
     {
         await using var db = CreateModuleContext<TenancyDbContext>(

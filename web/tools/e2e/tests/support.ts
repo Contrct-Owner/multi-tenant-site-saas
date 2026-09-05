@@ -9,7 +9,8 @@ export const nav = (page: Page): Locator => page.getByRole('navigation').first()
 
 /** Password-less sign-in: the local provider's code IS the hint (LocalAuthProvider). */
 export async function signIn(page: Page, email: string) {
-  await page.goto(`/auth/login?hint=${encodeURIComponent(email)}`);
+  const response = await page.goto(`/auth/login?hint=${encodeURIComponent(email)}`);
+  expect(response?.status() ?? 500, `Sign-in failed with HTTP ${response?.status()}`).toBeLessThan(400);
   await expect(nav(page).getByRole('link', { name: 'Dashboard' })).toBeVisible();
 }
 

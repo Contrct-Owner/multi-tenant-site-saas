@@ -6,35 +6,30 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
-import type { Page } from '../lib/paging';
 import { useMe } from '../session';
-
-type Member = { userId: string; email: string; name?: string; joinedAt: string; roles: string[] };
-type Role = { id: string; name: string };
-type Invitation = { id: string; email: string; state: string; expiresAt: string; role?: string };
-type Contact = { id: string; email: string; createdAt: string; revoked: boolean };
 
 export function MembersPage() {
   const { data: me } = useMe();
   const membersQuery = useInfiniteQuery({
     queryKey: ['members', 'list'],
-    queryFn: ({ pageParam }) =>
-      (api.get('/api/members', { query: { limit: 50, offset: pageParam } }) as Promise<Page<Member>>),
+    queryFn: ({ pageParam, signal }) =>
+      api.get('/api/members', { query: { limit: 50, offset: pageParam }, signal }),
     initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    getNextPageParam: (last) =>
+      last.nextOffset == null ? undefined : Number(last.nextOffset),
   });
   const members = membersQuery.data?.pages.flatMap((p) => p.items);
   const { data: roles } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => (api.get('/api/roles') as Promise<Role[]>),
+    queryFn: ({ signal }) => api.get('/api/roles', { signal }),
   });
   const { data: invitations } = useQuery({
     queryKey: ['invitations'],
-    queryFn: () => (api.get('/api/members/invitations') as Promise<Invitation[]>),
+    queryFn: ({ signal }) => api.get('/api/members/invitations', { signal }),
   });
   const { data: contacts } = useQuery({
     queryKey: ['contacts'],
-    queryFn: () => (api.get('/api/contacts') as Promise<Contact[]>),
+    queryFn: ({ signal }) => api.get('/api/contacts', { signal }),
   });
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState('');

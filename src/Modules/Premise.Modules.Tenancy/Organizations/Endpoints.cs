@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Kernel;
@@ -29,6 +30,7 @@ public static class SettingsEndpoints
             .ToListAsync(ct);
 
     [WolverineGet("/api/settings/{id}")]
+    [ProducesResponseType(typeof(SettingResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(Guid id, TenancyDbContext db, CancellationToken ct)
     {
         var setting = await db

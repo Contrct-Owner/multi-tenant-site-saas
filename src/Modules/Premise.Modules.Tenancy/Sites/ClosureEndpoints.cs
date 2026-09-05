@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
@@ -22,6 +23,7 @@ public static class ClosureEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/sites/{id}/closures")]
+    [ProducesResponseType(typeof(List<DateOnly>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         Guid id,
         TenancyDbContext db,
@@ -50,6 +52,7 @@ public static class ClosureEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/sites/{id}/closures")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static async Task<IResult> Add(
         Guid id,
         AddClosureRequest request,
@@ -88,6 +91,7 @@ public static class ClosureEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverineDelete("/api/sites/{id}/closures/{date}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static async Task<IResult> Remove(
         Guid id,
         string date,

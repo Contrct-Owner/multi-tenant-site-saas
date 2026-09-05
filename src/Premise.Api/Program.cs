@@ -1,17 +1,10 @@
-using System.Globalization;
 using System.Reflection;
-using System.Threading.RateLimiting;
 using JasperFx;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Premise.Api;
-using Premise.Integrations.WorkOS;
 using Premise.Modules.Audit;
 using Premise.Modules.Checklists;
 using Premise.Modules.Entitlements;
@@ -27,11 +20,11 @@ using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Premise.Platform.Notifications;
-using Premise.Platform.Secrets;
 using Premise.Platform.Storage;
 using Wolverine;
 using Wolverine.Http;
 using Wolverine.Postgresql;
+using static Premise.Api.ProviderOptionsValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,6 +74,21 @@ if (role != "migrate" && builder.Configuration["Database:AppUser"] is { Length: 
     }.ConnectionString;
 }
 
+// Independent EF, messaging, and direct-connection pools share one server budget.
+// Bound the default before registering any consumer; native connection-string
+// overrides remain authoritative for deployments with a different replica budget.
+if (builder.Configuration.GetConnectionString("premise") is { } databaseConnection)
+{
+    var settings = new Npgsql.NpgsqlConnectionStringBuilder(databaseConnection);
+    var explicitSettings = new System.Data.Common.DbConnectionStringBuilder
+    {
+        ConnectionString = settings.ConnectionString,
+    };
+    if (!explicitSettings.ContainsKey("Maximum Pool Size"))
+        settings.MaxPoolSize = Math.Max(20, settings.MinPoolSize);
+    builder.Configuration["ConnectionStrings:premise"] = settings.ConnectionString;
+}
+
 // Observability (ADR 33): OTLP only - the standard OTEL_EXPORTER_OTLP_*
 // env vars point it anywhere (the Aspire dashboard in dev, any collector in
 // prod). Tenant/site/actor ride traces and logs as baggage, NEVER metric
@@ -128,77 +136,7 @@ builder.Services.AddScoped<IScopeResolver, AuditedScopeResolver>();
 builder.Services.AddSingleton<AuditPolicyCache>();
 builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
 
-// Auth seam (ADR 14): provider selected by config; WorkOS is the built-in
-// full-capability implementation, local is the dev/test base implementation.
-var authProvider = builder.Configuration["Auth:Provider"] ?? "local";
-switch (authProvider)
-{
-    case "workos":
-        builder.Services.Configure<WorkOSOptions>(builder.Configuration.GetSection("Auth:WorkOS"));
-        builder.Services.AddSingleton<IAuthProvider, WorkOSAuthProvider>();
-        break;
-    case "local" when !builder.Environment.IsProduction():
-        builder.Services.AddSingleton<IAuthProvider, LocalAuthProvider>();
-        break;
-    default:
-        throw new InvalidOperationException(
-            $"Auth:Provider '{authProvider}' is not valid for {builder.Environment.EnvironmentName}. "
-                + "Use 'workos' in Production; 'local' is dev/test only (ADR 14)."
-        );
-}
-
-// Data protection (security review): the keyring protects auth-ticket
-// cookies AND contact magic-link tokens. The framework default is a
-// per-process filesystem keyring, unencrypted - which means (a) across
-// REPLICAS a cookie/token minted by one instance cannot be read by
-// another (broken sessions and dead magic links behind a load balancer),
-// and (b) keys vanish on a fresh container. A shared, protected store is
-// therefore REQUIRED in any multi-replica deployment.
-//
-// The application name is pinned so a shared ring is unambiguous; the
-// persistence directory (a mounted volume or network path all replicas
-// share) is config-driven, and Production REFUSES to boot on the
-// ephemeral default rather than silently breaking sessions after the
-// first scale-out. Forks on a cloud should point this at a blob/secret
-// store and wrap it with their KMS (see docs/production.md).
-var dataProtection = builder.Services.AddDataProtection().SetApplicationName("premise");
-if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
-else if (builder.Environment.IsProduction() && role != "migrate")
-    throw new InvalidOperationException(
-        "DataProtection:KeyPath is required in Production (a store all replicas share); "
-            + "the default per-process keyring breaks sessions and magic links after scale-out."
-    );
-
-// Cookie session (ADR 21): HttpOnly, no token ever reachable from JS.
-builder
-    .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.Cookie.Name = "premise_session";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        // Production is a hard floor: Always, so a fork that forgets to
-        // trust its proxy's X-Forwarded-Proto gets broken logins (loud)
-        // instead of session cookies over plain HTTP (silent). Elsewhere
-        // SameAsRequest keeps http://localhost working.
-        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
-            ? CookieSecurePolicy.Always
-            : CookieSecurePolicy.SameAsRequest;
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(12);
-        // API, not a browser app: never redirect to a login page.
-        options.Events.OnRedirectToLogin = ctx =>
-        {
-            ctx.Response.StatusCode = 401;
-            return Task.CompletedTask;
-        };
-        options.Events.OnRedirectToAccessDenied = ctx =>
-        {
-            ctx.Response.StatusCode = 403;
-            return Task.CompletedTask;
-        };
-    });
+builder.AddAuthenticationHosting(role);
 
 builder.Services.AddTenancyModule(runBackgroundWork: role == "worker");
 builder.Services.AddIdentityModule();
@@ -214,105 +152,37 @@ builder.Services.AddModuleDbContext<PlatformDbContext>("platform", audited: fals
 if (role == "worker")
     builder.Services.AddHostedService<IdempotencyCleanupService>();
 
-// Object storage (ADR 19): selected by config like every other seam. The
-// local adapter keeps tickets in process memory and bytes on local disk -
-// dev/test only, and it is what the maturity review found registered
-// unconditionally while the production guide claimed a guard. Both cloud
-// adapters are smoke-tested against MinIO/Azurite in the integration suite.
-var storageProvider = builder.Configuration["Storage:Provider"] ?? "local";
-switch (storageProvider)
-{
-    case "s3":
-        builder.Services.Configure<Premise.Integrations.AmazonS3.S3Options>(
-            builder.Configuration.GetSection("Storage:S3")
-        );
-        builder.Services.AddSingleton<IObjectStore, Premise.Integrations.AmazonS3.S3ObjectStore>();
-        break;
-    case "azure":
-        builder.Services.Configure<Premise.Integrations.AzureBlob.AzureBlobOptions>(
-            builder.Configuration.GetSection("Storage:Azure")
-        );
-        builder.Services.AddSingleton<
-            IObjectStore,
-            Premise.Integrations.AzureBlob.AzureBlobObjectStore
-        >();
-        break;
-    case "local" when !builder.Environment.IsProduction():
-        builder.Services.AddSingleton<IObjectStore, LocalObjectStore>();
-        break;
-    default:
-        throw new InvalidOperationException(
-            $"Storage:Provider '{storageProvider}' is not valid for {builder.Environment.EnvironmentName}. "
-                + "Use 's3' or 'azure' in Production; 'local' is dev/test only (ADR 19)."
-        );
-}
-
-// Malware scanning (ADR 19: quarantine + scan before visibility). The EICAR
-// scanner reads 128 KiB and knows one signature - dev/test only. clamd is
-// the built-in production scanner; a fork with a commercial one implements
-// IVirusScanner behind the same port and adds a case here.
-var scannerProvider = builder.Configuration["Scanner:Provider"] ?? "eicar";
-switch (scannerProvider)
-{
-    case "clamav":
-        builder.Services.Configure<Premise.Integrations.ClamAV.ClamAvOptions>(
-            builder.Configuration.GetSection("Scanner:ClamAv")
-        );
-        builder.Services.AddSingleton<IVirusScanner, Premise.Integrations.ClamAV.ClamAvScanner>();
-        break;
-    case "eicar" when !builder.Environment.IsProduction():
-        builder.Services.AddSingleton<IVirusScanner, EicarScanner>();
-        break;
-    default:
-        throw new InvalidOperationException(
-            $"Scanner:Provider '{scannerProvider}' is not valid for {builder.Environment.EnvironmentName}. "
-                + "Use 'clamav' or a fork adapter in Production; 'eicar' is dev/test only (ADR 19)."
-        );
-}
-
-// Secrets (ADR 31): the local wrapper is DEV/TEST ONLY. Before this switch
-// the KMS adapter had no registration path at all - a Production boot with
-// the documented configuration registered no IKeyWrapper and failed on the
-// first secret. Secrets:Provider defaults to 'local' when a local master key
-// is configured (the existing dev/test shape) and to 'kms' otherwise.
-var secretsProvider =
-    builder.Configuration["Secrets:Provider"]
-    ?? (builder.Configuration["Secrets:LocalMasterKey"] is null ? "kms" : "local");
-switch (secretsProvider)
-{
-    case "kms":
-        builder.Services.Configure<Premise.Integrations.AmazonS3.KmsOptions>(
-            builder.Configuration.GetSection("Secrets:Kms")
-        );
-        builder.Services.AddSingleton<IKeyWrapper, Premise.Integrations.AmazonS3.KmsKeyWrapper>();
-        break;
-    case "local" when !builder.Environment.IsProduction():
-        builder.Services.AddSingleton<IKeyWrapper>(
-            new LocalKeyWrapper(
-                Convert.FromBase64String(
-                    builder.Configuration["Secrets:LocalMasterKey"]
-                        ?? throw new InvalidOperationException(
-                            "Secrets:Provider 'local' needs Secrets:LocalMasterKey (base64, 32 bytes)."
-                        )
-                )
-            )
-        );
-        break;
-    default:
-        throw new InvalidOperationException(
-            $"Secrets:Provider '{secretsProvider}' is not valid for {builder.Environment.EnvironmentName}. "
-                + "Use 'kms' or a fork adapter in Production; 'local' is dev/test only (ADR 31)."
-        );
-}
+var storageProvider = builder.AddStorageHosting();
 
 // Billing (ADR 39): local provider is DEV/TEST ONLY - Production must boot a
 // real one (StripeBillingProvider in Premise.Integrations.Stripe, or a fork's).
 switch (builder.Configuration["Billing:Provider"] ?? "local")
 {
     case "stripe":
-        builder.Services.Configure<Premise.Integrations.Stripe.StripeOptions>(
-            builder.Configuration.GetSection("Billing:Stripe")
-        );
+        builder
+            .Services.AddOptions<Premise.Integrations.Stripe.StripeOptions>()
+            .Bind(builder.Configuration.GetSection("Billing:Stripe"))
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.ApiKey),
+                "Billing:Stripe:ApiKey is required."
+            )
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.WebhookSecret),
+                "Billing:Stripe:WebhookSecret is required."
+            )
+            .Validate(
+                o => IsHttpUrl(o.ApiBase),
+                "Billing:Stripe:ApiBase must be an absolute HTTP(S) URL."
+            )
+            .Validate(
+                o =>
+                    Premise.Platform.Billing.PlanCatalog.Plans.All(plan =>
+                        o.PriceIds.TryGetValue(plan.Id, out var priceId)
+                        && !string.IsNullOrWhiteSpace(priceId)
+                    ),
+                "Billing:Stripe:PriceIds must contain every PlanCatalog plan."
+            )
+            .ValidateOnStart();
         builder.Services.AddSingleton<
             Premise.Platform.Billing.IBillingProvider,
             Premise.Integrations.Stripe.StripeBillingProvider
@@ -359,9 +229,29 @@ switch (builder.Configuration["Notifications:Sms"] ?? "off")
 switch (builder.Configuration["Notifications:Transport"] ?? "local")
 {
     case "smtp":
-        builder.Services.Configure<Premise.Integrations.Smtp.SmtpOptions>(
-            builder.Configuration.GetSection("Notifications:Smtp")
-        );
+        builder
+            .Services.AddOptions<Premise.Integrations.Smtp.SmtpOptions>()
+            .Bind(builder.Configuration.GetSection("Notifications:Smtp"))
+            .Validate(
+                o => !string.IsNullOrWhiteSpace(o.Host),
+                "Notifications:Smtp:Host is required."
+            )
+            .Validate(
+                o => o.Port is >= 1 and <= 65535,
+                "Notifications:Smtp:Port must be between 1 and 65535."
+            )
+            .Validate(
+                o =>
+                    MimeKit.MailboxAddress.TryParse(o.FromAddress, out var address)
+                    && address.Address.Contains('@')
+                    && address.Address == o.FromAddress,
+                "Notifications:Smtp:FromAddress must be a valid email address."
+            )
+            .Validate(
+                o => CredentialsMatch(o.UserName, o.Password),
+                "Notifications:Smtp:UserName and Password must be configured together."
+            )
+            .ValidateOnStart();
         builder.Services.AddSingleton<Premise.Integrations.Smtp.SmtpNotificationTransport>();
         builder.Services.AddSingleton<
             INotificationTransport,
@@ -381,95 +271,7 @@ switch (builder.Configuration["Notifications:Transport"] ?? "local")
         );
 }
 
-// Rate limiting (ADR 30): partitioned by principal tier. Guests limit on
-// their session cookie (fallback: IP), users on user id. The per-org quota
-// reading metered entitlements attaches in step 4.
-var guestLimit = builder.Configuration.GetValue("RateLimits:GuestPerMinute", 60);
-var userLimit = builder.Configuration.GetValue("RateLimits:UserPerMinute", 300);
-builder.Services.AddSingleton<OrgRateLimitCache>();
-builder.Services.AddRateLimiter(limiter =>
-{
-    limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    // consumers deserve to know when to come back: fixed one-minute windows,
-    // so the limiter's own retry hint (when present) or the window size
-    limiter.OnRejected = (context, _) =>
-    {
-        var seconds = context.Lease.TryGetMetadata(
-            System.Threading.RateLimiting.MetadataName.RetryAfter,
-            out var retryAfter
-        )
-            ? Math.Max(1, (int)retryAfter.TotalSeconds)
-            : 60;
-        context.HttpContext.Response.Headers.RetryAfter = seconds.ToString();
-        return ValueTask.CompletedTask;
-    };
-    limiter.GlobalLimiter = PartitionedRateLimiter.CreateChained(
-        // ADR 30: org-level quota from the metered entitlement, over the per-principal limiter
-        PartitionedRateLimiter.Create<HttpContext, string>(http =>
-        {
-            // ONE resolver for "who is this request": the same Principal the
-            // endpoints see. This lambda used to re-parse claims and Items
-            // itself, and the two readings drifted - API keys fell into the
-            // per-IP guest bucket and skipped the org quota entirely.
-            var principal = http.RequestServices.GetRequiredService<IPrincipalAccessor>().Current;
-            OrgId? org = principal switch
-            {
-                Principal.User { ActiveOrg: { } active } => active,
-                Principal.Service service => service.Org,
-                Principal.Contact contact => contact.Org,
-                _ => null,
-            };
-            if (org is { } quotaOrg)
-            {
-                var orgGuid = quotaOrg.Value;
-                var orgLimit = http
-                    .RequestServices.GetRequiredService<OrgRateLimitCache>()
-                    .LimitFor(quotaOrg);
-                // the limit is part of the KEY: partition limiters are
-                // created once and cached, so a quota change must roll to a
-                // fresh partition or a hot org keeps its old limit forever
-                // (found by the load baseline)
-                return RateLimitPartition.GetFixedWindowLimiter(
-                    $"org:{orgGuid}:{orgLimit}",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = orgLimit,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                    }
-                );
-            }
-            return RateLimitPartition.GetNoLimiter("org:none");
-        }),
-        PartitionedRateLimiter.Create<HttpContext, string>(http =>
-        {
-            var (key, permits) = http
-                .RequestServices.GetRequiredService<IPrincipalAccessor>()
-                .Current switch
-            {
-                // an API key is a first-class principal (ADR 40): its own
-                // bucket at the USER limit, never the per-IP guest bucket
-                Principal.Service service => ($"key:{service.KeyId}", userLimit),
-                Principal.User user => ($"user:{user.UserId}", userLimit),
-                _ => http.Request.Cookies.TryGetValue(
-                    GuestSessionMiddleware.CookieName,
-                    out var guest
-                )
-                    ? ($"guest:{guest}", guestLimit)
-                    : ($"ip:{http.Connection.RemoteIpAddress}", guestLimit),
-            };
-            return RateLimitPartition.GetFixedWindowLimiter(
-                key,
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = permits,
-                    Window = TimeSpan.FromMinutes(1),
-                    QueueLimit = 0,
-                }
-            );
-        })
-    );
-});
+builder.AddRequestPolicies();
 
 // Wolverine (ADR 23): mediation + messaging + durable Postgres outbox.
 builder.UseWolverine(opts =>
@@ -504,7 +306,11 @@ if (role == "migrate")
     builder.Services.AddHostedService<MigrationRunner>(); // migrate, provision app role, exit
 
 var bootstraps = builder.Environment.IsDevelopment() && role == "api";
-builder.Services.AddSingleton(new ReadinessState(ready: !bootstraps));
+builder.Services.AddSingleton(sp => new ReadinessState(
+    ready: !bootstraps,
+    sp.GetRequiredService<IRegionDataSources>(),
+    sp.GetRequiredService<Wolverine.Runtime.IWolverineRuntime>()
+));
 if (bootstraps)
     builder.Services.AddHostedService<DevBootstrap>(); // seed for `aspire run` (migrations: the migrate role)
 
@@ -512,38 +318,7 @@ var app = builder.Build();
 
 if (role == "api")
 {
-    // Behind the documented TLS-terminating proxy the request arrives as
-    // HTTP: without this, cookies lose the Secure flag and every URL built
-    // from Request.Scheme/Host (billing returns, SSO portal returns) comes
-    // out http://. Opt-in because trusting these headers from an UNKNOWN
-    // peer lets clients spoof scheme/host/ip - only enable it when the
-    // immediate proxy strips inbound X-Forwarded-* (reverse proxies do).
-    if (builder.Configuration.GetValue("Proxy:TrustForwardedHeaders", false))
-    {
-        var forwarded = new ForwardedHeadersOptions
-        {
-            ForwardedHeaders =
-                ForwardedHeaders.XForwardedFor
-                | ForwardedHeaders.XForwardedProto
-                | ForwardedHeaders.XForwardedHost,
-        };
-        forwarded.KnownIPNetworks.Clear(); // trust the immediate peer: the proxy
-        forwarded.KnownProxies.Clear();
-        app.UseForwardedHeaders(forwarded);
-    }
-    app.UseMiddleware<UnhandledErrorMiddleware>();
-    app.UseMiddleware<SecurityHeadersMiddleware>();
-    app.UseMiddleware<PublicCacheMiddleware>();
-    app.UseAuthentication();
-    app.UseMiddleware<SessionValidationMiddleware>();
-    app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
-    app.UseMiddleware<CsrfOriginMiddleware>();
-    app.UseMiddleware<GuestSessionMiddleware>();
-    app.UseMiddleware<GuestOrgMiddleware>();
-    app.UseRateLimiter();
-    app.UseMiddleware<SuspensionMiddleware>();
-    app.UseMiddleware<IdempotencyMiddleware>();
-    app.UseMiddleware<AccessLogMiddleware>();
+    app.UseRequestPolicies();
     if (storageProvider == "local")
         app.MapLocalObjectStore(); // the in-process ticket endpoints exist only for the local adapter
 
@@ -635,27 +410,23 @@ app.MapGet(
     )
     .ExcludeFromDescription();
 app.MapGet(
-    "/healthz",
-    (ReadinessState readiness) =>
-        readiness.Ready
-            ? Results.Ok(
-                new
-                {
-                    status = "ok",
-                    role,
-                    version = buildVersion,
-                }
-            )
-            : Results.Json(
-                new
-                {
-                    status = "starting",
-                    role,
-                    version = buildVersion,
-                },
-                statusCode: StatusCodes.Status503ServiceUnavailable
-            )
-); // described: it is in the published contract snapshot; /livez is a probe only
+        "/healthz",
+        async (ReadinessState readiness, CancellationToken ct) =>
+        {
+            var ready = await readiness.DependenciesReadyAsync(role, ct);
+            return ready
+                ? Results.Ok(new HealthResponse("ok", role, buildVersion))
+                : Results.Json(
+                    new HealthResponse(
+                        readiness.Ready ? "unhealthy" : "starting",
+                        role,
+                        buildVersion
+                    ),
+                    statusCode: StatusCodes.Status503ServiceUnavailable
+                );
+        }
+    )
+    .Produces<HealthResponse>(); // described: it is in the published contract snapshot; /livez is a probe only
 
 // JasperFx command line only when a command is given (design-debt close):
 // `-- codegen write` really writes the generated handler code, so CI
@@ -673,3 +444,5 @@ app.Run();
 
 // Exposed for WebApplicationFactory in the integration/isolation suites.
 public partial class Program;
+
+public sealed record HealthResponse(string Status, string Role, string Version);

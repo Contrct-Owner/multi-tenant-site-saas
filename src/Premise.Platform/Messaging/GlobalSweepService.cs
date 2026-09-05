@@ -32,7 +32,13 @@ public abstract class GlobalSweepService<TMessage>(IServiceProvider services) : 
             {
                 await using var scope = services.CreateAsyncScope();
                 var lease = scope.ServiceProvider.GetRequiredService<ISweepLease>();
-                if (!await lease.TryClaimAsync(typeof(TMessage).Name, Interval, stoppingToken))
+                if (
+                    !await lease.TryClaimAsync(
+                        SweepIdentity.For<TMessage>(),
+                        Interval,
+                        stoppingToken
+                    )
+                )
                     continue; // another replica owns this period
                 await scope
                     .ServiceProvider.GetRequiredService<IMessageBus>()

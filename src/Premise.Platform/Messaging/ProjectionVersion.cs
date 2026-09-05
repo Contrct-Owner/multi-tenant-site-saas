@@ -12,5 +12,5 @@ namespace Premise.Platform.Messaging;
 public static class ProjectionVersion
 {
     public static bool IsNewer(long incoming, long applied) =>
-        unchecked((int)((uint)incoming - (uint)applied)) > 0;
+        incoming != 0 && (applied == 0 || unchecked((int)((uint)incoming - (uint)applied)) > 0);
 }

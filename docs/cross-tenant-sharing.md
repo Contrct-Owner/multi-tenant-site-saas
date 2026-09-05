@@ -152,6 +152,11 @@ applies an event only when `ProjectionVersion.IsNewer(incoming, applied)`
 - under the lock, so the compare and the write are one step. Equal is
 stale too: that is the redelivery. The compare is modular, the way
 PostgreSQL compares transaction ids, so a wrapped `xmin` still orders.
+Incoming zero is always invalid, including for a missing row. A stored zero is
+the migration sentinel for an unsynchronized projection and accepts any nonzero
+first version. After synchronization, modular ordering assumes versions are less
+than `2^31` transactions apart. Unit and real-handler tests cover these boundaries,
+wraparound, stale/duplicate events, and concurrent delivery.
 Three rules, then, for every projection handler: take the lock, upsert on
 the key, apply only a newer version. `org_directory` does all three.
 
@@ -186,6 +191,15 @@ static bool Apply(Request row, VendorResponded m) => m.Step switch
 Terminal and branching steps (declined, cancelled) are not on the ladder:
 gate them on the exact state they leave from. `FanOutOrderingTests` in the
 unit project carries this as a worked example.
+
+That example is not a shipped Request workflow and does not prove a fork's
+handler behavior. The template's production-path evidence is
+`OrgDirectoryVersionTests` (real transactional ordering, redelivery, and
+concurrency), integration `FanOutTests` (tenant-routed outbox delivery), and
+`StorageTests.Idempotency_key_replays_and_conflicts` (HTTP idempotency). A new
+domain workflow still needs its own real-handler ordering and duplicate-delivery
+checks; a stable fan-out deduplication key alone does not supply that guarantee
+on the PostgreSQL transport.
 
 ## Entitlements
 

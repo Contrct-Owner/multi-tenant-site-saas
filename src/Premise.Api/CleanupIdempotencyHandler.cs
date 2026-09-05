@@ -16,8 +16,14 @@ public static class CleanupIdempotencyHandler
         CancellationToken ct
     )
     {
-        var expired = DateTimeOffset.UtcNow.AddHours(-24);
-        await db.IdempotencyRecords.Where(r => r.CreatedAt < expired).ExecuteDeleteAsync(ct);
+        if (db.Tenant.OrgId is not null)
+            throw new InvalidOperationException("Global cleanup must not carry a tenant");
+        // Deliberately no EF tenant filter or SQL WHERE: expired_cleanup is the
+        // RLS DELETE predicate. A WHERE on created_at also requires SELECT RLS,
+        // which correctly hides all tenant rows from this tenantless job.
+        // Reject tenant context above so the ordinary tenant policy cannot also
+        // authorize deletion of that tenant's unexpired records.
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM platform.idempotency_keys", ct);
         var stale = DateTimeOffset.UtcNow.AddDays(-30);
         await db.SweepRuns.Where(r => r.Period < stale).ExecuteDeleteAsync(ct);
     }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
@@ -11,11 +12,21 @@ using Wolverine.Http;
 
 namespace Premise.Modules.Tenancy.Organizations;
 
+public sealed record OperatedOrgResponse(
+    Guid Id,
+    string Name,
+    string Slug,
+    string Status,
+    bool IsPlatform,
+    DateTimeOffset CreatedAt
+);
+
 /// <summary>Org lifecycle, operator custody: the back half the entities always modeled.</summary>
 public static class OperatorOrgEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverineGet("/api/operator/orgs")]
+    [ProducesResponseType(typeof(List<OperatedOrgResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
@@ -43,6 +54,7 @@ public static class OperatorOrgEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/operator/orgs/{orgId}/suspend")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static Task<IResult> Suspend(
         Guid orgId,
         TenancyDbContext db,
@@ -64,6 +76,7 @@ public static class OperatorOrgEndpoints
 
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/operator/orgs/{orgId}/reactivate")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static Task<IResult> Reactivate(
         Guid orgId,
         TenancyDbContext db,

@@ -2,7 +2,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Premise.Api;
+using Premise.Modules.Audit;
+using Premise.Modules.Entitlements;
+using Premise.Modules.Tenancy.Organizations;
 using Premise.Platform.Infra;
+using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Wolverine;
 
@@ -68,10 +72,11 @@ public class SweepLeaseTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         string[] sweeps =
         [
-            "PurgeAuditData",
-            "CompactMeters",
-            "ProcessOrgClosure",
-            "CleanupIdempotency",
+            SweepIdentity.For<PurgeAuditData>(),
+            SweepIdentity.For<MaintainAuditPartitions>(),
+            SweepIdentity.For<CompactMeters>(),
+            SweepIdentity.For<ProcessOrgClosure>(),
+            SweepIdentity.For<CleanupIdempotency>(),
         ];
         await ApiFixture.WaitUntilAsync(
             async () =>
@@ -86,6 +91,18 @@ public class SweepLeaseTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await using var check = Platform();
         foreach (var sweep in sweeps)
             Assert.Equal(1, await check.SweepRuns.CountAsync(r => r.Sweep == sweep));
+        await ApiFixture.WaitUntilAsync(
+            async () =>
+            {
+                await using var db = Platform();
+                return await db
+                        .Database.SqlQueryRaw<long>(
+                            "SELECT count(*) AS \"Value\" FROM wolverine.wolverine_incoming_envelopes WHERE message_type = 'Premise.Modules.Audit.MaintainAuditPartitions' AND status = 'Handled'"
+                        )
+                        .SingleAsync() == 1;
+            },
+            "one durable global audit maintenance message to complete across two workers"
+        );
     }
 
     [Fact]
@@ -95,6 +112,18 @@ public class SweepLeaseTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         // void (CLAUDE.md); this proves the idempotency cleanup found its home
         await using (var seed = Platform())
         {
+            foreach (var org in new[] { fixture.OrgA, fixture.OrgB })
+            foreach (var expired in new[] { false, true })
+                seed.IdempotencyRecords.Add(
+                    new IdempotencyRecord
+                    {
+                        OrgId = org,
+                        Key = expired ? "cleanup-expired" : "cleanup-fresh",
+                        Endpoint = "test",
+                        RequestHash = "test",
+                        CreatedAt = DateTimeOffset.UtcNow.AddHours(expired ? -25 : -1),
+                    }
+                );
             seed.SweepRuns.Add(
                 new SweepRun
                 {
@@ -113,5 +142,26 @@ public class SweepLeaseTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         await using var db = Platform();
         Assert.False(await db.SweepRuns.AnyAsync(r => r.Sweep == "ancient-probe"));
+        var rows = await db
+            .IdempotencyRecords.IgnoreQueryFilters()
+            .Where(r => r.Key.StartsWith("cleanup-"))
+            .ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row => Assert.Equal("cleanup-fresh", row.Key));
+        Assert.Contains(rows, row => row.OrgId == fixture.OrgA);
+        Assert.Contains(rows, row => row.OrgId == fixture.OrgB);
+    }
+
+    [Fact]
+    public async Task Global_cleanup_refuses_tenant_context()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        scope
+            .ServiceProvider.GetRequiredService<TenantContext>()
+            .Set(fixture.OrgA, RegionId.Default);
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CleanupIdempotencyHandler.Handle(new CleanupIdempotency(), db, default)
+        );
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
@@ -13,6 +14,8 @@ namespace Premise.Modules.Tenancy.Organizations;
 
 public sealed record CreateOrgRequest(string Name, string Slug);
 
+public sealed record OrgCreatedResponse(Guid OrgId, string Slug);
+
 /// <summary>
 /// Day-zero onboarding (the tenant-lifecycle front half): any authenticated
 /// user may create an org. The provider directory capability (WorkOS) gets
@@ -23,6 +26,7 @@ public static class OnboardingEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePost("/api/orgs")]
+    [ProducesResponseType(typeof(OrgCreatedResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Create(
         CreateOrgRequest request,
         TenancyDbContext db,
@@ -88,7 +92,7 @@ public static class OnboardingEndpoints
             "org.created",
             new { org.Name, org.Slug }
         );
-        return Results.Ok(new { orgId = org.Id.Value, org.Slug });
+        return Results.Ok(new OrgCreatedResponse(org.Id.Value, org.Slug));
     }
 }
 
@@ -99,6 +103,7 @@ public static class OrgSettingsEndpoints
     /// <summary>Rename the active org: local truth, read models, and the provider directory all learn.</summary>
     [Transactional(typeof(TenancyDbContext))]
     [WolverinePut("/api/org")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public static async Task<IResult> Rename(
         RenameOrgRequest request,
         TenancyDbContext db,

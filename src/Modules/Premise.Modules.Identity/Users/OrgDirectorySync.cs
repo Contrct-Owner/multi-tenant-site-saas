@@ -21,7 +21,7 @@ public static class OrganizationUpsertedHandler
         var entry = await db.OrgDirectory.FirstOrDefaultAsync(d => d.OrgId == evt.OrgId, ct);
         // the lock stops two copies interleaving; the version stops an OLDER
         // event, delivered late or redelivered, overwriting a newer row
-        if (entry is not null && !ProjectionVersion.IsNewer(evt.SourceVersion, entry.SourceVersion))
+        if (!ProjectionVersion.IsNewer(evt.SourceVersion, entry?.SourceVersion ?? 0))
             return;
         if (entry is null)
         {

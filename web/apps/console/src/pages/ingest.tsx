@@ -1,4 +1,4 @@
-import { api } from '@premise/api';
+import { api, type components } from '@premise/api';
 import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHeader,
   CardTitle, ConfirmButton, FormDialog, Input, Label,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
@@ -8,18 +8,7 @@ import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
 
-type Counts = { create: number; update: number; close: number; unchanged: number; invalid: number };
-type Batch = { id: string; source: string; status: string; counts: Counts; createdAt: string };
-type Connector = {
-  id: string; name: string; type: string; url: string;
-  createdAt: string; lastSyncedAt: string | null; syncIntervalHours: number | null;
-};
-type Preview = {
-  id: string;
-  status: string;
-  counts: Counts;
-  rows: { externalId: string; name: string; nodePath: string; action: string; errors: string[]; changes: string[] }[];
-};
+type Connector = components['schemas']['ConnectorResponse'];
 
 export function IngestPage() {
   const queryClient = useQueryClient();
@@ -31,7 +20,7 @@ export function IngestPage() {
     mutationFn: async (file: File) => {
       const fileId = await uploadFile(file, 'text/csv', setPhase);
       setPhase('Computing diff…');
-      const staged = await (api.post('/api/ingest/uploads', { fileId }) as Promise<{ batchId: string }>);
+      const staged = await api.post('/api/ingest/uploads', { fileId });
       return staged.batchId;
     },
     onSuccess: (id) => {
@@ -44,14 +33,14 @@ export function IngestPage() {
   const { data: preview } = useQuery({
     queryKey: ['ingest-batch', batchId],
     // enabled only with a batch; the typed path refuses a null id
-    queryFn: () => (api.get('/api/ingest/batches/{id}', { path: { id: batchId ?? '' } }) as Promise<Preview>),
+    queryFn: ({ signal }) => api.get('/api/ingest/batches/{id}', { path: { id: batchId ?? '' }, signal }),
     enabled: batchId !== null,
   });
 
   const commit = useMutation({
     mutationFn: () => {
       if (batchId === null) throw new Error('no staged batch to commit');
-      return api.post('/api/ingest/batches/{id}/commit', undefined, { path: { id: batchId } }) as Promise<{ applied: number }>;
+      return api.post('/api/ingest/batches/{id}/commit', undefined, { path: { id: batchId } });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['ingest-batch', batchId] });
@@ -61,7 +50,7 @@ export function IngestPage() {
   });
   const { data: batches } = useQuery({
     queryKey: ['ingest-batches'],
-    queryFn: () => (api.get('/api/ingest/batches') as Promise<Batch[]>),
+    queryFn: ({ signal }) => api.get('/api/ingest/batches', { signal }),
   });
   const discard = useApiMutation({
     mutationFn: (id: string) => api.post('/api/ingest/batches/{id}/discard', undefined, { path: { id } }),
@@ -144,7 +133,7 @@ export function IngestPage() {
             </Table>
             {preview.status === 'Staged' ? (
               <Button disabled={commit.isPending} onClick={() => commit.mutate()}>
-                Commit {preview.counts.create + preview.counts.update + preview.counts.close} changes
+                Commit {Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)} changes
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground">Batch is {preview.status}.</p>
@@ -211,7 +200,7 @@ export function IngestPage() {
 function ConnectorsCard() {
   const { data: connectors } = useQuery({
     queryKey: ['connectors'],
-    queryFn: () => (api.get('/api/connectors') as Promise<Connector[]>),
+    queryFn: ({ signal }) => api.get('/api/connectors', { signal }),
   });
   const empty = { name: '', url: '', apiKey: '', interval: '' };
   const [form, setForm] = useState(empty);
