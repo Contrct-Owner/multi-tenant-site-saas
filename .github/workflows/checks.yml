@@ -206,6 +206,9 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm --filter @premise/e2e exec playwright install --with-deps chromium firefox webkit
+      - name: Browser argument forwarding regression
+        working-directory: web
+        run: pnpm test:e2e --project=chromium --list
       - name: Browser and accessibility suite
         env:
           Logging__LogLevel__Microsoft.AspNetCore.Hosting.Diagnostics: Information

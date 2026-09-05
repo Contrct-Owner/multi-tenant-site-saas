@@ -10,7 +10,7 @@
     "dev:public": "pnpm --filter @premise/public dev",
     "lint": "oxlint apps packages/api/src",
     "test": "pnpm -r --filter '!@premise/e2e' --if-present test",
-    "test:e2e": "pnpm --filter @premise/e2e test"
+    "test:e2e": "pnpm --filter @premise/e2e run test"
   },
   "devDependencies": {
     "axe-core": "^4.13.0",

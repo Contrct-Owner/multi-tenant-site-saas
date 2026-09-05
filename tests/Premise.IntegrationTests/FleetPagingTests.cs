@@ -33,7 +33,9 @@ public class FleetPagingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                 )
         )
         {
-            var node = await db.HierarchyNodes.IgnoreQueryFilters().SingleAsync(n => n.Id == rootId);
+            var node = await db
+                .HierarchyNodes.IgnoreQueryFilters()
+                .SingleAsync(n => n.Id == rootId);
             for (var i = 0; i < 201; i++)
             {
                 var id = SiteId.New();
