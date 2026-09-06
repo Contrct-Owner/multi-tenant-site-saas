@@ -46,7 +46,7 @@ import { can, parseMe, useMe, type Me } from './session';
 import { persisted } from './app/persisted';
 import { ScopeProvider, useScope } from './app/scope';
 import { useSessionTransition } from './app/session-boundary';
-import { currentTheme, toggleTheme } from './app/theme';
+import { currentTheme, toggleTheme, useTheme } from './app/theme';
 
 /**
  * Direction B (2026-09-05): a 76px icon rail for the areas, a 240px inner
@@ -115,6 +115,7 @@ const pageTitle = (path: string) => {
 };
 
 export function Shell({ children }: { children: ReactNode }) {
+  const theme = useTheme();
   const { data: me, isLoading, error, refetch } = useMe();
 
   if (isLoading) return <div className="p-12 text-muted-foreground">Loading session…</div>;
@@ -167,7 +168,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <TabBar me={me} />
-          <Toaster />
+          <Toaster theme={theme} />
         </div>
       </ScopeProvider>
     </TooltipProvider>
@@ -646,8 +647,11 @@ function SignInScreen() {
               : `Sign-in didn't complete (${authError.replaceAll('_', ' ')}). Try again.`}
           </p>
         )}
-        <Button asChild className="w-full">
-          <a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`}>Sign in</a>
+        <Button
+          className="w-full"
+          render={<a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`} />}
+        >
+          Sign in
         </Button>
         {signupEmail === null ? (
           <button
@@ -666,13 +670,8 @@ function SignInScreen() {
               value={signupEmail}
               onChange={(e) => setSignupEmail(e.target.value)}
             />
-            <Button asChild className="w-full" variant="secondary">
-              <a
-                href={`/auth/signup?email=${encodeURIComponent(signupEmail)}`}
-                aria-disabled={!signupEmail.includes('@')}
-              >
-                Create account
-              </a>
+            <Button className="w-full" variant="secondary" render={<a href={`/auth/signup?email=${encodeURIComponent(signupEmail)}`} aria-disabled={!signupEmail.includes('@')} />}>
+              Create account
             </Button>
           </div>
         )}
@@ -756,12 +755,25 @@ function CreateOrgScreen() {
   );
 }
 
+/**
+ * Lifecycle status as a ReUI Badge: the light variants carry the status
+ * colour as a tint with readable ink, one per family - live, pending,
+ * paused, gone - so every module's statuses read the same way.
+ */
 export function StatusBadge({ status }: { status: string }) {
   const variant =
-    status === 'Open' || status === 'Clean' || status === 'Committed'
-      ? 'success'
-      : status === 'Closed' || status === 'Quarantined'
-        ? 'destructive'
-        : 'secondary';
-  return <Badge variant={variant as never}>{status}</Badge>;
+    status === 'Open' || status === 'Clean' || status === 'Committed' || status === 'Active'
+      ? 'success-light'
+      : status === 'ComingSoon' || status === 'Staged' || status === 'Pending' || status === 'Scanning'
+        ? 'info-light'
+        : status === 'TemporarilyClosed' || status === 'Quarantined' || status === 'Suspended' || status === 'Deleted'
+          ? 'warning-light'
+          : status === 'Closed' || status === 'Erased' || status === 'Discarded' || status === 'Failed'
+            ? 'destructive-light'
+            : 'secondary';
+  return (
+    <Badge variant={variant} size="sm">
+      {status.replace(/([a-z])([A-Z])/g, '$1 $2')}
+    </Badge>
+  );
 }

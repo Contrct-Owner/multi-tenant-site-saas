@@ -1,7 +1,7 @@
 import { Button, ConfirmButton, Input } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDateTime } from '../../../lib/format';
-import { PageHeader, Panel } from '../../../components/page';
+import { Loading, PageHeader, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { StatusBadge } from '../../../shell';
 import { operatorApi } from '../api';
@@ -17,7 +17,7 @@ export function OperatorPage() {
   const selected = orgs?.find((org) => org.id === selectedId);
 
   if (orgsQuery.isPending)
-    return <p className="text-sm text-muted-foreground">Loading operator workspace…</p>;
+    return <Loading text="Loading operator workspace…" />;
   if (orgsQuery.isError)
     return <p className="text-sm text-destructive">Could not load operator workspace.</p>;
 

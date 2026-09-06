@@ -1,9 +1,9 @@
 import { checklistsApi } from './api';
 import { useSites } from '../sites';
-import { Button, ConfirmButton, FormDialog, Input, Label, Select } from '@premise/ui';
+import { Button, Checkbox, ConfirmButton, FormDialog, Input, Label, Select, Textarea } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { PageHeader, Panel } from '../../components/page';
+import { Loading, PageHeader, Panel } from '../../components/page';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 
@@ -44,7 +44,7 @@ export function ChecklistsPage() {
           ) : undefined
         }
       />
-      {siteQuery.isPending && <p role="status">Loading sites…</p>}
+      {siteQuery.isPending && <Loading text="Loading sites…" />}
       {siteQuery.isError && <div role="alert">Could not load sites. <Button onClick={() => {
         if (siteQuery.isFetchNextPageError) void siteQuery.fetchNextPage();
         else void siteQuery.refetch();
@@ -84,16 +84,14 @@ export function ChecklistsPage() {
                 {list.items.map((item) => (
                   <li key={item.index}>
                     <label className="flex cursor-pointer items-center gap-3 text-sm">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
+                      <Checkbox
                         checked={item.done}
                         disabled={check.isPending}
-                        onChange={(e) =>
+                        onCheckedChange={(checked) =>
                           check.mutate({
                             templateId: list.id,
                             itemIndex: Number(item.index),
-                            done: e.target.checked,
+                            done: checked === true,
                           })
                         }
                       />
@@ -161,9 +159,9 @@ function TemplatesCard() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="cl-items">Items</Label>
-                <textarea
+                <Textarea
                   id="cl-items"
-                  className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  className="min-h-28"
                   value={items}
                   placeholder={'Unlock doors\nCount register'}
                   onChange={(e) => setItems(e.target.value)}
@@ -179,7 +177,7 @@ function TemplatesCard() {
       }
       bodyClassName="space-y-2"
     >
-        {templatesQuery.isPending && <p role="status">Loading templates…</p>}
+        {templatesQuery.isPending && <Loading text="Loading templates…" rows={2} />}
         {templatesQuery.isError && <div role="alert">Could not load templates. <Button
           onClick={() => void templatesQuery.refetch()}>Retry templates</Button></div>}
         {templates?.length === 0 && (

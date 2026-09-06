@@ -3,7 +3,7 @@ import { Button, ConfirmButton, FormDialog,
   Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { PageHeader, Panel } from '../components/page';
+import { Loading, PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 
 export function HierarchyPage() {
@@ -52,7 +52,7 @@ export function HierarchyPage() {
   });
 
   if (isPending)
-    return <p className="text-sm text-muted-foreground">Loading hierarchy…</p>;
+    return <Loading text="Loading hierarchy…" />;
   if (isError && !(error instanceof ApiError && error.status === 404))
     return <p className="text-sm text-destructive">Could not load hierarchy.</p>;
 

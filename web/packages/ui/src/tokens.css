@@ -89,7 +89,7 @@
   --muted-foreground: oklch(0.66 0.017 286); /* 5.5:1 on --muted (code chips); 0.604 read 4.4 */
   --accent: oklch(0.26 0.04 285);
   --accent-foreground: oklch(0.9 0.03 285);
-  --destructive: oklch(0.673 0.178 24); /* 6.2:1 as text on the background */
+  --destructive: oklch(0.74 0.17 24); /* 6.2:1 as text on the background */
   --destructive-foreground: oklch(0.141 0.004 286); /* ink on the fill: 6.1:1 */
   --border: oklch(0.259 0.011 286);
   --input: oklch(0.3 0.014 286);

@@ -154,7 +154,8 @@ test('site hours and closures retain failed drafts and refresh their own data', 
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toHaveCount(0);
 
   await schedule.getByRole('button', { name: 'Remove', exact: true }).click();
-  await schedule.getByRole('button', { name: 'Sure?', exact: true }).click();
+  // the confirmation is the shadcn AlertDialog, portaled out of the row
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Sure?', exact: true }).click();
   await expect(schedule).toHaveCount(0);
   await expect(page.getByText('No open windows in the next 7 days.', { exact: true })).toBeVisible();
 });

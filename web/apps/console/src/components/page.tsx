@@ -1,4 +1,11 @@
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  Skeleton,
   DataGrid,
   DataGridContainer,
   DataGridScrollArea,
@@ -16,7 +23,7 @@ import {
   type DataGridFeatures,
 } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 /**
  * The page scaffold every console page shares (direction B): a title row
@@ -196,5 +203,78 @@ export function Grid<TRow extends object>({
         </DataGrid>
       </FramePanel>
     </Frame>
+  );
+}
+
+/** The shadcn Empty for a panel with nothing in it yet: an icon, a line, and the way in. */
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+  className,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Empty className={cn('border-0 bg-transparent py-10', className)}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Icon aria-hidden />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        {description && <EmptyDescription>{description}</EmptyDescription>}
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
+  );
+}
+
+/**
+ * What a page shows while its first data is on the way: skeleton rows in
+ * the shape of a panel, plus the one line of text the screen reader (and
+ * the browser suite) reads. Text stays; the bars are the picture of it.
+ */
+export function Loading({ text, rows = 3 }: { text: string; rows?: number }) {
+  return (
+    <div className="space-y-3" aria-busy>
+      <div className="space-y-2">
+        {Array.from({ length: rows }, (_, i) => (
+          <Skeleton key={i} className="h-9 w-full" style={{ opacity: 1 - i * 0.2 }} />
+        ))}
+      </div>
+      <p role="status" className="text-sm text-muted-foreground">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/** The route-level pending state: a page header and a panel, in skeleton. */
+export function PageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy>
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <Frame>
+        <FramePanel>
+          <div className="space-y-3 px-4 py-4">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full opacity-80" />
+            <Skeleton className="h-9 w-full opacity-60" />
+            <Skeleton className="h-9 w-full opacity-40" />
+          </div>
+        </FramePanel>
+      </Frame>
+      <p role="status" className="sr-only">
+        Loading…
+      </p>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { Button, ConfirmButton, FormDialog,
   TableRow } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDate } from '../../../lib/format';
-import { PageHeader, Panel } from '../../../components/page';
+import { Loading, PageHeader, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { rolesApi } from '../api';
 import { useGrantExceptions, useRoleHierarchy, useRoleMembers, useRoles } from '../hooks';
@@ -44,7 +44,7 @@ export function RolesPage() {
   });
 
   if (rolesQuery.isPending || membersQuery.isPending || hierarchyQuery.isPending)
-    return <p className="text-sm text-muted-foreground">Loading roles…</p>;
+    return <Loading text="Loading roles…" />;
   if (rolesQuery.isError || membersQuery.isError)
     return <p className="text-sm text-destructive">Could not load roles.</p>;
 

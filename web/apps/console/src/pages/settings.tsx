@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, Input, Label, Select } from '@premise/ui';
+import { Button, ConfirmButton, Input, Label, Select, Switch } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
@@ -315,9 +315,8 @@ function SiteAttributesCard() {
               <option>Boolean</option>
             </Select>
           </div>
-          <label className="flex h-9 items-center gap-1.5 text-sm">
-            <input type="checkbox" className="size-4 accent-primary" checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)} />
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <Switch checked={isPublic} onCheckedChange={(checked) => setIsPublic(checked)} />
             Public
           </label>
           <Button size="sm" disabled={!key.trim() || !label.trim() || create.isPending}

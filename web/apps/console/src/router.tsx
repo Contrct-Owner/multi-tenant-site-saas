@@ -1,3 +1,4 @@
+import { PageSkeleton } from './components/page';
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from '@tanstack/react-router';
 import { Shell } from './shell';
 
@@ -44,7 +45,7 @@ const routes = [
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren(routes),
-  defaultPendingComponent: () => <p className="text-sm text-muted-foreground">Loading…</p>,
+  defaultPendingComponent: PageSkeleton,
 });
 
 declare module '@tanstack/react-router' {

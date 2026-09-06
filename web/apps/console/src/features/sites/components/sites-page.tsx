@@ -4,6 +4,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RadioGroup,
+  RadioGroupItem,
+  ToggleGroup,
+  ToggleGroupItem,
   cn,
   DataGrid,
   DataGridColumnVisibility,
@@ -403,32 +407,26 @@ export function SitesPage() {
         </div>
         <div className="flex items-center gap-3">
           {/* the toggle swaps the whole surface, so it sits with the page actions, not in the toolbar */}
-          <div
-            role="group"
+          <ToggleGroup
             aria-label="View"
-            className="inline-flex gap-0.5 rounded-lg border bg-background p-0.5"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={[view]}
+            onValueChange={(next) => {
+              const key = next[0];
+              if (key === 'table' || key === 'map') setView(key);
+            }}
           >
-            {(
-              [
-                ['table', 'Table', Table2],
-                ['map', 'Map', MapPin],
-              ] as const
-            ).map(([key, label, Icon]) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={view === key}
-                onClick={() => setView(key)}
-                className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground',
-                  view === key && 'bg-muted text-foreground shadow-xs',
-                )}
-              >
-                <Icon className="size-3.5" aria-hidden />
-                {label}
-              </button>
-            ))}
-          </div>
+            <ToggleGroupItem value="table" aria-label="Table">
+              <Table2 aria-hidden />
+              Table
+            </ToggleGroupItem>
+            <ToggleGroupItem value="map" aria-label="Map">
+              <MapPin aria-hidden />
+              Map
+            </ToggleGroupItem>
+          </ToggleGroup>
           {manage && <NewSiteDialog />}
         </div>
       </div>
@@ -478,46 +476,44 @@ export function SitesPage() {
                     }
                   />
                   <PopoverContent align="end" className="w-64">
-                    <fieldset className="flex flex-col gap-0.5">
-                      <legend className="px-1 pb-1 text-xs font-medium text-muted-foreground">Basemap</legend>
+                    <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">Basemap</p>
+                    <RadioGroup
+                      aria-label="Basemap"
+                      className="gap-0.5"
+                      value={knownChoice ? basemapChoice : 'auto'}
+                      onValueChange={(value) => chooseBasemap(String(value))}
+                    >
                       {basemapChoices.map((c) => (
                         <label
                           key={c.id}
                           className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
                         >
-                          <input
-                            type="radio"
-                            name="basemap"
-                            className="size-3.5 accent-primary"
-                            checked={(knownChoice ? basemapChoice : 'auto') === c.id}
-                            onChange={() => chooseBasemap(c.id)}
-                          />
+                          <RadioGroupItem value={c.id} />
                           <span className="truncate">{c.name}</span>
                         </label>
                       ))}
-                    </fieldset>
+                    </RadioGroup>
                     {dataLayers.length > 1 && (
-                      <fieldset className="flex flex-col gap-0.5">
-                        <legend className="px-1 pb-1 pt-1 text-xs font-medium text-muted-foreground">
-                          Data layer
-                        </legend>
-                        {dataLayers.map((l) => (
-                          <label
-                            key={l.name}
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
-                            title={l.description}
-                          >
-                            <input
-                              type="radio"
-                              name="data-layer"
-                              className="size-3.5 accent-primary"
-                              checked={layerName === l.name}
-                              onChange={() => chooseLayer(l.name)}
-                            />
-                            <span className="truncate">{l.title}</span>
-                          </label>
-                        ))}
-                      </fieldset>
+                      <>
+                        <p className="px-1 pb-1 pt-1 text-xs font-medium text-muted-foreground">Data layer</p>
+                        <RadioGroup
+                          aria-label="Data layer"
+                          className="gap-0.5"
+                          value={layerName}
+                          onValueChange={(value) => chooseLayer(String(value))}
+                        >
+                          {dataLayers.map((l) => (
+                            <label
+                              key={l.name}
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
+                              title={l.description}
+                            >
+                              <RadioGroupItem value={l.name} />
+                              <span className="truncate">{l.title}</span>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      </>
                     )}
                     {dataLayer && dataLayer.statuses.length > 0 && (
                       <ul className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground" aria-label="Legend">
