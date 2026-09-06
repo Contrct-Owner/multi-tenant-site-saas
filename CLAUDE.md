@@ -17,7 +17,7 @@ subtree it belongs to). Every request passes **three gates**, in order:
 
 ## Architectural decisions
 
-All 48 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
+All 50 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
 README). **Consult them before proposing structural changes.** Decisions marked
 `pinned: true` are expensive to reverse once data exists — do not contradict them
 without the maintainer explicitly reopening the decision.
@@ -139,6 +139,10 @@ don't restate them here.
   the console dev server, then Playwright with an axe pass per page.
 - Frontend (web/): `pnpm install`, `pnpm typecheck`, `pnpm build`,
   `pnpm dev:console` (SPA, proxies to the API), `pnpm dev:public` (Start/SSR)
+- ReUI/shadcn installs run FROM `web/packages/ui` (the CLI reads
+  `components.json` and `.env.local` only from its cwd): `pnpm dlx
+  shadcn@latest add @reui/<item>`; then re-export from `src/index.ts`, and
+  rewrite `@/` imports to relative - Vite in the apps has no `@` alias.
 - Contract codegen (ADR 16): run the integration tests (snapshots
   `web/packages/api/openapi.json`), then `pnpm codegen:api` (types) and
   `pnpm codegen:keys` (capability/entitlement unions). A dirty openapi.json
