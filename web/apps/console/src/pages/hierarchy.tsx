@@ -1,6 +1,5 @@
 import { api, ApiError } from '@premise/api';
-import { Button, FormDialog,
-  Input, Label, Select } from '@premise/ui';
+import { Button, Field, FieldLabel, FormDialog, Input, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../components/page';
@@ -59,10 +58,10 @@ export function HierarchyPage() {
       <div className="max-w-lg space-y-6">
         <PageHeader title="Hierarchy" description="The rollup structure every site sits in." />
         <Panel title="Provision the org hierarchy" bodyClassName="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="levels">Level names (root-first, comma-separated)</Label>
+            <Field>
+              <FieldLabel htmlFor="levels">Level names (root-first, comma-separated)</FieldLabel>
               <Input id="levels" value={levels} onChange={(e) => setLevels(e.target.value)} />
-            </div>
+            </Field>
             <Button disabled={provision.isPending} onClick={() => provision.mutate()}>
               Create hierarchy
             </Button>
@@ -90,13 +89,13 @@ export function HierarchyPage() {
           description="A new branch under an existing node."
         >
           <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="node-name">Name</Label>
+            <Field>
+              <FieldLabel htmlFor="node-name">Name</FieldLabel>
               <Input id="node-name" value={nodeName}
                 onChange={(e) => setNodeName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="node-parent">Parent</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="node-parent">Parent</FieldLabel>
               <Select id="node-parent" value={parentId}
                 onChange={(e) => setParentId(e.target.value)}>
                 <option value="">Choose…</option>
@@ -106,7 +105,7 @@ export function HierarchyPage() {
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
             <Button className="w-full" disabled={!nodeName || !parentId || addNode.isPending}
               onClick={() => addNode.mutate()}>
               Add node

@@ -1,11 +1,11 @@
 import { api, type components } from '@premise/api';
-import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, FormDialog, Input, Label,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
+import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
-import { PageHeader, Panel } from '../components/page';
+import { Grid, PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
+import { StatusBadge } from '../shell';
 import { uploadFile } from '../lib/uploads';
 
 type Connector = components['schemas']['ConnectorResponse'];
@@ -61,6 +61,57 @@ export function IngestPage() {
     },
   });
 
+  type PreviewRow = NonNullable<typeof preview>['rows'][number];
+  const previewColumns = useMemo<ColumnDef<DataGridFeatures, PreviewRow>[]>(
+    () => [
+      { id: 'externalId', accessorKey: 'externalId', header: 'External id', cell: ({ row }) => <span className="font-mono text-xs">{row.original.externalId}</span> },
+      { id: 'name', accessorKey: 'name', header: 'Name' },
+      { id: 'node', accessorKey: 'nodePath', header: 'Node', cell: ({ row }) => <span className="text-muted-foreground">{row.original.nodePath}</span> },
+      { id: 'action', accessorKey: 'action', header: 'Action' },
+      {
+        id: 'detail',
+        header: 'Detail',
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.errors.join('; ') || row.original.changes.join('; ')}</span>,
+      },
+    ],
+    [],
+  );
+  type BatchRow = NonNullable<typeof batches>[number];
+  const batchColumns = useMemo<ColumnDef<DataGridFeatures, BatchRow>[]>(
+    () => [
+      { id: 'source', accessorKey: 'source', header: 'Source' },
+      { id: 'staged', accessorKey: 'createdAt', header: 'Staged', cell: ({ row }) => <span className="text-muted-foreground">{fmtDateTime(row.original.createdAt)}</span> },
+      { id: 'status', accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status} /> },
+      {
+        id: 'counts',
+        header: 'Counts',
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            +{row.original.counts.create} ~{row.original.counts.update} −{row.original.counts.close} · {row.original.counts.invalid} invalid
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) =>
+          row.original.status === 'Staged' ? (
+            <div className="space-x-1 text-right">
+              <Button variant="ghost" size="sm" onClick={() => setBatchId(row.original.id)}>
+                Review
+              </Button>
+              <ConfirmButton size="sm" confirmLabel="Discard this batch?" disabled={discard.isPending} onConfirm={() => discard.mutate(row.original.id)}>
+                Discard
+              </ConfirmButton>
+            </div>
+          ) : null,
+        meta: { headerClassName: 'w-40' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Site ingest" description="Bulk-load sites from a CSV or a connector; nothing applies until you review the diff and commit." />
@@ -93,89 +144,38 @@ export function IngestPage() {
         </Panel>
 
       {preview && (
-        <Panel title={<>Diff preview — {preview.counts.create} new, {preview.counts.update} updated,{' '}
+        <Grid
+          title={
+            <>
+              Diff preview — {preview.counts.create} new, {preview.counts.update} updated,{' '}
               {preview.counts.close} closing, {preview.counts.unchanged} unchanged,{' '}
-              {preview.counts.invalid} invalid</>} bodyClassName="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>External id</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Node</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Detail</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.rows.map((r) => (
-                  <TableRow key={r.externalId + r.name}>
-                    <TableCell className="font-mono text-xs">{r.externalId}</TableCell>
-                    <TableCell>{r.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.nodePath}</TableCell>
-                    <TableCell>{r.action}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {r.errors.join('; ') || r.changes.join('; ')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {preview.status === 'Staged' ? (
+              {preview.counts.invalid} invalid
+            </>
+          }
+          columns={previewColumns}
+          rows={preview.rows}
+          getRowId={(r) => r.externalId + r.name}
+          emptyMessage="Nothing in this batch."
+          footer={
+            preview.status === 'Staged' ? (
               <Button disabled={commit.isPending} onClick={() => commit.mutate()}>
                 Commit {Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)} changes
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground">Batch is {preview.status}.</p>
-            )}
-          </Panel>
+            )
+          }
+        />
       )}
 
-      <Panel title="Batches">
-          {batches && batches.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Staged</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Counts</TableHead>
-                  <TableHead><span className="sr-only">Actions</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batches.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell>{b.source}</TableCell>
-                    <TableCell className="text-muted-foreground">{fmtDateTime(b.createdAt)}</TableCell>
-                    <TableCell className="text-muted-foreground">{b.status}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      +{b.counts.create} ~{b.counts.update} −{b.counts.close} ·{' '}
-                      {b.counts.invalid} invalid
-                    </TableCell>
-                    <TableCell className="space-x-1 text-right">
-                      {b.status === 'Staged' && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => setBatchId(b.id)}>
-                            Review
-                          </Button>
-                          <ConfirmButton
-                            size="sm"
-                            disabled={discard.isPending}
-                            onConfirm={() => discard.mutate(b.id)}
-                          >
-                            Discard
-                          </ConfirmButton>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-sm text-muted-foreground">No batches yet.</p>
-          )}
-        </Panel>
+      <Grid
+        title="Batches"
+        columns={batchColumns}
+        rows={batches ?? []}
+        getRowId={(b) => b.id}
+        isLoading={batches === undefined}
+        emptyMessage="No batches yet."
+      />
 
       <ConnectorsCard />
     </div>
@@ -234,10 +234,49 @@ function ConnectorsCard() {
     invalidate: [['connectors']],
     success: 'Connector deleted',
   });
+  const connectorColumns = useMemo<ColumnDef<DataGridFeatures, Connector>[]>(
+    () => [
+      {
+        id: 'name',
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div>{row.original.name}</div>
+            <div className="max-w-64 truncate text-xs text-muted-foreground">{row.original.url}</div>
+          </div>
+        ),
+      },
+      { id: 'schedule', header: 'Schedule', cell: ({ row }) => <span className="text-muted-foreground">{row.original.syncIntervalHours ? `every ${row.original.syncIntervalHours}h` : 'manual'}</span> },
+      { id: 'lastSync', header: 'Last sync', cell: ({ row }) => <span className="text-muted-foreground">{row.original.lastSyncedAt ? fmtDateTime(row.original.lastSyncedAt) : 'never'}</span> },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="space-x-1 text-right">
+            <Button variant="ghost" size="sm" disabled={sync.isPending} onClick={() => sync.mutate(row.original.id)}>
+              Sync now
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => openEdit(row.original)}>
+              Edit
+            </Button>
+            <ConfirmButton size="sm" confirmLabel="Delete this connector?" disabled={remove.isPending} onConfirm={() => remove.mutate(row.original.id)}>
+              Delete
+            </ConfirmButton>
+          </div>
+        ),
+        meta: { headerClassName: 'w-52' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
-    <Panel title="Connectors" actions={<>
-          <FormDialog
+    <Grid
+      title="Connectors"
+      actions={
+<FormDialog
             open={open}
             onOpenChange={setOpen}
             trigger={
@@ -249,28 +288,28 @@ function ConnectorsCard() {
             description="A pull source your sites sync from. Credentials are envelope-encrypted at rest."
           >
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="conn-name">Name</Label>
+              <Field>
+                <FieldLabel htmlFor="conn-name">Name</FieldLabel>
                 <Input id="conn-name" value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="conn-url">URL</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="conn-url">URL</FieldLabel>
                 <Input id="conn-url" value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="conn-key">
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="conn-key">
                   API key{editing ? ' (leave blank to keep current)' : ''}
-                </Label>
+                </FieldLabel>
                 <Input id="conn-key" type="password" value={form.apiKey}
                   onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="conn-interval">Sync every N hours (blank = manual)</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="conn-interval">Sync every N hours (blank = manual)</FieldLabel>
                 <Input id="conn-interval" type="number" min="1" value={form.interval}
                   onChange={(e) => setForm({ ...form, interval: e.target.value })} />
-              </div>
+              </Field>
               <Button className="w-full"
                 disabled={
                   !form.name.trim() || !form.url.trim() || (!editing && !form.apiKey)
@@ -281,52 +320,12 @@ function ConnectorsCard() {
               </Button>
             </div>
           </FormDialog>
-</>}>
-        {connectors && connectors.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Schedule</TableHead>
-                <TableHead>Last sync</TableHead>
-                <TableHead className="w-52"><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {connectors.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <div>{c.name}</div>
-                    <div className="max-w-64 truncate text-xs text-muted-foreground">{c.url}</div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {c.syncIntervalHours ? `every ${c.syncIntervalHours}h` : 'manual'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {c.lastSyncedAt ? fmtDateTime(c.lastSyncedAt) : 'never'}
-                  </TableCell>
-                  <TableCell className="space-x-1 text-right">
-                    <Button variant="ghost" size="sm" disabled={sync.isPending}
-                      onClick={() => sync.mutate(c.id)}>
-                      Sync now
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
-                      Edit
-                    </Button>
-                    <ConfirmButton size="sm" disabled={remove.isPending}
-                      onConfirm={() => remove.mutate(c.id)}>
-                      Delete
-                    </ConfirmButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No connectors yet. Add one to pull sites from an external source.
-          </p>
-        )}
-      </Panel>
+      }
+      columns={connectorColumns}
+      rows={connectors ?? []}
+      getRowId={(c) => c.id}
+      isLoading={connectors === undefined}
+      emptyMessage="No connectors yet. Add one to pull sites from an external source."
+    />
   );
 }

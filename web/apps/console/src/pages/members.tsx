@@ -1,6 +1,5 @@
 import { api, type components } from '@premise/api';
-import { Avatar, AvatarFallback, Button, ConfirmButton, FormDialog, Input, InputGroup, InputGroupAddon,
-  InputGroupButton, InputGroupInput, Label, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { Avatar, AvatarFallback, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { Search, X } from 'lucide-react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -254,11 +253,11 @@ export function MembersPage() {
             description="Contacts get an identified link to your public pages - no account, revocable any time."
           >
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="contact-email">Email</Label>
+              <Field>
+                <FieldLabel htmlFor="contact-email">Email</FieldLabel>
                 <Input id="contact-email" type="email" value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)} />
-              </div>
+              </Field>
               <Button className="w-full"
                 disabled={!contactEmail.includes('@') || inviteContact.isPending}
                 onClick={() => inviteContact.mutate()}>
@@ -274,13 +273,13 @@ export function MembersPage() {
             description="They join with the role you pick, delivered by your identity provider."
           >
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="invite-email">Email</Label>
+              <Field>
+                <FieldLabel htmlFor="invite-email">Email</FieldLabel>
                 <Input id="invite-email" type="email" value={email}
                   onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="invite-role">Role</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="invite-role">Role</FieldLabel>
                 <Select id="invite-role" value={roleId}
                   onChange={(e) => setRoleId(e.target.value)}>
                   <option value="">Choose…</option>
@@ -288,7 +287,7 @@ export function MembersPage() {
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </Select>
-              </div>
+              </Field>
               <Button className="w-full"
                 disabled={!email.includes('@') || !roleId || invite.isPending}
                 onClick={() => invite.mutate()}>

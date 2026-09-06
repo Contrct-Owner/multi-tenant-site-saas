@@ -82,6 +82,12 @@ test('a late previous-tenant response cannot repopulate the new cache', async ({
   const held = new Promise<void>((resolve) => { release = resolve; });
   const started = new Promise<void>((resolve) => { captured = resolve; });
   const finished = new Promise<void>((resolve) => { fulfilled = resolve; });
+  await nav(page).getByRole('link', { name: 'Hierarchy', exact: true }).click();
+  await expect(page.getByRole('main').getByText('A-only site root', { exact: true })).toBeVisible();
+  // the tree read seconds ago is still fresh (30s default, 5min in the shell), so
+  // a page mount alone sends nothing: forget the tab cache and reload to put a
+  // previous-tenant read in flight
+  await page.evaluate(() => sessionStorage.clear());
   await page.route('**/api/hierarchy', async (route) => {
     const response = await route.fetch();
     captured();
@@ -89,7 +95,7 @@ test('a late previous-tenant response cannot repopulate the new cache', async ({
     await route.fulfill({ response });
     fulfilled();
   }, { times: 1 });
-  await nav(page).getByRole('link', { name: 'Hierarchy', exact: true }).click();
+  await page.reload();
   await started;
   await switchTo(page, b);
   // the shell's Scope panel also names hierarchy nodes: assert on the page body

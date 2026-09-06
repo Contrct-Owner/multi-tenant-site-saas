@@ -5,7 +5,10 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 type Transition = (change: () => Promise<unknown>) => Promise<void>;
 const TransitionContext = createContext<Transition | null>(null);
 const newClient = () => new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  // Navigating between pages should not refetch what was read seconds ago
+  // (the user budget is 300/min and the suite runs one identity near it);
+  // queries that must be live say so with their own staleTime.
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 });
 
 /** Existing writes finish with the old cookie before a session change is sent. */

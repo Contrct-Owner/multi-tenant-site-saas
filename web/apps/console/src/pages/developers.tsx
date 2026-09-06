@@ -1,11 +1,9 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, FormDialog,
-  Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
-  TableRow } from '@premise/ui';
+import { Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
-import { PageHeader, Panel } from '../components/page';
+import { Grid, PageHeader } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 
 /** The integration surface (ADR 40): server-to-server keys and outbound webhooks. */
@@ -62,10 +60,70 @@ function ApiKeysCard() {
       setOpen(true); // the reveal lives in the dialog - open it to show the new secret
     },
   });
+  type KeyRow = NonNullable<typeof keys>[number];
+  const keyColumns = useMemo<ColumnDef<DataGridFeatures, KeyRow>[]>(
+    () => [
+      { id: 'name', accessorKey: 'name', header: 'Name', cell: ({ row }) => <span className={row.original.revoked ? 'font-medium opacity-50' : 'font-medium'}>{row.original.name}</span> },
+      { id: 'prefix', header: 'Key', cell: ({ row }) => <span className="font-mono text-xs">{row.original.prefix}…</span> },
+      { id: 'role', accessorKey: 'role', header: 'Role', cell: ({ row }) => <span className="text-muted-foreground">{row.original.role}</span> },
+      {
+        id: 'lastUsed',
+        header: 'Last used',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.revoked ? 'Revoked' : row.original.lastUsedAt ? fmtDateTime(row.original.lastUsedAt) : 'never'}
+          </span>
+        ),
+      },
+      {
+        id: 'expires',
+        header: 'Expires',
+        cell: ({ row }) => {
+          const k = row.original;
+          const soon = k.expiresAt && new Date(k.expiresAt).getTime() - Date.now() < 7 * 86_400_000;
+          return (
+            <span className={soon ? 'text-warning-foreground' : 'text-muted-foreground'}>
+              {k.expiresAt ? (new Date(k.expiresAt).getTime() < Date.now() ? 'Expired' : fmtDateTime(k.expiresAt)) : '—'}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) =>
+          row.original.revoked ? null : (
+            <div className="space-x-1 text-right">
+              <ConfirmButton variant="ghost" size="sm" disabled={rotate.isPending} confirmLabel="Rotate this key?" description="The old key keeps working for 24 hours." onConfirm={() => rotate.mutate(row.original.id)}>
+                Rotate
+              </ConfirmButton>
+              <ConfirmButton size="sm" disabled={revoke.isPending} confirmLabel="Revoke this key?" description="Anything using it stops at once." onConfirm={() => revoke.mutate(row.original.id)}>
+                Revoke
+              </ConfirmButton>
+            </div>
+          ),
+        meta: { headerClassName: 'w-40' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
-    <Panel title="API keys" actions={<>
-          <FormDialog
+    <Grid
+      title="API keys"
+      description={
+        <>
+          Authenticate with <code className="rounded bg-muted px-1">Authorization: Bearer premise_…</code>{' '}
+          against this console's origin. The full contract:{' '}
+          <a href="/openapi/v1.json" target="_blank" rel="noreferrer" className="underline">
+            OpenAPI spec
+          </a>
+          .
+        </>
+      }
+      actions={
+<FormDialog
             open={open}
             onOpenChange={(next) => {
               setOpen(next);
@@ -85,13 +143,13 @@ function ApiKeysCard() {
               />
             ) : (
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="key-name">Name</Label>
+                <Field>
+                  <FieldLabel htmlFor="key-name">Name</FieldLabel>
                   <Input id="key-name" value={name}
                     onChange={(e) => setName(e.target.value)} placeholder="ci-deploy" />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="key-role">Role</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="key-role">Role</FieldLabel>
                   <Select id="key-role" value={roleId}
                     onChange={(e) => setRoleId(e.target.value)}>
                     <option value="">Choose…</option>
@@ -99,7 +157,7 @@ function ApiKeysCard() {
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </Select>
-                </div>
+                </Field>
                 <Button className="w-full" disabled={!name.trim() || !roleId || create.isPending}
                   onClick={() => create.mutate()}>
                   Create key
@@ -107,74 +165,13 @@ function ApiKeysCard() {
               </div>
             )}
           </FormDialog>
-</>}>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Authenticate with <code className="rounded bg-muted px-1">Authorization: Bearer premise_…</code>{' '}
-          against this console's origin. The full contract:{' '}
-          <a href="/openapi/v1.json" target="_blank" rel="noreferrer" className="underline">
-            OpenAPI spec
-          </a>
-          .
-        </p>
-        {keys && keys.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Last used</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead className="w-24"><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {keys.map((k) => (
-                <TableRow key={k.id} className={k.revoked ? 'opacity-50' : ''}>
-                  <TableCell className="font-medium">{k.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
-                  <TableCell className="text-muted-foreground">{k.role}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {k.revoked ? 'Revoked' : k.lastUsedAt ? fmtDateTime(k.lastUsedAt) : 'never'}
-                  </TableCell>
-                  <TableCell
-                    className={
-                      k.expiresAt && new Date(k.expiresAt).getTime() - Date.now() < 7 * 86_400_000
-                        ? 'text-warning-foreground'
-                        : 'text-muted-foreground'
-                    }
-                  >
-                    {k.expiresAt
-                      ? new Date(k.expiresAt).getTime() < Date.now()
-                        ? 'Expired'
-                        : fmtDateTime(k.expiresAt)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="space-x-1 text-right">
-                    {!k.revoked && (
-                      <>
-                        <ConfirmButton variant="ghost" size="sm" disabled={rotate.isPending}
-                          confirmLabel="Rotate? Old key gets 24h"
-                          onConfirm={() => rotate.mutate(k.id)}>
-                          Rotate
-                        </ConfirmButton>
-                        <ConfirmButton size="sm" disabled={revoke.isPending}
-                          onConfirm={() => revoke.mutate(k.id)}>
-                          Revoke
-                        </ConfirmButton>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No API keys yet. Create one for server-to-server access.
-          </p>
-        )}
-      </Panel>
+      }
+      columns={keyColumns}
+      rows={keys ?? []}
+      getRowId={(k) => k.id}
+      isLoading={keys === undefined}
+      emptyMessage="No API keys yet. Create one for server-to-server access."
+    />
   );
 }
 
@@ -218,10 +215,57 @@ function WebhooksCard() {
       setOpen(true); // the reveal lives in the dialog - open it to show the new secret
     },
   });
+  type HookRow = NonNullable<typeof hooks>[number];
+  const hookColumns = useMemo<ColumnDef<DataGridFeatures, HookRow>[]>(
+    () => [
+      { id: 'url', accessorKey: 'url', header: 'URL', cell: ({ row }) => <span className="block max-w-56 truncate font-mono text-xs">{row.original.url}</span> },
+      {
+        id: 'events',
+        header: 'Events',
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.events.length === 0 ? 'all' : row.original.events.join(', ')}</span>,
+      },
+      {
+        id: 'delivery',
+        header: 'Last delivery',
+        cell: ({ row }) => {
+          const d = row.original.lastDelivery;
+          return d ? (
+            <span className={`text-xs ${d.ok ? 'text-success-foreground' : 'text-destructive'}`}>
+              {d.ok ? '✓' : '✗'} {d.eventName} · {fmtDateTime(d.occurredAt)}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">none yet</span>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="space-x-1 text-right">
+            <Button variant="ghost" size="sm" disabled={ping.isPending} onClick={() => ping.mutate(row.original.id)}>
+              Ping
+            </Button>
+            <ConfirmButton variant="ghost" size="sm" disabled={rotateSecret.isPending} confirmLabel="Rotate the secret?" description="The old secret keeps signing for 24 hours." onConfirm={() => rotateSecret.mutate(row.original.id)}>
+              Rotate secret
+            </ConfirmButton>
+            <ConfirmButton size="sm" disabled={remove.isPending} confirmLabel="Delete this webhook?" onConfirm={() => remove.mutate(row.original.id)}>
+              Delete
+            </ConfirmButton>
+          </div>
+        ),
+        meta: { headerClassName: 'w-64' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
-    <Panel title="Webhooks" actions={<>
-          <FormDialog
+    <Grid
+      title="Webhooks"
+      actions={
+<FormDialog
             open={open}
             onOpenChange={(next) => {
               setOpen(next);
@@ -242,20 +286,20 @@ function WebhooksCard() {
               />
             ) : (
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="hook-url">URL</Label>
+                <Field>
+                  <FieldLabel htmlFor="hook-url">URL</FieldLabel>
                   <Input id="hook-url" value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://example.com/premise-hooks" />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="hook-events">
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="hook-events">
                     Events (comma-separated, blank = all; wildcards like site.*)
-                  </Label>
+                  </FieldLabel>
                   <Input id="hook-events" value={events}
                     onChange={(e) => setEvents(e.target.value)}
                     placeholder="site.*, org.renamed" />
-                </div>
+                </Field>
                 <Button className="w-full" disabled={!url.trim() || create.isPending}
                   onClick={() => create.mutate()}>
                   Add webhook
@@ -263,58 +307,12 @@ function WebhooksCard() {
               </div>
             )}
           </FormDialog>
-</>}>
-        {hooks && hooks.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>URL</TableHead>
-                <TableHead>Events</TableHead>
-                <TableHead>Last delivery</TableHead>
-                <TableHead className="w-40"><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {hooks.map((h) => (
-                <TableRow key={h.id}>
-                  <TableCell className="max-w-56 truncate font-mono text-xs">{h.url}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {h.events.length === 0 ? 'all' : h.events.join(', ')}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {h.lastDelivery ? (
-                      <span className={h.lastDelivery.ok ? 'text-success-foreground' : 'text-destructive'}>
-                        {h.lastDelivery.ok ? '✓' : '✗'} {h.lastDelivery.eventName} ·{' '}
-                        {fmtDateTime(h.lastDelivery.occurredAt)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">none yet</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="space-x-1 text-right">
-                    <Button variant="ghost" size="sm" disabled={ping.isPending}
-                      onClick={() => ping.mutate(h.id)}>
-                      Ping
-                    </Button>
-                    <ConfirmButton variant="ghost" size="sm" disabled={rotateSecret.isPending}
-                      confirmLabel="Rotate? Old secret signs 24h"
-                      onConfirm={() => rotateSecret.mutate(h.id)}>
-                      Rotate secret
-                    </ConfirmButton>
-                    <ConfirmButton size="sm" disabled={remove.isPending}
-                      onConfirm={() => remove.mutate(h.id)}>
-                      Delete
-                    </ConfirmButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No webhooks yet. Add one to push org events to your systems.
-          </p>
-        )}
-      </Panel>
+      }
+      columns={hookColumns}
+      rows={hooks ?? []}
+      getRowId={(h) => h.id}
+      isLoading={hooks === undefined}
+      emptyMessage="No webhooks yet. Add one to push org events to your systems."
+    />
   );
 }

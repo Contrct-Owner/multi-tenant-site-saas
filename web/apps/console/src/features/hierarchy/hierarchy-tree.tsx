@@ -103,7 +103,7 @@ export function HierarchyTree({
                 <>
                   <span className="truncate">{node.name}</span>
                   <span
-                    className="ml-auto flex shrink-0 gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/node:opacity-100"
+                    className="ml-auto flex shrink-0 gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/node:opacity-100 [@media(hover:none)]:opacity-100"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button

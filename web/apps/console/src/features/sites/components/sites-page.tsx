@@ -1,39 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  RadioGroup,
-  RadioGroupItem,
-  ToggleGroup,
-  ToggleGroupItem,
-  cn,
-  DataGrid,
-  DataGridColumnVisibility,
-  DataGridContainer,
-  DataGridScrollArea,
-  DataGridTable,
-  DataGridTableRowSelect,
-  DataGridTableRowSelectAll,
-  dataGridFeatures,
-  FormDialog,
-  Frame,
-  FrameFooter,
-  FrameHeader,
-  FramePanel,
-  Input,
-  Label,
-  Select,
-  SiteMap,
-  TimeZoneSelect,
-  useTable,
-  type ColumnDef,
-  type DataGridFeatures,
-  type RowSelectionState,
-  type SiteMapOverlay,
-  type SiteMapPoint,
-} from '@premise/ui';
+import { Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridScrollArea, DataGridTable, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Select, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { Columns3, Layers, MapPin, Plus, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -722,20 +687,20 @@ function NewSiteDialog() {
       description="A site is a physical location, placed on a hierarchy node."
     >
       <div className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="site-name">Name</Label>
+        <Field>
+          <FieldLabel htmlFor="site-name">Name</FieldLabel>
           <Input id="site-name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="site-tz">Time zone</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="site-tz">Time zone</FieldLabel>
           <TimeZoneSelect
             id="site-tz"
             value={timeZone}
             onChange={(e) => setTimeZone(e.target.value)}
           />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="site-node">Hierarchy node</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="site-node">Hierarchy node</FieldLabel>
           <Select id="site-node" value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
             <option value="">Choose…</option>
             {hierarchy?.nodes.map((n) => (
@@ -745,7 +710,7 @@ function NewSiteDialog() {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
         <Button
           className="w-full"
           disabled={!name || !nodeId || create.isPending}

@@ -1,12 +1,15 @@
 import {
   Filters,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
   createFilterQuery,
-  createFilterRule,
   flattenFilterConditions,
   type FilterField,
   type FilterQuery,
 } from '@premise/ui';
-import { CircleDot, Search } from 'lucide-react';
+import { CircleDot, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { StatusBadge } from '../../../shell';
 
@@ -26,13 +29,6 @@ const STATUS_OPTIONS = [
 
 const FIELDS: FilterField[] = [
   {
-    id: 'q',
-    label: 'Name or city',
-    icon: <Search className="size-3.5" aria-hidden />,
-    type: 'text',
-    placeholder: 'Search…',
-  },
-  {
     id: 'status',
     label: 'Status',
     icon: <CircleDot className="size-3.5" aria-hidden />,
@@ -47,52 +43,76 @@ const FIELDS: FilterField[] = [
   },
 ];
 
-/** The default chip: a search that is inactive until something is typed (the filtering block's shape). */
-const defaultQuery = () =>
-  createFilterQuery([createFilterRule({ id: 'q-1', path: ['q'], operator: 'contains', value: '' })]);
-
-/** The server-facing values a filter tree means; blank text and empty selects mean nothing. */
-export function toSiteFilterValues(query: FilterQuery): SiteFilterValues {
-  let q = '';
+/** The statuses a filter tree means; an empty select means nothing. */
+export function toStatuses(query: FilterQuery): string[] {
   const statuses = new Set<string>();
   for (const condition of flattenFilterConditions(query)) {
-    if (condition.field === 'q') {
-      const text = condition.values.map((v) => String(v ?? '').trim()).find((v) => v.length > 0);
-      if (text && !condition.negated) q = text;
-    }
-    if (condition.field === 'status') {
-      const chosen = condition.values.map((v) => String(v)).filter(Boolean);
-      if (chosen.length === 0) continue;
-      if (condition.negated || condition.operator === 'is_not' || condition.operator === 'is_none_of') {
-        for (const s of STATUS_OPTIONS.map((o) => o.value)) if (!chosen.includes(s)) statuses.add(s);
-      } else {
-        for (const s of chosen) statuses.add(s);
-      }
+    if (condition.field !== 'status') continue;
+    const chosen = condition.values.map((v) => String(v)).filter(Boolean);
+    if (chosen.length === 0) continue;
+    if (condition.negated || condition.operator === 'is_not' || condition.operator === 'is_none_of') {
+      for (const s of STATUS_OPTIONS.map((o) => o.value)) if (!chosen.includes(s)) statuses.add(s);
+    } else {
+      for (const s of chosen) statuses.add(s);
     }
   }
-  return { q, statuses: [...statuses] };
+  return [...statuses];
 }
 
 /**
- * The Sites filter bar: the ReUI Filters component in its basic (chip row)
- * variant. Whatever the chips say becomes the list query's `q` and
- * `status`; the server does the filtering, so the map and the table read
- * the same rows.
+ * The Sites filter bar: a search box for name or city (the one filter
+ * everyone reaches for, so it is always visible), and the ReUI Filters
+ * component for the rest, starting empty so the bar is just "Add filter"
+ * until a chip is chosen. Both become the list query; the server filters,
+ * so the map and the table read the same rows.
  */
 export function SiteFilters({ onChange }: { onChange: (values: SiteFilterValues) => void }) {
-  const [query, setQuery] = useState<FilterQuery>(defaultQuery);
+  const [q, setQ] = useState('');
+  const [query, setQuery] = useState<FilterQuery>(() => createFilterQuery());
   const fields = useMemo(() => FIELDS, []);
+  const emit = (nextQ: string, nextQuery: FilterQuery) => onChange({ q: nextQ.trim(), statuses: toStatuses(nextQuery) });
   return (
-    <Filters
-      fields={fields}
-      query={query}
-      variant="basic"
-      size="sm"
-      showClear
-      onQueryChange={(next) => {
-        setQuery(next);
-        onChange(toSiteFilterValues(next));
-      }}
-    />
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <InputGroup className="w-full sm:w-64">
+        <InputGroupAddon align="inline-start">
+          <Search aria-hidden />
+        </InputGroupAddon>
+        <InputGroupInput
+          placeholder="Search name or city…"
+          aria-label="Search sites"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            emit(e.target.value, query);
+          }}
+        />
+        {q.length > 0 && (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              type="button"
+              aria-label="Clear search"
+              size="icon-xs"
+              onClick={() => {
+                setQ('');
+                emit('', query);
+              }}
+            >
+              <X aria-hidden />
+            </InputGroupButton>
+          </InputGroupAddon>
+        )}
+      </InputGroup>
+      <Filters
+        fields={fields}
+        query={query}
+        variant="basic"
+        size="sm"
+        showClear
+        onQueryChange={(next) => {
+          setQuery(next);
+          emit(q, next);
+        }}
+      />
+    </div>
   );
 }

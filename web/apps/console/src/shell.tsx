@@ -1,21 +1,5 @@
 import { api, ApiError, type Capability } from '@premise/api';
-import {
-  Badge,
-  Button,
-  cn,
-  Input,
-  Label,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  Toaster,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@premise/ui';
+import { Badge, Button, cn, Field, FieldLabel, Input, Label, Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, Toaster, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
@@ -709,8 +693,8 @@ function CreateOrgScreen() {
             You&apos;re signed in but don&apos;t belong to an organization yet.
           </p>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="org-name">Organization name</Label>
+        <Field>
+          <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
           <Input
             id="org-name"
             value={name}
@@ -724,11 +708,11 @@ function CreateOrgScreen() {
               );
             }}
           />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="org-slug">URL slug</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="org-slug">URL slug</FieldLabel>
           <Input id="org-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
-        </div>
+        </Field>
         <Button className="w-full" disabled={!name || slug.length < 3 || creating} onClick={create}>
           {creating ? 'Setting up…' : 'Create organization'}
         </Button>

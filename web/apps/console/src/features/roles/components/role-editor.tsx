@@ -1,5 +1,5 @@
 import type { components } from '@premise/api';
-import { Button, Input, Label } from '@premise/ui';
+import { Button, Checkbox, Field, FieldLabel, FieldLegend, FieldSet, Input } from '@premise/ui';
 import { useState } from 'react';
 import { useApiMutation } from '../../../lib/mutation';
 import { rolesApi } from '../api';
@@ -31,26 +31,29 @@ export function RoleEditor({ role, onSaved }: { role: Role | null; onSaved: () =
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
-        <Label htmlFor="role-name">Name</Label>
+      <Field>
+        <FieldLabel htmlFor="role-name">Name</FieldLabel>
         <Input id="role-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <Label>Grants</Label>
+      </Field>
+      <FieldSet>
+        <FieldLegend>Grants</FieldLegend>
         <div className="grid grid-cols-2 gap-1.5">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={picked.has(WILDCARD)}
-              onChange={() => toggle(WILDCARD)} />
-            <span className="font-mono">*:* (everything)</span>
-          </label>
+          <Field orientation="horizontal">
+            <Checkbox id="grant-wildcard" checked={picked.has(WILDCARD)} onCheckedChange={() => toggle(WILDCARD)} />
+            <FieldLabel htmlFor="grant-wildcard" className="font-mono font-normal">
+              *:* (everything)
+            </FieldLabel>
+          </Field>
           {GRANTABLE.map((c) => (
-            <label key={c} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={picked.has(c)} onChange={() => toggle(c)} />
-              <span className="font-mono">{c}</span>
-            </label>
+            <Field key={c} orientation="horizontal">
+              <Checkbox id={`grant-${c}`} checked={picked.has(c)} onCheckedChange={() => toggle(c)} />
+              <FieldLabel htmlFor={`grant-${c}`} className="font-mono font-normal">
+                {c}
+              </FieldLabel>
+            </Field>
           ))}
         </div>
-      </div>
+      </FieldSet>
       <Button className="w-full"
         disabled={!name.trim() || picked.size === 0 || save.isPending}
         onClick={() => save.mutate()}>

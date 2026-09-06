@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, cn, useIsMobile } from '@premise/ui';
+import { Button, cn, ConfirmButton, Field, FieldLabel, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useIsMobile } from '@premise/ui';
 import { Building2, CreditCard, Database, Globe, KeyRound, Map as MapIcon, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -125,14 +125,14 @@ export function SettingsPage() {
         <div className="min-w-0 flex-1 space-y-6">
           <TabsContent value="profile" className="mt-0">
       <Panel title="Profile" bodyClassName="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="org-rename">Name</Label>
+          <Field>
+            <FieldLabel htmlFor="org-rename">Name</FieldLabel>
             <Input id="org-rename" value={draft} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="org-slug">URL slug</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="org-slug">URL slug</FieldLabel>
             <Input id="org-slug" value={activeOrg.slug} disabled />
-          </div>
+          </Field>
           <Button
             disabled={draft === activeOrg.name || !draft.trim() || rename.isPending}
             onClick={() => rename.mutate(draft.trim())}
@@ -357,28 +357,28 @@ function SiteAttributesCard() {
           </div>
         ))}
         <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="attr-label">Label</Label>
+          <Field>
+            <FieldLabel htmlFor="attr-label">Label</FieldLabel>
             <Input id="attr-label" className="w-40" value={label} placeholder="Drive-thru"
               onChange={(e) => {
                 setLabel(e.target.value);
                 setKey(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
               }} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="attr-key">Key</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="attr-key">Key</FieldLabel>
             <Input id="attr-key" className="w-36 font-mono text-xs" value={key}
               onChange={(e) => setKey(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="attr-type">Type</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="attr-type">Type</FieldLabel>
             <Select id="attr-type" className="w-28" value={type}
               onChange={(e) => setType(e.target.value)}>
               <option>Text</option>
               <option>Number</option>
               <option>Boolean</option>
             </Select>
-          </div>
+          </Field>
           <label className="flex h-9 items-center gap-2 text-sm">
             <Switch checked={isPublic} onCheckedChange={(checked) => setIsPublic(checked)} />
             Public
@@ -456,34 +456,34 @@ function MapBasemapsCard() {
           </div>
         ))}
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="basemap-name">Name</Label>
+          <Field>
+            <FieldLabel htmlFor="basemap-name">Name</FieldLabel>
             <Input id="basemap-name" value={name} placeholder="Aerial"
               onChange={(e) => {
                 setName(e.target.value);
                 setId(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
               }} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="basemap-id">Id</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="basemap-id">Id</FieldLabel>
             <Input id="basemap-id" className="font-mono text-xs" value={id} onChange={(e) => setId(e.target.value)} />
-          </div>
+          </Field>
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="basemap-url">URL template</Label>
             <Input id="basemap-url" className="font-mono text-xs" value={urlTemplate}
               placeholder="https://tiles.example.com/{z}/{x}/{y}.png?key={key}"
               onChange={(e) => setUrlTemplate(e.target.value)} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="basemap-attribution">Attribution</Label>
+          <Field>
+            <FieldLabel htmlFor="basemap-attribution">Attribution</FieldLabel>
             <Input id="basemap-attribution" value={attribution} placeholder="© Example Maps"
               onChange={(e) => setAttribution(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="basemap-zoom">Max zoom</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="basemap-zoom">Max zoom</FieldLabel>
             <Input id="basemap-zoom" type="number" min={1} max={22} value={maxZoom}
               onChange={(e) => setMaxZoom(e.target.value)} />
-          </div>
+          </Field>
           {needsKey && (
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="basemap-key">Provider key</Label>

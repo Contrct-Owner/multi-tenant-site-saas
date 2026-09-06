@@ -1,20 +1,4 @@
-import {
-  Button,
-  buttonVariants,
-  ConfirmButton,
-  FormDialog,
-  Frame,
-  FrameFooter,
-  FrameHeader,
-  FramePanel,
-  Input,
-  Label,
-  Select,
-  Textarea,
-  ToggleGroup,
-  ToggleGroupItem,
-  toast,
-} from '@premise/ui';
+import { Button, buttonVariants, ConfirmButton, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Select, Textarea, toast, ToggleGroup, ToggleGroupItem } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
@@ -215,13 +199,13 @@ function NewLayerDialog() {
       description="A layer holds shapes of one kind. Anchor it to a hierarchy node and only that subtree's scope sees it."
     >
       <div className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="overlay-name">Name</Label>
+        <Field>
+          <FieldLabel htmlFor="overlay-name">Name</FieldLabel>
           <Input id="overlay-name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
+        </Field>
         <div className="grid grid-cols-[1fr_auto] gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="overlay-kind">Kind</Label>
+          <Field>
+            <FieldLabel htmlFor="overlay-kind">Kind</FieldLabel>
             <Select id="overlay-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
               {KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -229,9 +213,9 @@ function NewLayerDialog() {
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="overlay-fill">Color</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="overlay-fill">Color</FieldLabel>
             <Input
               id="overlay-fill"
               type="color"
@@ -239,10 +223,10 @@ function NewLayerDialog() {
               value={fill}
               onChange={(e) => setFill(e.target.value)}
             />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="overlay-node">Anchor</Label>
+        <Field>
+          <FieldLabel htmlFor="overlay-node">Anchor</FieldLabel>
           <Select id="overlay-node" value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
             <option value="">Whole organization</option>
             {hierarchy?.nodes.map((n) => (
@@ -252,7 +236,7 @@ function NewLayerDialog() {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
         <Button className="w-full" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>
           Create layer
         </Button>
@@ -315,8 +299,8 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       description="A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map."
     >
       <div className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="overlay-file">GeoJSON file</Label>
+        <Field>
+          <FieldLabel htmlFor="overlay-file">GeoJSON file</FieldLabel>
           <Input
             id="overlay-file"
             type="file"
@@ -324,9 +308,9 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
             onChange={(e) => void pick(e.target.files?.[0])}
           />
           {fileName && <p className="text-xs text-muted-foreground">{fileName}</p>}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="overlay-geojson">Or paste it</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="overlay-geojson">Or paste it</FieldLabel>
           <Textarea
             id="overlay-geojson"
             rows={6}
@@ -335,7 +319,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
             onChange={(e) => setText(e.target.value)}
             placeholder='{"type":"FeatureCollection","features":[…]}'
           />
-        </div>
+        </Field>
         {problem && (
           <p role="alert" className="text-sm text-destructive">
             {problem}

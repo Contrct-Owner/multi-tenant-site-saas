@@ -1,6 +1,6 @@
 import { checklistsApi } from './api';
 import { useSites } from '../sites';
-import { Button, Checkbox, ConfirmButton, FormDialog, Input, Label, Select, Textarea } from '@premise/ui';
+import { Button, Checkbox, ConfirmButton, Field, FieldLabel, FormDialog, Input, Select, Textarea } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../../components/page';
@@ -152,13 +152,13 @@ function TemplatesCard() {
             description="Applies daily at every site. One item per line."
           >
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="cl-name">Name</Label>
+              <Field>
+                <FieldLabel htmlFor="cl-name">Name</FieldLabel>
                 <Input id="cl-name" value={name} placeholder="Opening"
                   onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cl-items">Items</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="cl-items">Items</FieldLabel>
                 <Textarea
                   id="cl-items"
                   className="min-h-28"
@@ -166,7 +166,7 @@ function TemplatesCard() {
                   placeholder={'Unlock doors\nCount register'}
                   onChange={(e) => setItems(e.target.value)}
                 />
-              </div>
+              </Field>
               <Button className="w-full"
                 disabled={!name.trim() || !items.trim() || create.isPending}
                 onClick={() => create.mutate()}>

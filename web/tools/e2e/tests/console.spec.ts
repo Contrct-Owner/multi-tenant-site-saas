@@ -132,7 +132,7 @@ test.describe('critical workflows', () => {
     const name = `E2E role ${Date.now()}`;
     await page.getByRole('button', { name: 'New role' }).click();
     await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByRole('dialog').getByLabel('sites:read', { exact: true }).check();
+    await page.getByRole('dialog').getByRole('checkbox', { name: 'sites:read', exact: true }).check();
     await page.getByRole('button', { name: 'Create role' }).click();
     await expect(page.getByText('Role saved', { exact: true })).toBeVisible();
 

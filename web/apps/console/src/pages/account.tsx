@@ -1,6 +1,5 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, Input,
-  Label } from '@premise/ui';
+import { Button, ConfirmButton, Field, FieldLabel, Input } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDateTime } from '../lib/format';
@@ -84,14 +83,14 @@ export function AccountPage() {
     <div className="max-w-2xl space-y-6">
       <PageHeader title="Account" description="You, across every organization you belong to." />
       <Panel title="Profile" bodyClassName="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="account-email">Email</Label>
+          <Field>
+            <FieldLabel htmlFor="account-email">Email</FieldLabel>
             <Input id="account-email" value={me.email} disabled />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="account-name">Name</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="account-name">Name</FieldLabel>
             <Input id="account-name" value={draft} onChange={(e) => setName(e.target.value)} />
-          </div>
+          </Field>
           <Button
             disabled={draft === (me.name ?? '') || !draft.trim() || rename.isPending}
             onClick={() => rename.mutate(draft.trim())}
