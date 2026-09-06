@@ -95,6 +95,7 @@ Client obligations, so the endpoint stays cheap:
 - ReUI's data grid defaults to row-index selection; the site library must
   configure id-keyed selection from the first commit, because selection
   surviving a pan depends on it.
-- The map component is the Leaflet/OSM choice from ADR 43 reused in the
-  console: no new dependency, no vendor account. Commercial tiles at volume
-  remain fork territory, as before.
+- The console map is MapLibre GL JS (ADR 50), rendering the tiles that
+  endpoint family serves; the public locator keeps Leaflet (ADR 43). No
+  vendor account either way. Commercial tiles at volume remain fork
+  territory, as before.

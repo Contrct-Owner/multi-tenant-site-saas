@@ -121,7 +121,31 @@ GET /api/tiles/{layer}/{z}/{x}/{y}.mvt
   is the natural first extension and would be a `Guest`-capable layer on the
   same endpoint.
 
-### 5. Seams left for forks, deliberately
+### 5. The console map is MapLibre GL JS; the public locator stays Leaflet
+
+- The console renders its map with **MapLibre GL JS**: vector tiles are its
+  native input, so the tile endpoint above needs no plugin, clustering
+  output renders from the same tile, and style JSON is where basemaps and
+  layer styling live. It is open source, vendor-neutral and works with
+  OpenStreetMap-derived raster basemaps as well as vector ones, so the
+  no-vendor-account stance from ADR 43 holds.
+- The public locator keeps Leaflet (ADR 43). Its job is a modest, unpaged
+  GeoJSON list on an SSR page where first paint matters and WebGL is a cost
+  with no payoff. The two apps already differ in framework (ADR 15); they may
+  differ in map library for the same reason. The day the public page needs a
+  tile layer, it moves to MapLibre by the same argument, not before.
+- One map component per app, each behind its app's own seam: the console's
+  lives in `@premise/ui` so pages import it from the barrel (ADR 20), takes a
+  basemap id, a list of layer ids and a `NodeScope`-aware tile URL builder
+  from the generated client, and owns the move-end debounce and tile-grid
+  snapping that ADR 49 requires of clients. Nothing outside it knows the
+  library.
+- WebGL in the browser suite: headless Chromium renders MapLibre through
+  SwiftShader, so the Playwright and axe pass (ADR 47) covers the map page;
+  the map canvas itself is `aria-hidden` with the in-view list as the
+  accessible equivalent, which is also what the phone sheet already is.
+
+### 6. Seams left for forks, deliberately
 
 - Raster imagery (floor plans, drone, campus maps) needs a tile pipeline and
   object storage semantics the Storage module (ADR 19) does not have.
