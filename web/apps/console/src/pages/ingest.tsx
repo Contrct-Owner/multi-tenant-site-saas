@@ -8,6 +8,20 @@ import { FileDropzone } from '../components/file-dropzone';
 import { useApiMutation } from '../lib/mutation';
 import { StatusBadge } from '../shell';
 import { uploadFile } from '../lib/uploads';
+import { Link } from '@tanstack/react-router';
+import { CheckCircle2 } from 'lucide-react';
+
+/** The invalid rows back as a CSV the uploader can fix and re-run (one row per problem row, its reasons in the last column). */
+function downloadInvalidRows(rows: { externalId: string; name: string; nodePath: string; errors: string[] }[]) {
+  const quote = (v: string) => `"${v.replaceAll('"', '""')}"`;
+  const csv = ['external_id,name,node,problems', ...rows.map((r) => [r.externalId, r.name, r.nodePath, r.errors.join('; ')].map(quote).join(','))].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'invalid-rows.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const STEPS = ['Upload', 'Review the diff', 'Commit'] as const;
 
@@ -115,6 +129,11 @@ export function IngestPage() {
   );
 
   const step = preview === undefined ? 1 : preview.status === 'Committed' ? 3 : 2;
+  const changes = preview
+    ? Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)
+    : 0;
+  const invalid = Number(preview?.counts.invalid ?? 0);
+  const invalidRows = preview?.rows.filter((r) => r.errors.length > 0) ?? [];
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Site ingest" description="Bulk-load sites from a CSV or a connector; nothing applies until you review the diff and commit." />
@@ -134,10 +153,11 @@ export function IngestPage() {
       </Stepper>
       <Panel title="Upload CSV" bodyClassName="space-y-3">
           <p className="text-sm text-muted-foreground">
-            One row per site. Nothing is applied until you review the diff and commit.
+            One row per site. The node column is the node&apos;s name path below the root (or its id); status is open or closed.
+            Nothing is applied until you review the diff and commit.
           </p>
           <CodeBlock
-            code={'external_id,name,time_zone,node,status\nstore-001,Northgate,America/Los_Angeles,Seattle,open'}
+            code={'external_id,name,time_zone,node,status\nstore-001,Northgate,America/Los_Angeles,Pacific Northwest/Seattle,open'}
             language="csv"
             highlight={false}
           />
@@ -173,9 +193,38 @@ export function IngestPage() {
           emptyMessage="Nothing in this batch."
           footer={
             preview.status === 'Staged' ? (
-              <Button disabled={commit.isPending} onClick={() => commit.mutate()}>
-                Commit {Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)} changes
-              </Button>
+              <>
+                <Button disabled={commit.isPending || changes === 0} onClick={() => commit.mutate()}>
+                  Commit {changes} {changes === 1 ? 'row' : 'rows'}
+                </Button>
+                {invalid > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {invalid} invalid {invalid === 1 ? 'row is' : 'rows are'} skipped.{' '}
+                    <Button variant="link" size="sm" className="h-auto px-0" onClick={() => downloadInvalidRows(invalidRows)}>
+                      Download them
+                    </Button>
+                  </span>
+                )}
+              </>
+            ) : preview.status === 'Committed' ? (
+              <Alert className="w-full">
+                <CheckCircle2 aria-hidden />
+                <AlertTitle>Committed</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    {preview.counts.create} new, {preview.counts.update} updated, {preview.counts.close} closed
+                    {invalid > 0 && `, ${invalid} invalid skipped`}.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Link to="/sites" className="underline underline-offset-4">View sites</Link>
+                    {invalid > 0 && (
+                      <Button variant="link" size="sm" className="h-auto px-0" onClick={() => downloadInvalidRows(invalidRows)}>
+                        Download the invalid rows
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
             ) : (
               <p className="text-sm text-muted-foreground">Batch is {preview.status}.</p>
             )

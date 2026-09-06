@@ -170,21 +170,41 @@ function NewLayerDialog() {
   const [fill, setFill] = useState(DEFAULT_FILL);
   const [nodeId, setNodeId] = useState('');
 
+  const [shapes, setShapes] = useState<{ fileName: string; geoJson: unknown } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  // one dialog (flow review, 2026-09): the layer and, when a file is dropped
+  // in, its shapes - two calls behind one button
   const create = useApiMutation({
-    mutationFn: () =>
-      overlaysApi.create({
+    mutationFn: async () => {
+      const layer = await overlaysApi.create({
         name,
         kind,
         style: { fill, opacity: 0.2 },
         nodeId: nodeId || null,
-      }),
+      });
+      if (!shapes) return { count: 0 };
+      return overlaysApi.replaceFeatures(layer.id, shapes.geoJson);
+    },
     invalidate: [['overlays']],
-    success: 'Layer created - upload its shapes next',
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const n = Number(result.count);
+      toast.success(shapes ? `Layer created with ${n} shape${n === 1 ? '' : 's'}` : 'Layer created - upload its shapes next');
       setName('');
+      setShapes(null);
       setOpen(false);
     },
   });
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setProblem(null);
+    try {
+      setShapes({ fileName: file.name, geoJson: JSON.parse(await file.text()) as unknown });
+    } catch {
+      setShapes(null);
+      setProblem(`${file.name} is not valid GeoJSON.`);
+    }
+  };
 
   return (
     <FormDialog
@@ -202,8 +222,15 @@ function NewLayerDialog() {
       <div className="space-y-3">
         <Field>
           <FieldLabel htmlFor="overlay-name">Name</FieldLabel>
-          <Input id="overlay-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="overlay-name" value={name} placeholder="Downtown zones" onChange={(e) => setName(e.target.value)} />
         </Field>
+        <FileDropzone
+          accept=".geojson,.json,application/geo+json,application/json"
+          onFile={(file) => void pick(file)}
+          label={shapes ? `Ready: ${shapes.fileName}` : 'Drop the shapes here as GeoJSON, or add them later'}
+          buttonLabel="Choose GeoJSON…"
+          error={problem ?? undefined}
+        />
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field>
             <FieldLabel htmlFor="overlay-kind">Kind</FieldLabel>
@@ -239,7 +266,7 @@ function NewLayerDialog() {
           </Select>
         </Field>
         <Button className="w-full" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>
-          Create layer
+          {shapes ? 'Create layer and upload shapes' : 'Create layer'}
         </Button>
       </div>
     </FormDialog>
@@ -247,6 +274,8 @@ function NewLayerDialog() {
 }
 
 function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
+  // the honest verb: a layer with nothing in it is uploaded to, not replaced
+  const verb = Number(layer.featureCount) === 0 ? 'Upload shapes' : 'Replace shapes';
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -293,11 +322,15 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       trigger={
         <Button variant="outline" size="sm">
           <FileUp className="size-4" aria-hidden />
-          Upload shapes
+          {verb}
         </Button>
       }
       title={`Shapes for ${layer.name}`}
-      description="A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map."
+      description={
+        Number(layer.featureCount) === 0
+          ? 'A GeoJSON FeatureCollection of polygons; feature properties ride along to the map.'
+          : 'A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map.'
+      }
     >
       <div className="space-y-3">
         <FileDropzone
@@ -323,7 +356,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
           </p>
         )}
         <Button className="w-full" disabled={!text.trim() || upload.isPending} onClick={submit}>
-          {upload.isPending ? 'Uploading…' : 'Replace shapes'}
+          {upload.isPending ? 'Uploading…' : verb}
         </Button>
       </div>
     </FormDialog>

@@ -1,19 +1,44 @@
 import { checklistsApi } from './api';
 import { useSites } from '../sites';
-import { Button, Checkbox, ConfirmButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, FormDialog, Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle, Sortable, SortableItem, SortableItemHandle } from '@premise/ui';
+import { Button, Checkbox, ConfirmButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, FormDialog, Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle, Sortable, SortableItem, SortableItemHandle, Tabs, TabsContent, TabsList, TabsTrigger } from '@premise/ui';
 import { GripVertical, Plus, X } from 'lucide-react';
 import { SitePicker, type PickedSite } from '../sites/components/site-picker';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../../components/page';
+import { fmtBusinessDate } from '../../lib/format';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 
-/** The ops core loop (ADR 45): today's lists per site, on the site's clock. */
+// the site this device opened last: a manager's phone opens on their site
+const SITE_KEY = 'premise.checklists.site';
+const readRememberedSite = (): PickedSite | null => {
+  try {
+    const raw = localStorage.getItem(SITE_KEY);
+    return raw ? (JSON.parse(raw) as PickedSite) : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The ops core loop (ADR 45): today's lists per site, on the site's clock.
+ * Two tabs (flow review, 2026-09): Today is the screen a manager works;
+ * Templates is the admin's, shown only to those who manage them.
+ */
 export function ChecklistsPage() {
   const { data: me } = useMe();
   const manage = can(me, 'checklists:manage');
-  const [picked, setPicked] = useState<PickedSite | null>(null);
+  const [picked, setPickedState] = useState<PickedSite | null>(readRememberedSite);
+  const setPicked = (site: PickedSite | null) => {
+    setPickedState(site);
+    try {
+      if (site) localStorage.setItem(SITE_KEY, JSON.stringify(site));
+      else localStorage.removeItem(SITE_KEY);
+    } catch {
+      // a convenience; the first site in scope is the fallback
+    }
+  };
 
   // the first site in scope is the default; the picker searches the rest
   const siteQuery = useSites('');
@@ -33,19 +58,8 @@ export function ChecklistsPage() {
     invalidate: [['checklists', 'today', activeSite]],
   });
 
-  return (
-    <div className="max-w-3xl space-y-6">
-      <PageHeader
-        title="Checklists"
-        description="Today's lists at a site, on that site's own clock."
-        actions={
-          sites && sites.length > 1 ? (
-            <div className="w-72">
-              <SitePicker aria-label="Checklist site" value={current} onChange={setPicked} />
-            </div>
-          ) : undefined
-        }
-      />
+  const today_ = (
+    <>
       {siteQuery.isPending && <Loading text="Loading sites…" />}
       {siteQuery.isError && <div role="alert">Could not load sites. <Button onClick={() => void siteQuery.refetch()}>Retry sites</Button></div>}
       {sites?.length === 0 && !siteQuery.isError && <p>No accessible sites yet.</p>}
@@ -54,13 +68,14 @@ export function ChecklistsPage() {
         onClick={() => void todayQuery.refetch()}>Retry checklists</Button></div>}
       {today && (
         <p className="text-sm text-muted-foreground">
-          {today.site} · {today.businessDate} (site-local day)
+          {today.site} · {fmtBusinessDate(today.businessDate)}
+          <span title="The site's own day, not this device's" className="text-xs"> (site time)</span>
         </p>
       )}
       {today?.lists.length === 0 && (
         <Panel bodyClassName="text-sm text-muted-foreground">
             No checklists apply to this site yet.
-            {manage && ' Create a template below.'}
+            {manage && ' Create a template under Templates.'}
         </Panel>
       )}
       {today?.lists.map((list) => {
@@ -100,7 +115,40 @@ export function ChecklistsPage() {
           </Panel>
         );
       })}
-      {manage && <TemplatesCard />}
+    </>
+  );
+  const picker =
+    sites && sites.length > 1 ? (
+      <div className="w-full sm:w-72">
+        <SitePicker aria-label="Checklist site" value={current} onChange={setPicked} />
+      </div>
+    ) : undefined;
+
+  if (!manage)
+    return (
+      <div className="max-w-3xl space-y-6">
+        <PageHeader title="Checklists" description="Today's lists at a site, on that site's own clock." actions={picker} />
+        {today_}
+      </div>
+    );
+  return (
+    <div className="max-w-3xl space-y-6">
+      <PageHeader title="Checklists" description="Today's lists at a site, on that site's own clock." />
+      <Tabs defaultValue="today" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList variant="line" aria-label="Checklists">
+            <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+          {picker}
+        </div>
+        <TabsContent value="today" className="space-y-6">
+          {today_}
+        </TabsContent>
+        <TabsContent value="templates">
+          <TemplatesCard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

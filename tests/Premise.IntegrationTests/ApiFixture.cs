@@ -376,10 +376,41 @@ public class ApiFixture : IAsyncLifetime
             "/api/hierarchy",
             new { name, levels = levels ?? ["Region"] }
         );
+        // a new org's default hierarchy lands via the outbox and may beat
+        // this call by a hair: a conflict means it exists now - read it
+        if (created.StatusCode == System.Net.HttpStatusCode.Conflict)
+            return await EnsureRootAsync(client, name, levels);
         created.EnsureSuccessStatusCode();
         return (await created.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("rootNodeId")
             .GetGuid();
+    }
+
+    /// <summary>
+    /// The root of the hierarchy a NEW org is born with (seeded through the
+    /// outbox like the founder's membership): waits for it, so a test that
+    /// creates an org and then places a site never races the seed.
+    /// </summary>
+    public static async Task<Guid> WaitForRootAsync(HttpClient client)
+    {
+        Guid? root = null;
+        await WaitUntilAsync(
+            async () =>
+            {
+                var tree = await client.GetAsync("/api/hierarchy");
+                if (!tree.IsSuccessStatusCode)
+                    return false;
+                root = (await tree.Content.ReadFromJsonAsync<JsonElement>())
+                    .GetProperty("nodes")
+                    .EnumerateArray()
+                    .First(n => n.GetProperty("depth").GetInt32() == 0)
+                    .GetProperty("id")
+                    .GetGuid();
+                return true;
+            },
+            "the default hierarchy to arrive via the outbox"
+        );
+        return root!.Value;
     }
 
     /// <summary>

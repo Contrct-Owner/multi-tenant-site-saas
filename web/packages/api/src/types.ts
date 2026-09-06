@@ -116,6 +116,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/bulk-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_sites_bulk_status
+         * @description POST_api_sites_bulk_status
+         */
+        post: operations["POST_api_sites_bulk_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{id}/schedules": {
         parameters: {
             query?: never;
@@ -660,7 +680,11 @@ export interface paths {
          * @description GET_api_hierarchy
          */
         get: operations["GET_api_hierarchy"];
-        put?: never;
+        /**
+         * PUT_api_hierarchy
+         * @description PUT_api_hierarchy
+         */
+        put: operations["PUT_api_hierarchy"];
         /**
          * POST_api_hierarchy
          * @description POST_api_hierarchy
@@ -3070,6 +3094,16 @@ export interface components {
             email: string;
             reason: null | string;
         };
+        BulkSiteStatusRequest: {
+            ids: string[];
+            status: components["schemas"]["SiteStatus"];
+        };
+        BulkSiteStatusResponse: {
+            /** Format: int32 */
+            updated: number | string;
+            /** Format: int32 */
+            skipped: number | string;
+        };
         CheckItemRequest: {
             /** Format: uuid */
             templateId: string;
@@ -3337,6 +3371,9 @@ export interface components {
             id: string;
             /** Format: uuid */
             rootNodeId: string;
+        };
+        HierarchyLevelsResponse: {
+            levels: string[];
         };
         HierarchyResponse: {
             /** Format: uuid */
@@ -3830,6 +3867,9 @@ export interface components {
             /** Format: int32 */
             syncIntervalHours?: null | number | string;
         };
+        UpdateHierarchyLevelsRequest: {
+            levels: string[];
+        };
         UpdateOverlayLayerRequest: {
             name?: null | string;
             style?: unknown;
@@ -4176,6 +4216,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_sites_bulk_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkSiteStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkSiteStatusResponse"];
                 };
             };
             /** @description Not Found */
@@ -5183,6 +5256,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HierarchyResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_hierarchy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHierarchyLevelsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyLevelsResponse"];
                 };
             };
             /** @description Not Found */

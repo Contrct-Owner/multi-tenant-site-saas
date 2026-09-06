@@ -72,6 +72,11 @@ public sealed record SiteResponse(
     System.Text.Json.JsonElement Attributes
 );
 
+public sealed record BulkSiteStatusRequest(Guid[] Ids, SiteStatus Status);
+
+/// <summary>Updated = changed by this call; Skipped = unknown ids or outside the grant's scope.</summary>
+public sealed record BulkSiteStatusResponse(int Updated, int Skipped);
+
 /// <summary>
 /// Site queries take a REQUIRED NodeScope (the third gate): resolved once per
 /// request from the principal, applied as an ltree predicate. No endpoint
@@ -475,6 +480,43 @@ public static class SiteEndpoints
         if (timeZoneChanged)
             await bus.PublishForOrgAsync(site.OrgId, new RebuildSiteOccurrences(site.Id.Value));
         return Results.Ok(ToResponse(site));
+    }
+
+    /// <summary>
+    /// One status for many sites (the list's selection bar): each site the
+    /// grant covers changes, the rest are counted and left alone - scope
+    /// filters, it never errors. Node moves are not offered; a site's path is
+    /// stamped into its facts, so relocating one is its own flow.
+    /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverinePost("/api/sites/bulk-status")]
+    [ProducesResponseType(typeof(BulkSiteStatusResponse), StatusCodes.Status200OK)]
+    public static async Task<IResult> BulkStatus(
+        BulkSiteStatusRequest request,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
+    {
+        if (request.Ids.Length is 0 or > 500)
+            return Results.BadRequest(new { error = "choose between 1 and 500 sites" });
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.SitesManage, ct);
+        if (gate is not GateOutcome.Allowed { Scope: var scope })
+            return gate.ToResult();
+        var ids = request.Ids.Distinct().Select(id => new SiteId(id)).ToArray();
+        var sites = await db.Sites.Where(s => ids.Contains(s.Id)).ToListAsync(ct);
+        var updated = 0;
+        foreach (var site in sites)
+        {
+            if (!scope.Covers(site.Path.ToString()))
+                continue;
+            if (site.Status != request.Status)
+                site.Status = request.Status;
+            updated++;
+        }
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new BulkSiteStatusResponse(updated, ids.Length - updated));
     }
 
     [Transactional(typeof(TenancyDbContext))]

@@ -60,14 +60,8 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await ApiFixture.WaitForMembershipAsync(owner);
         (await owner.PostAsJsonAsync("/auth/switch-org", new { orgId })).EnsureSuccessStatusCode();
 
-        var created = await owner.PostAsJsonAsync(
-            "/api/hierarchy",
-            new { name = email, levels = new[] { "Region", "Market" } }
-        );
-        created.EnsureSuccessStatusCode();
-        var rootId = (await created.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("rootNodeId")
-            .GetGuid();
+        // the org is born with a hierarchy (root + default levels)
+        var rootId = await ApiFixture.WaitForRootAsync(owner);
         return (owner, rootId, orgId);
     }
 

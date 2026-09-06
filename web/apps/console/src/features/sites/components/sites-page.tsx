@@ -1,7 +1,7 @@
-import { Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridTableVirtual, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
-import { Link } from '@tanstack/react-router';
+import { toast, Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridTableVirtual, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Select, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useIsMobile, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Columns3, Layers, MapPin, Plus, Table2 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useScope } from '../../../app/scope';
 import { useTheme } from '../../../app/theme';
 import { bboxParam, snapToTileGrid, type Viewport } from '../../../lib/map';
@@ -72,6 +72,8 @@ export function SitesPage() {
   const [fitKey, setFitKey] = useState(0);
   const scope = useScope();
   const theme = useTheme();
+  // a phone reads a list, not a clipped table (flow review, 2026-09)
+  const phone = useIsMobile();
 
   const setView = (next: View) => {
     setViewState(next);
@@ -214,6 +216,23 @@ export function SitesPage() {
 
   const nodeName = (id: string) => hierarchy?.nodes.find((n) => n.id === id)?.name ?? '—';
 
+  // the selection's one action: a status for every chosen site, in one call
+  const bulkStatus = useApiMutation({
+    mutationFn: (status: string) =>
+      sitesApi.bulkStatus(selectedIds, status as Parameters<typeof sitesApi.bulkStatus>[1]),
+    invalidate: [['sites']],
+    onSuccess: (result) => {
+      const updated = Number(result.updated);
+      const skipped = Number(result.skipped);
+      toast.success(
+        skipped > 0
+          ? `${updated} updated, ${skipped} outside your scope left alone`
+          : `${updated} site${updated === 1 ? '' : 's'} updated`,
+      );
+      setRowSelection({});
+    },
+  });
+
   const columns = useMemo<ColumnDef<DataGridFeatures, SiteRow>[]>(
     () => [
       {
@@ -340,6 +359,24 @@ export function SitesPage() {
     selectedCount > 0 ? (
       <>
         <span className="font-medium tabular-nums">{selectedCount} selected</span>
+        {manage && (
+          <Select
+            aria-label="Set status for the selected sites"
+            className="w-44"
+            value=""
+            disabled={bulkStatus.isPending}
+            onChange={(e) => {
+              if (e.target.value) bulkStatus.mutate(e.target.value);
+            }}
+          >
+            <option value="">Set status…</option>
+            {SITE_STATUSES.map((status) => (
+              <option key={status.key} value={status.key}>
+                {status.label}
+              </option>
+            ))}
+          </Select>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
           Clear
         </Button>
@@ -531,7 +568,7 @@ export function SitesPage() {
               )}
             </FrameHeader>
 
-            {view === 'table' ? (
+            {view === 'table' && !phone ? (
               <DataGridContainer>
                 <DataGridTableVirtual
                   height={Math.min(Math.max(sites.length, 5) * 53 + 48, Math.max(window.innerHeight - 320, 320))}
@@ -541,6 +578,15 @@ export function SitesPage() {
                   fetchMoreOffset={5}
                 />
               </DataGridContainer>
+            ) : view === 'table' ? (
+              <SiteList
+                sites={sites}
+                rowSelection={rowSelection}
+                onToggle={toggleSelected}
+                pending={sitesQuery.isPending}
+                emptyMessage={emptyMessage}
+                className="border-t"
+              />
             ) : (
               <div className="grid md:grid-cols-[300px_minmax(0,1fr)]">
                 {/* the accessible equivalent of the map: what is in view, with the same selection */}
@@ -552,57 +598,15 @@ export function SitesPage() {
                     </span>
                     <span>List follows the map</span>
                   </div>
-                  <ul aria-label="Sites in view">
-                    {sites.map((s, i) => {
-                      const selected = !!rowSelection[s.id];
-                      return (
-                        <li
-                          key={s.id}
-                          className={cn(
-                            'flex items-center gap-2.5 border-b px-3 py-2',
-                            selected && 'bg-accent/50',
-                          )}
-                        >
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => toggleSelected(s.id)}
-                            aria-label={`Select ${s.name}`}
-                          />
-                          <span
-                            className={cn(
-                              'flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums',
-                              selected
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground',
-                            )}
-                            aria-hidden
-                          >
-                            {i + 1}
-                          </span>
-                          <span className="min-w-0 flex-1 leading-tight">
-                            <Link
-                              to="/sites/$siteId"
-                              params={{ siteId: s.id }}
-                              className="block truncate text-sm font-medium hover:underline"
-                            >
-                              {s.name}
-                            </Link>
-                            {s.city && (
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {s.city}
-                              </span>
-                            )}
-                          </span>
-                          <StatusBadge status={s.status} />
-                        </li>
-                      );
-                    })}
-                    {!sitesQuery.isPending && sites.length === 0 && (
-                      <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-                        No sites in this part of the map.
-                      </li>
-                    )}
-                  </ul>
+                  <SiteList
+                    sites={sites}
+                    rowSelection={rowSelection}
+                    onToggle={toggleSelected}
+                    pending={sitesQuery.isPending}
+                    emptyMessage="No sites in this part of the map."
+                    numbered
+                    aria-label="Sites in view"
+                  />
                   {withoutCoordinates !== null && withoutCoordinates > 0 && (
                     <p className="px-3 py-3 text-xs text-muted-foreground">
                       {withoutCoordinates} in scope without coordinates, so never on the map.
@@ -655,7 +659,7 @@ export function SitesPage() {
                     Fit to scope
                   </Button>
                 )}
-                {view === 'map' && loadMore}
+                {(view === 'map' || phone) && loadMore}
               </div>
             </FrameFooter>
           </DataGrid>
@@ -665,20 +669,153 @@ export function SitesPage() {
   );
 }
 
+const SITE_STATUSES = [
+  { key: 'ComingSoon', label: 'Coming soon' },
+  { key: 'Open', label: 'Open' },
+  { key: 'TemporarilyClosed', label: 'Temporarily closed' },
+  { key: 'Closed', label: 'Closed' },
+] as const;
+
+/**
+ * The sites as rows a thumb can work: name, city and status, with the
+ * shared selection. The map's side list (numbered to match the markers) and
+ * the phone's whole Sites page are this one list.
+ */
+function SiteList({
+  sites,
+  rowSelection,
+  onToggle,
+  pending,
+  emptyMessage,
+  numbered = false,
+  className,
+  'aria-label': ariaLabel = 'Sites',
+}: {
+  sites: SiteRow[];
+  rowSelection: RowSelectionState;
+  onToggle: (id: string) => void;
+  pending: boolean;
+  emptyMessage: string;
+  numbered?: boolean;
+  className?: string;
+  'aria-label'?: string;
+}) {
+  return (
+    <ul aria-label={ariaLabel} className={className}>
+      {sites.map((s, i) => {
+        const selected = !!rowSelection[s.id];
+        return (
+          <li
+            key={s.id}
+            className={cn('flex items-center gap-2.5 border-b px-3 py-2', selected && 'bg-accent/50')}
+          >
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggle(s.id)}
+              aria-label={`Select ${s.name}`}
+            />
+            {numbered && (
+              <span
+                className={cn(
+                  'flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums',
+                  selected
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground',
+                )}
+                aria-hidden
+              >
+                {i + 1}
+              </span>
+            )}
+            <span className="min-w-0 flex-1 leading-tight">
+              <Link
+                to="/sites/$siteId"
+                params={{ siteId: s.id }}
+                className="block truncate text-sm font-medium hover:underline"
+              >
+                {s.name}
+              </Link>
+              {s.city && <span className="block truncate text-xs text-muted-foreground">{s.city}</span>}
+            </span>
+            <StatusBadge status={s.status} />
+          </li>
+        );
+      })}
+      {!pending && sites.length === 0 && (
+        <li className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyMessage}</li>
+      )}
+    </ul>
+  );
+}
+
+/** The zone this browser runs in, when the runtime knows it (the console's own default is a guess otherwise). */
+function browserTimeZone(): string {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return Intl.supportedValuesOf('timeZone').includes(zone) ? zone : 'Etc/UTC';
+  } catch {
+    return 'Etc/UTC';
+  }
+}
+
+/**
+ * One step to a site (flow review, 2026-09): name, where it sits, and the
+ * clock it runs on, with the address and coordinates folded under a toggle
+ * so a first site takes three fields and a mapped one takes one dialog.
+ * Creating lands on the new site, where hours and closures live.
+ */
 function NewSiteDialog() {
   const { data: hierarchy } = useHierarchy();
+  const navigate = useNavigate();
+  // a session change finishes pending writes with this tree unmounted: the
+  // site is created, but the new session has nowhere to land on it
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const [name, setName] = useState('');
-  const [timeZone, setTimeZone] = useState('America/New_York');
+  const [timeZone, setTimeZone] = useState(browserTimeZone);
   const [nodeId, setNodeId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [withAddress, setWithAddress] = useState(false);
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [postal, setPostal] = useState('');
+  const [country, setCountry] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
+  const coordinates =
+    Number.isFinite(Number.parseFloat(lat)) && Number.isFinite(Number.parseFloat(lng))
+      ? { latitude: Number.parseFloat(lat), longitude: Number.parseFloat(lng) }
+      : {};
+  const nodes = hierarchy?.nodes ?? [];
 
   const create = useApiMutation({
-    mutationFn: () => sitesApi.create({ nodeId, name, timeZone }),
+    mutationFn: () =>
+      sitesApi.create({
+        nodeId,
+        name: name.trim(),
+        timeZone,
+        ...(withAddress
+          ? {
+              addressLine1: address.trim() || null,
+              city: city.trim() || null,
+              postalCode: postal.trim() || null,
+              countryCode: country.trim() || null,
+              ...coordinates,
+            }
+          : {}),
+      }),
     invalidate: [['sites']],
     success: 'Site created',
-    onSuccess: () => {
+    onSuccess: (site) => {
       setName('');
+      setAddress('');
+      setCity('');
+      setPostal('');
+      setCountry('');
+      setLat('');
+      setLng('');
       setCreating(false);
+      if (mounted.current) void navigate({ to: '/sites/$siteId', params: { siteId: site.id } });
     },
   });
 
@@ -693,12 +830,16 @@ function NewSiteDialog() {
         </Button>
       }
       title="New site"
-      description="A site is a physical location, placed on a hierarchy node."
+      description="A physical location on its own clock. Hours and closures come next, on the site itself."
     >
       <div className="space-y-3">
         <Field>
           <FieldLabel htmlFor="site-name">Name</FieldLabel>
-          <Input id="site-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="site-name" value={name} placeholder="Pike Place" onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="site-node">Hierarchy node</FieldLabel>
+          <NodePicker id="site-node" nodes={nodes} value={nodeId} onChange={setNodeId} />
         </Field>
         <Field>
           <FieldLabel htmlFor="site-tz">Time zone</FieldLabel>
@@ -708,13 +849,50 @@ function NewSiteDialog() {
             onChange={(e) => setTimeZone(e.target.value)}
           />
         </Field>
-        <Field>
-          <FieldLabel htmlFor="site-node">Hierarchy node</FieldLabel>
-          <NodePicker id="site-node" nodes={hierarchy?.nodes ?? []} value={nodeId} onChange={setNodeId} />
-        </Field>
+        {withAddress ? (
+          <div className="space-y-3 border-t pt-3">
+            <Field>
+              <FieldLabel htmlFor="site-address">Address</FieldLabel>
+              <Input id="site-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+              <Field>
+                <FieldLabel htmlFor="site-city">City</FieldLabel>
+                <Input id="site-city" value={city} onChange={(e) => setCity(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="site-postal">Postal code</FieldLabel>
+                <Input id="site-postal" className="w-28" value={postal} onChange={(e) => setPostal(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="site-country">Country</FieldLabel>
+                <Input id="site-country" className="w-16" value={country} placeholder="US" maxLength={2}
+                  onChange={(e) => setCountry(e.target.value)} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Field>
+                <FieldLabel htmlFor="site-lat">Latitude</FieldLabel>
+                <Input id="site-lat" value={lat} placeholder="47.6097" inputMode="decimal"
+                  onChange={(e) => setLat(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="site-lng">Longitude</FieldLabel>
+                <Input id="site-lng" value={lng} placeholder="-122.3422" inputMode="decimal"
+                  onChange={(e) => setLng(e.target.value)} />
+              </Field>
+            </div>
+            <p className="text-xs text-muted-foreground">Coordinates put this site on the map and the public locator.</p>
+          </div>
+        ) : (
+          <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setWithAddress(true)}>
+            <Plus className="size-4" aria-hidden />
+            Add address and coordinates
+          </Button>
+        )}
         <Button
           className="w-full"
-          disabled={!name || !nodeId || create.isPending}
+          disabled={!name.trim() || !nodeId || create.isPending}
           onClick={() => create.mutate()}
         >
           Create site

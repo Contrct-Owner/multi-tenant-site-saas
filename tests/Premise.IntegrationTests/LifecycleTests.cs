@@ -127,14 +127,7 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         (
             await founder.PostAsJsonAsync("/auth/switch-org", new { orgId })
         ).EnsureSuccessStatusCode();
-        var hierarchy = await founder.PostAsJsonAsync(
-            "/api/hierarchy",
-            new { name = "Doomed", levels = new[] { "Region" } }
-        );
-        hierarchy.EnsureSuccessStatusCode();
-        var rootId = (await hierarchy.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("rootNodeId")
-            .GetGuid();
+        var rootId = await ApiFixture.WaitForRootAsync(founder);
         var site = await founder.PostAsJsonAsync(
             "/api/sites",
             new

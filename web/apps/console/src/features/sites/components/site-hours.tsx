@@ -15,6 +15,13 @@ const DAYS = [
   { code: 'SU', label: 'Sun' },
 ] as const;
 
+/** "09:00" (a site-local wall-clock time) as the viewer's clock style: "9:00 AM". */
+function fmtClock(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return time;
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
 function describeRule(rrule: string): string {
   const byday = /BYDAY=([A-Z,]+)/.exec(rrule)?.[1];
   if (rrule.includes('FREQ=DAILY')) return 'Every day';
@@ -42,8 +49,14 @@ export function SiteHours({ siteId, timeZone, manage }: {
     mutationFn: (body: components['schemas']['CreateScheduleRequest']) =>
       sitesApi.createSchedule(siteId, body),
     success: 'Hours added',
-    onSuccess: invalidate,
+    onSuccess: () => {
+      // the form is spent: the next set of hours starts from a blank name
+      setScheduleName('');
+      setDuplicate(null);
+      invalidate();
+    },
   });
+  const [duplicate, setDuplicate] = useState<string | null>(null);
   const removeSchedule = useApiMutation({
     mutationFn: (scheduleId: string) =>
       sitesApi.deleteSchedule(siteId, scheduleId),
@@ -78,7 +91,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
         cell: ({ row }) =>
           row.original.opens.slice(0, 5) === '00:00' && row.original.closes.slice(0, 5) === '23:59'
             ? 'Open 24 hours'
-            : `${row.original.opens.slice(0, 5)} – ${row.original.closes.slice(0, 5)}`,
+            : `${fmtClock(row.original.opens)} – ${fmtClock(row.original.closes)}`,
       },
       ...(manage
         ? [
@@ -103,7 +116,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
   const [days, setDays] = useState<string[]>(['MO', 'TU', 'WE', 'TH', 'FR']);
   const [opens, setOpens] = useState('09:00');
   const [closes, setCloses] = useState('17:00');
-  const [scheduleName, setScheduleName] = useState('Regular hours');
+  const [scheduleName, setScheduleName] = useState('');
 
   return (
     <>
@@ -136,7 +149,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
               <div className="flex items-end gap-3">
                 <Field className="flex-1">
                   <FieldLabel htmlFor="sched-name">Name</FieldLabel>
-                  <Input id="sched-name" value={scheduleName}
+                  <Input id="sched-name" value={scheduleName} placeholder="Regular hours"
                     onChange={(e) => setScheduleName(e.target.value)} />
                 </Field>
                 <Field className="w-36">
@@ -150,19 +163,29 @@ export function SiteHours({ siteId, timeZone, manage }: {
                     onChange={(e) => setCloses(e.target.value)} />
                 </Field>
                 <Button
-                  disabled={days.length === 0 || !scheduleName || addSchedule.isPending}
-                  onClick={() =>
-                    addSchedule.mutate({
-                      name: scheduleName,
-                      ...weeklySchedule([...days] as DayCode[], Date.now()),
-                      opens,
-                      closes,
-                    })
-                  }
+                  disabled={days.length === 0 || !scheduleName.trim() || addSchedule.isPending}
+                  onClick={() => {
+                    const rule = weeklySchedule([...days] as DayCode[], Date.now());
+                    // the same days and times twice is a slip, not a second rule
+                    const twin = schedules?.find(
+                      (s) => s.rRule === rule.rRule && s.opens.slice(0, 5) === opens && s.closes.slice(0, 5) === closes,
+                    );
+                    if (twin) {
+                      setDuplicate(`"${twin.name}" already covers those days and times.`);
+                      return;
+                    }
+                    setDuplicate(null);
+                    addSchedule.mutate({ name: scheduleName.trim(), ...rule, opens, closes });
+                  }}
                 >
                   Add hours
                 </Button>
               </div>
+              {duplicate && (
+                <p role="alert" className="text-sm text-destructive">
+                  {duplicate}
+                </p>
+              )}
             </div>
           )}
       </Grid>

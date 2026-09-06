@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
+using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Platform.Auth;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
@@ -81,6 +82,13 @@ public static class OnboardingEndpoints
                 org.Status.ToString(),
                 org.IsPlatform
             )
+        );
+        // the org's first hierarchy (root named after it, default levels) and
+        // its founder both land under the NEW tenant via the outbox: this
+        // request's connection runs as the founder's previous org, or none
+        await bus.PublishAsync(
+            new ProvisionDefaultHierarchy(org.Id),
+            new DeliveryOptions { TenantId = org.Id.Value.ToString() }
         );
         await bus.PublishAsync(
             new ProvisionFounderMembership(userId, org.Id),

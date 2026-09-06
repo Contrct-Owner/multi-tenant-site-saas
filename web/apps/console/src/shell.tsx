@@ -862,12 +862,19 @@ function CreateOrgScreen() {
       }
       await changeSession(() => api.post('/auth/switch-org', { orgId }));
     } catch (e) {
-      setError(
-        String((e as { body?: { error?: string } }).body?.error ?? 'could not create organization'),
+      const message = String(
+        (e as { body?: { error?: string } }).body?.error ?? 'could not create organization',
       );
+      // a taken slug is the slug field's problem, with a free one to hand
+      if (/slug/i.test(message)) {
+        setSlugError(message.replace(/^slug '([^']+)' is taken$/, "'$1' is already in use."));
+        setSuggestion(`${slug.replace(/-\d+$/, '')}-${Math.floor(Math.random() * 900 + 100)}`);
+      } else setError(message);
       setCreating(false);
     }
   };
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -893,9 +900,36 @@ function CreateOrgScreen() {
             }}
           />
         </Field>
-        <Field>
+        <Field data-invalid={slugError ? true : undefined}>
           <FieldLabel htmlFor="org-slug">URL slug</FieldLabel>
-          <Input id="org-slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+          <Input
+            id="org-slug"
+            value={slug}
+            aria-invalid={slugError ? true : undefined}
+            aria-describedby={slugError ? 'org-slug-error' : undefined}
+            onChange={(e) => {
+              setSlug(e.target.value);
+              setSlugError(null);
+            }}
+          />
+          {slugError && (
+            <p id="org-slug-error" role="alert" className="text-sm text-destructive">
+              {slugError}{' '}
+              {suggestion && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-0"
+                  onClick={() => {
+                    setSlug(suggestion);
+                    setSlugError(null);
+                  }}
+                >
+                  Use {suggestion}
+                </Button>
+              )}
+            </p>
+          )}
         </Field>
         <Button className="w-full" disabled={!name || slug.length < 3 || creating} onClick={create}>
           {creating ? 'Setting up…' : 'Create organization'}

@@ -30,6 +30,10 @@ public sealed record HierarchyResponse(
 
 public sealed record HierarchyCreatedResponse(Guid Id, Guid RootNodeId);
 
+public sealed record UpdateHierarchyLevelsRequest(string[] Levels);
+
+public sealed record HierarchyLevelsResponse(IReadOnlyList<string> Levels);
+
 public static class HierarchyEndpoints
 {
     [Transactional(typeof(TenancyDbContext))]
@@ -71,6 +75,59 @@ public static class HierarchyEndpoints
         db.HierarchyNodes.Add(root);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new HierarchyCreatedResponse(hierarchy.Id, root.Id));
+    }
+
+    /// <summary>
+    /// Rename the levels (every org starts with the defaults - see
+    /// HierarchyDefaults). Levels are names for depths, so the list may grow
+    /// up to the plan's depth and may not shrink below a depth a node uses.
+    /// </summary>
+    [Transactional(typeof(TenancyDbContext))]
+    [WolverinePut("/api/hierarchy")]
+    [ProducesResponseType(typeof(HierarchyLevelsResponse), StatusCodes.Status200OK)]
+    public static async Task<IResult> UpdateLevels(
+        UpdateHierarchyLevelsRequest request,
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        IEntitlements entitlements,
+        CancellationToken ct
+    )
+    {
+        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.HierarchyManage, ct);
+        if (gate is not GateOutcome.Allowed { Org: var org })
+            return gate.ToResult();
+        var levels = request.Levels.Select(l => l.Trim()).ToArray();
+        if (levels.Length == 0 || levels.Any(l => l.Length is 0 or > 100))
+            return Results.BadRequest(
+                new { error = "each level needs a name of 1-100 characters" }
+            );
+        var depthLimit = await entitlements.LimitAsync(org, EntitlementCatalog.HierarchyDepth, ct);
+        if (levels.Length > depthLimit)
+            return GateResults.LimitReached(
+                new EntitlementDecision(
+                    EntitlementOutcome.Blocked,
+                    EntitlementCatalog.HierarchyDepth,
+                    depthLimit,
+                    levels.Length
+                )
+            );
+        var hierarchy = await db.Hierarchies.FirstOrDefaultAsync(h => h.IsAuthoritative, ct);
+        if (hierarchy is null)
+            return Results.NotFound();
+        var deepest = await db
+            .HierarchyNodes.Where(n => n.HierarchyId == hierarchy.Id)
+            .MaxAsync(n => (int?)n.Depth, ct);
+        if (deepest is { } used && levels.Length < used)
+            return Results.BadRequest(
+                new
+                {
+                    error = $"nodes already use {used} level(s); remove them before dropping a level",
+                }
+            );
+        hierarchy.Levels = levels;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new HierarchyLevelsResponse(hierarchy.Levels));
     }
 
     [WolverineGet("/api/hierarchy")]

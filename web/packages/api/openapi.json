@@ -422,6 +422,46 @@
         }
       }
     },
+    "/api/sites/bulk-status": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites_bulk_status",
+        "description": "POST_api_sites_bulk_status",
+        "operationId": "POST_api_sites_bulk_status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkSiteStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkSiteStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sites/{id}/schedules": {
       "post": {
         "tags": [
@@ -1647,6 +1687,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HierarchyCreatedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+        ],
+        "summary": "PUT_api_hierarchy",
+        "description": "PUT_api_hierarchy",
+        "operationId": "PUT_api_hierarchy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHierarchyLevelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HierarchyLevelsResponse"
                 }
               }
             }
@@ -6474,6 +6552,50 @@
           }
         }
       },
+      "BulkSiteStatusRequest": {
+        "required": [
+          "ids",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/SiteStatus"
+          }
+        }
+      },
+      "BulkSiteStatusResponse": {
+        "required": [
+          "updated",
+          "skipped"
+        ],
+        "type": "object",
+        "properties": {
+          "updated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CheckItemRequest": {
         "required": [
           "templateId",
@@ -7491,6 +7613,20 @@
           "rootNodeId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "HierarchyLevelsResponse": {
+        "required": [
+          "levels"
+        ],
+        "type": "object",
+        "properties": {
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -9404,6 +9540,20 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "UpdateHierarchyLevelsRequest": {
+        "required": [
+          "levels"
+        ],
+        "type": "object",
+        "properties": {
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

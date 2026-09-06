@@ -37,9 +37,11 @@ async function twoOrganizations(page: Page) {
   await page.getByLabel('Organization name').fill(a);
   await page.getByRole('button', { name: 'Create organization' }).click();
   await expect(nav(page).getByRole('link', { name: 'Sites', exact: true })).toBeVisible();
+  // an org is born with a hierarchy (seeded through the outbox): wait for its root
   const seed = async (name: string) => {
-    const hierarchy = await request(page, '/api/hierarchy', { name: `${name} root`, levels: ['Region', 'Site'] });
-    await request(page, '/api/sites', { name, nodeId: hierarchy.rootNodeId, timeZone: 'Etc/UTC' });
+    await expect.poll(() => request(page, '/api/hierarchy').then((h) => h.nodes.length, () => 0)).toBeGreaterThan(0);
+    const hierarchy = await request(page, '/api/hierarchy');
+    await request(page, '/api/sites', { name, nodeId: hierarchy.nodes[0].id, timeZone: 'Etc/UTC' });
   };
   await seed('A-only site');
   await request(page, '/api/orgs', { name: b, slug: `b-${stamp}` });
@@ -86,7 +88,8 @@ test('tenant switch clears cached data and form drafts before a delayed new read
 });
 
 test('a late previous-tenant response cannot repopulate the new cache', async ({ page }) => {
-  const { b } = await twoOrganizations(page);
+  // an org's root node carries the org's name
+  const { a, b } = await twoOrganizations(page);
   let release!: () => void;
   let captured!: () => void;
   let fulfilled!: () => void;
@@ -94,7 +97,7 @@ test('a late previous-tenant response cannot repopulate the new cache', async ({
   const started = new Promise<void>((resolve) => { captured = resolve; });
   const finished = new Promise<void>((resolve) => { fulfilled = resolve; });
   await nav(page).getByRole('link', { name: 'Hierarchy', exact: true }).click();
-  await expect(page.getByRole('main').getByText('A-only site root', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText(a, { exact: true })).toBeVisible();
   // the tree read seconds ago is still fresh (30s default, 5min in the shell), so
   // a page mount alone sends nothing: forget the tab cache and reload to put a
   // previous-tenant read in flight
@@ -110,12 +113,13 @@ test('a late previous-tenant response cannot repopulate the new cache', async ({
   await started;
   await switchTo(page, b);
   // the shell's Scope panel also names hierarchy nodes: assert on the page body
-  await expect(page.getByRole('main').getByText('B-only site root', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText(b, { exact: true })).toBeVisible();
   release();
   await finished;
-  await expect(page.getByRole('main').getByText('B-only site root', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText(b, { exact: true })).toBeVisible();
   // ...but a stale tenant's name must appear NOWHERE, scope panel included
-  await expect(page.getByText('A-only site root', { exact: true })).toHaveCount(0);
+  // (the org switcher still lists it as a choice; a rendered node or title may not)
+  await expect(page.getByText(a, { exact: true }).and(page.locator(':not(option)'))).toHaveCount(0);
   await nav(page).getByRole('link', { name: 'Sites', exact: true }).click();
   await expect(page.getByRole('link', { name: 'B-only site' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'A-only site' })).toHaveCount(0);
@@ -308,7 +312,7 @@ test('a stale-tab role draft cannot be written under a changed session cookie', 
   await other.goto('/roles');
   await other.getByRole('button', { name: 'New role', exact: true }).click();
   await other.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Private A role');
-  await other.getByRole('dialog').getByRole('checkbox', { name: '*:* (everything)', exact: true }).check();
+  await other.getByRole('dialog').getByRole('checkbox', { name: 'Everything', exact: true }).check();
   const session = await request(page, '/me');
   const target = session.organizations.find((org: { name: string }) => org.name === b);
   // Model a cookie change outside this tab's notification path (another app or

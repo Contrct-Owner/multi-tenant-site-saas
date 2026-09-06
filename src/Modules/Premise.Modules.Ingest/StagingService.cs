@@ -31,9 +31,12 @@ public sealed class StagingService(IngestDbContext db, ISiteLookup sites)
         var liveSites = (await sites.ListSitesAsync(ct))
             .Where(s => s.ExternalId is not null)
             .ToDictionary(s => s.ExternalId!);
-        var nodesByPath = (await sites.ListNodesAsync(ct))
+        var nodes = await sites.ListNodesAsync(ct);
+        var nodesByPath = nodes
             .GroupBy(n => n.NamePath)
             .ToDictionary(g => g.Key, g => g.First().Id);
+        // a spreadsheet may carry the node's id instead of its name path
+        var nodeIds = nodes.Select(n => n.Id).ToHashSet();
 
         var batch = new ImportBatch
         {
@@ -79,6 +82,8 @@ public sealed class StagingService(IngestDbContext db, ISiteLookup sites)
                 errors.Add($"status must be open|closed, got '{row.Status}'");
             if (nodesByPath.TryGetValue(row.NodePath, out var nodeId))
                 staged.NodeId = nodeId;
+            else if (Guid.TryParse(row.NodePath, out var byId) && nodeIds.Contains(byId))
+                staged.NodeId = byId;
             else
                 errors.Add($"no hierarchy node at '{row.NodePath}'");
 

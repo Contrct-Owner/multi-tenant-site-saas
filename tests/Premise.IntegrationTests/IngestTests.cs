@@ -181,6 +181,35 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task Node_column_takes_the_node_id_as_well_as_its_name_path()
+    {
+        var (client, _, eastId) = await Setup();
+        var csv = $"""
+            external_id,name,time_zone,node,status
+            ing-by-id,By Id,America/New_York,{eastId},open
+            ing-by-unknown-id,Unknown,America/New_York,{Guid.NewGuid()},open
+            """;
+        var batch = await Stage(client, await UploadCsv(client, csv));
+        Assert.Equal(1, batch.GetProperty("counts").GetProperty("invalid").GetInt32());
+        var preview = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/ingest/batches/{batch.GetProperty("batchId").GetGuid()}"
+        );
+        var rows = preview.GetProperty("rows").EnumerateArray().ToList();
+        Assert.Equal(
+            "create",
+            rows.First(r => r.GetProperty("externalId").GetString() == "ing-by-id")
+                .GetProperty("action")
+                .GetString()
+        );
+        Assert.Equal(
+            "invalid",
+            rows.First(r => r.GetProperty("externalId").GetString() == "ing-by-unknown-id")
+                .GetProperty("action")
+                .GetString()
+        );
+    }
+
+    [Fact]
     public async Task Invalid_rows_are_reported_not_applied()
     {
         var (client, _, _) = await Setup();

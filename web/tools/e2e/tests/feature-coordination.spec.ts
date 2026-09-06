@@ -75,12 +75,12 @@ test('role editor owns fresh drafts and preserves failed edits for retry', async
   await expect(dialog.getByRole('button', { name: 'Create role', exact: true })).toBeDisabled();
   const name = `Editor ${Date.now()}`;
   await dialog.getByLabel('Name', { exact: true }).fill(name);
-  await dialog.getByRole('checkbox', { name: 'sites:read', exact: true }).check();
+  await dialog.getByRole('checkbox', { name: 'See sites', exact: true }).check();
   await dialog.getByRole('button', { name: 'Create role', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue(name);
-  await expect(dialog.getByRole('checkbox', { name: 'sites:read', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'See sites', exact: true })).toBeChecked();
   await dialog.getByLabel('Name', { exact: true }).fill(`${name} revised`);
   await page.route('**/api/roles/*', async (route) => {
     if (route.request().method() === 'PUT')
@@ -95,7 +95,7 @@ test('role editor owns fresh drafts and preserves failed edits for retry', async
   await expect(page.getByRole('cell', { name: `${name} revised`, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New role', exact: true }).click();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('');
-  await expect(dialog.getByRole('checkbox', { name: 'sites:read', exact: true })).not.toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'See sites', exact: true })).not.toBeChecked();
 });
 
 test('site hours and closures retain failed drafts and refresh their own data', async ({ page }) => {
@@ -134,7 +134,7 @@ test('site hours and closures retain failed drafts and refresh their own data', 
   await page.getByLabel('Name', { exact: true }).fill('Service hours');
   await page.getByRole('button', { name: 'Add hours', exact: true }).click();
   const schedule = page.getByRole('row').filter({ hasText: 'Service hours' });
-  await expect(schedule).toContainText('09:00 – 17:00');
+  await expect(schedule).toContainText('9:00 AM – 5:00 PM');
   await expect(page.getByText('9:00 AM – 5:00 PM', { exact: true }).first()).toBeVisible();
 
   // the closure date is a calendar (the shadcn date picker): open it, step to

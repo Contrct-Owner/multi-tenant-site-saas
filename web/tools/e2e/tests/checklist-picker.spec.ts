@@ -40,16 +40,19 @@ test('checklist picker finds site 201 by search and recovers each read failure',
   ));
   await page.goto('/checklists');
   await expect(page.getByRole('alert').filter({ hasText: 'Could not load sites.' })).toBeVisible();
-  await expect(page.getByRole('alert').filter({ hasText: 'Could not load templates.' })).toBeVisible();
   failSites = false;
-  failTemplates = false;
   await page.getByRole('button', { name: 'Retry sites' }).click();
-  await page.getByRole('button', { name: 'Retry templates' }).click();
-  await expect(page.getByText('No templates yet.')).toBeVisible();
   await expect(page.getByRole('alert').filter({ hasText: 'Could not load checklists.' })).toBeVisible();
   failToday = false;
   await page.getByRole('button', { name: 'Retry checklists' }).click();
   await expect(page.getByText('Site 001 ·', { exact: false })).toBeVisible();
+  // templates are the admin's tab, off the screen a manager works
+  await page.getByRole('tab', { name: 'Templates' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Could not load templates.' })).toBeVisible();
+  failTemplates = false;
+  await page.getByRole('button', { name: 'Retry templates' }).click();
+  await expect(page.getByText('No templates yet.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Today' }).click();
 
   // the 201st site is one search away, not four pages of "load more"
   const picker = page.getByLabel('Checklist site');

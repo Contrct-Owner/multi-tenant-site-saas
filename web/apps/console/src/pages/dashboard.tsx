@@ -1,12 +1,106 @@
 import type { ReactNode } from 'react';
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
 import { useQuery } from '@tanstack/react-query';
-import { Badge, IconTile, Progress } from '@premise/ui';
+import { Badge, buttonVariants, IconTile, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle, Progress } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
-import { Activity, MapPin, Users } from 'lucide-react';
+import { Activity, Check, Circle, MapPin, Users } from 'lucide-react';
 import { EmptyState, Loading, PageHeader, Panel, Stat } from '../components/page';
+import { useHierarchy } from '../features/sites/hooks';
 import {entitlementLabel, fmtDateTime, eventLabel } from '../lib/format';
 import { can, useMe } from '../session';
+
+/** The levels every org is born with; naming them is the first setup step. */
+const DEFAULT_LEVELS = ['Region', 'Market'];
+
+/**
+ * A new org's first few steps (flow review, 2026-09): the dashboard says
+ * what to do next instead of showing zeros. Each row is a fact the org's
+ * data answers; once every row is done the list is gone for good.
+ */
+function SetupList({
+  levels,
+  nodeCount,
+  siteCount,
+  memberCount,
+  pendingInvites,
+  manageHierarchy,
+  manageSites,
+  manageMembers,
+}: {
+  levels: string[];
+  nodeCount: number;
+  siteCount: number;
+  memberCount: number | undefined;
+  pendingInvites: number;
+  manageHierarchy: boolean;
+  manageSites: boolean;
+  manageMembers: boolean;
+}) {
+  const steps = [
+    manageHierarchy && {
+      key: 'levels',
+      title: 'Name your levels',
+      description: `Regions and markets, districts and stores - whatever you call the layers between the organization and a site. Today: ${levels.join(' → ')}.`,
+      done: levels.join('|') !== DEFAULT_LEVELS.join('|') || nodeCount > 1,
+      to: '/hierarchy',
+      action: 'Rename levels',
+    },
+    manageHierarchy && {
+      key: 'node',
+      title: 'Add your first node',
+      description: 'A region, a district, a market: the branch your first sites hang from. Sites can also sit on the root.',
+      done: nodeCount > 1,
+      to: '/hierarchy',
+      action: 'Add a node',
+    },
+    manageSites && {
+      key: 'site',
+      title: 'Add your first site',
+      description: 'A name, a time zone, and where it sits. Address and coordinates put it on the map.',
+      done: siteCount > 0,
+      to: '/sites',
+      action: 'Add a site',
+    },
+    manageMembers && {
+      key: 'invite',
+      title: 'Invite your team',
+      description: 'Site managers see their site\'s checklists; regional managers run a subtree; admins run the org.',
+      done: (memberCount ?? 0) > 1 || pendingInvites > 0,
+      to: '/members',
+      action: 'Invite someone',
+    },
+  ].filter((step): step is Exclude<typeof step, false> => step !== false);
+  if (steps.every((s) => s.done)) return null;
+  const remaining = steps.filter((s) => !s.done).length;
+  return (
+    <Panel
+      title="Set up your organization"
+      description={`${remaining} step${remaining === 1 ? '' : 's'} left. Nothing here is required; it is the order most teams take.`}
+      flush
+    >
+      <ItemGroup className="divide-y">
+        {steps.map((step) => (
+          <Item key={step.key} size="sm" className="rounded-none" role="listitem">
+            <ItemMedia variant="icon" className={step.done ? 'text-success' : 'text-muted-foreground'}>
+              {step.done ? <Check aria-label="Done" /> : <Circle aria-label="To do" />}
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle className={step.done ? 'text-muted-foreground line-through' : undefined}>{step.title}</ItemTitle>
+              {!step.done && <ItemDescription>{step.description}</ItemDescription>}
+            </ItemContent>
+            {!step.done && (
+              <ItemActions>
+                <Link to={step.to} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                  {step.action}
+                </Link>
+              </ItemActions>
+            )}
+          </Item>
+        ))}
+      </ItemGroup>
+    </Panel>
+  );
+}
 
 
 /** A plan value the way a person reads it: "20,006", not "20006"; "On", not "true". */
@@ -27,6 +121,8 @@ export function DashboardPage() {
   const seesSites = can(me, 'sites:read');
   const seesMembers = can(me, 'roles:manage');
   const seesAudit = can(me, 'audit:read');
+  const manageHierarchy = can(me, 'hierarchy:manage');
+  const manageSites = can(me, 'sites:manage');
 
   const { data: entitlements } = useQuery({
     queryKey: ['entitlements'],
@@ -42,6 +138,14 @@ export function DashboardPage() {
     queryFn: ({ signal }) => api.get('/api/members/invitations', { signal }),
     enabled: seesMembers,
   });
+  // the setup list's facts: the tree and the member count (roles:manage
+  // already reads the invitations; members is the same page's other read)
+  const { data: hierarchy } = useHierarchy();
+  const { data: members } = useQuery({
+    queryKey: ['members', 'count'],
+    queryFn: ({ signal }) => api.get('/api/members', { query: { limit: 1 }, signal }),
+    enabled: seesMembers,
+  });
   const { data: events } = useQuery({
     queryKey: ['audit', 'events', 5],
     queryFn: ({ signal }) => api.get('/api/audit/{kind}', { path: { kind: 'events' }, query: { limit: 5 }, signal }),
@@ -55,6 +159,19 @@ export function DashboardPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Dashboard" description="What needs attention, then the plan." />
+
+      {hierarchy && (sites !== undefined || !seesSites) && (
+        <SetupList
+          levels={hierarchy.levels}
+          nodeCount={hierarchy.nodes.length}
+          siteCount={Number(sites?.total ?? 0)}
+          memberCount={members === undefined ? undefined : Number(members.total)}
+          pendingInvites={pending}
+          manageHierarchy={manageHierarchy}
+          manageSites={manageSites}
+          manageMembers={seesMembers}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {seesSites && (
