@@ -67,3 +67,4 @@ confirmation on edits under this directory.
 - [0048. One owner per row; cross-tenant sharing by materialization](0048-one-owner-per-row.md) — pinned
 - [0049. Map viewport queries: bounding box to the server](0049-map-viewport-bbox-queries.md)
 - [0050. Spatial foundation: PostGIS, geography on sites, layers as vector tiles](0050-spatial-foundation-postgis-layers.md) — pinned
+- [0051. Leakproof keys: how indexes work under row security](0051-leakproof-keys-under-rls.md)

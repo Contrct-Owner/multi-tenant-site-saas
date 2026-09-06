@@ -19,6 +19,7 @@
     <Project Path="src/Modules/Premise.Modules.Entitlements/Premise.Modules.Entitlements.csproj" />
     <Project Path="src/Modules/Premise.Modules.Identity/Premise.Modules.Identity.csproj" />
     <Project Path="src/Modules/Premise.Modules.Ingest/Premise.Modules.Ingest.csproj" />
+    <Project Path="src/Modules/Premise.Modules.Spatial/Premise.Modules.Spatial.csproj" />
     <Project Path="src/Modules/Premise.Modules.Storage/Premise.Modules.Storage.csproj" />
     <Project Path="src/Modules/Premise.Modules.Tenancy/Premise.Modules.Tenancy.csproj" />
   </Folder>

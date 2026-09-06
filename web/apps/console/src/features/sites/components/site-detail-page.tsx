@@ -1,5 +1,5 @@
 import type { components } from '@premise/api';
-import { Button, ConfirmButton, FormDialog, Input, Label, TimeZoneSelect } from '@premise/ui';
+import { Button, Checkbox, ConfirmButton, Field, FieldLabel, FormDialog, Input, Label, TimeZoneSelect } from '@premise/ui';
 import { Link, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useApiMutation } from '../../../lib/mutation';
@@ -71,7 +71,7 @@ export function SiteDetailPage() {
       </Link>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{site.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{site.name}</h1>
           <StatusBadge status={site.status} />
         </div>
         {manage && (
@@ -106,49 +106,49 @@ export function SiteDetailPage() {
               description="Changing the time zone re-anchors the hours projection."
             >
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="edit-site-name">Name</Label>
+                <Field>
+                  <FieldLabel htmlFor="edit-site-name">Name</FieldLabel>
                   <Input id="edit-site-name" value={editName}
                     onChange={(e) => setEditName(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="edit-site-tz">Time zone</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-site-tz">Time zone</FieldLabel>
                   <TimeZoneSelect id="edit-site-tz" value={editZone}
                     onChange={(e) => setEditZone(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="edit-site-address">Street address</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-site-address">Street address</FieldLabel>
                   <Input id="edit-site-address" value={editAddress}
                     onChange={(e) => setEditAddress(e.target.value)} />
-                </div>
+                </Field>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="edit-site-city">City</Label>
+                  <Field>
+                    <FieldLabel htmlFor="edit-site-city">City</FieldLabel>
                     <Input id="edit-site-city" value={editCity}
                       onChange={(e) => setEditCity(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="edit-site-postal">Postal code</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="edit-site-postal">Postal code</FieldLabel>
                     <Input id="edit-site-postal" value={editPostal}
                       onChange={(e) => setEditPostal(e.target.value)} />
-                  </div>
+                  </Field>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="edit-site-country">Country code</Label>
+                <Field>
+                  <FieldLabel htmlFor="edit-site-country">Country code</FieldLabel>
                   <Input id="edit-site-country" value={editCountry} placeholder="US"
                     maxLength={2} onChange={(e) => setEditCountry(e.target.value)} />
-                </div>
+                </Field>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="edit-site-lat">Latitude</Label>
+                  <Field>
+                    <FieldLabel htmlFor="edit-site-lat">Latitude</FieldLabel>
                     <Input id="edit-site-lat" value={editLat} placeholder="42.3601"
                       onChange={(e) => setEditLat(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="edit-site-lng">Longitude</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="edit-site-lng">Longitude</FieldLabel>
                     <Input id="edit-site-lng" value={editLng} placeholder="-71.0589"
                       onChange={(e) => setEditLng(e.target.value)} />
-                  </div>
+                  </Field>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Coordinates put this site on the public locator map.
@@ -157,14 +157,13 @@ export function SiteDetailPage() {
                   <div key={d.id} className="space-y-1">
                     <Label htmlFor={`attr-${d.key}`}>{d.label}</Label>
                     {d.type === 'Boolean' ? (
-                      <label className="flex items-center gap-2 text-sm">
-                        <input id={`attr-${d.key}`} type="checkbox" className="size-4 accent-primary"
-                          checked={editAttributes[d.key] === 'true'}
-                          onChange={(e) =>
-                            setEditAttributes({ ...editAttributes, [d.key]: String(e.target.checked) })
-                          } />
-                        {d.label}
-                      </label>
+                      <Checkbox
+                        id={`attr-${d.key}`}
+                        checked={editAttributes[d.key] === 'true'}
+                        onCheckedChange={(checked) =>
+                          setEditAttributes({ ...editAttributes, [d.key]: String(checked === true) })
+                        }
+                      />
                     ) : (
                       <Input id={`attr-${d.key}`} value={editAttributes[d.key] ?? ''}
                         inputMode={d.type === 'Number' ? 'decimal' : undefined}

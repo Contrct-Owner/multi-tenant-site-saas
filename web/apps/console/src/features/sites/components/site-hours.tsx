@@ -1,8 +1,8 @@
 import type { components } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
-import { useState } from 'react';
+import { Button, ConfirmButton, Field, FieldLabel, Input, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { useMemo, useState } from 'react';
 import { fmtDayInZone, fmtTimeInZone } from '../../../lib/format';
+import { Grid, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { weeklySchedule, type DayCode } from '../../../lib/schedule';
 import { sitesApi } from '../api';
@@ -66,6 +66,39 @@ export function SiteHours({ siteId, timeZone, manage }: {
   });
   const [closureDate, setClosureDate] = useState('');
 
+  type ScheduleRow = NonNullable<typeof schedules>[number];
+  const scheduleColumns = useMemo<ColumnDef<DataGridFeatures, ScheduleRow>[]>(
+    () => [
+      { id: 'name', accessorKey: 'name', header: 'Name' },
+      { id: 'days', header: 'Days', cell: ({ row }) => <span className="text-muted-foreground">{describeRule(row.original.rRule)}</span> },
+      {
+        id: 'hours',
+        header: 'Hours (local)',
+        cell: ({ row }) =>
+          row.original.opens.slice(0, 5) === '00:00' && row.original.closes.slice(0, 5) === '23:59'
+            ? 'Open 24 hours'
+            : `${row.original.opens.slice(0, 5)} – ${row.original.closes.slice(0, 5)}`,
+      },
+      ...(manage
+        ? [
+            {
+              id: 'actions',
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: { row: { original: ScheduleRow } }) => (
+                <div className="text-right">
+                  <ConfirmButton size="sm" disabled={removeSchedule.isPending} onConfirm={() => removeSchedule.mutate(row.original.id)}>
+                    Remove
+                  </ConfirmButton>
+                </div>
+              ),
+              meta: { headerClassName: 'w-28' },
+            } satisfies ColumnDef<DataGridFeatures, ScheduleRow>,
+          ]
+        : []),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [manage],
+  );
   const [days, setDays] = useState<string[]>(['MO', 'TU', 'WE', 'TH', 'FR']);
   const [opens, setOpens] = useState('09:00');
   const [closes, setCloses] = useState('17:00');
@@ -73,50 +106,16 @@ export function SiteHours({ siteId, timeZone, manage }: {
 
   return (
     <>
-      <Card>
-        <CardHeader><CardTitle>Operating hours</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead>Hours (local)</TableHead>
-                {manage && <TableHead className="w-28" />}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {schedules?.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{describeRule(s.rRule)}</TableCell>
-                  <TableCell>
-                    {s.opens.slice(0, 5) === '00:00' && s.closes.slice(0, 5) === '23:59'
-                      ? 'Open 24 hours'
-                      : `${s.opens.slice(0, 5)} – ${s.closes.slice(0, 5)}`}
-                  </TableCell>
-                  {manage && (
-                    <TableCell className="w-28 text-right">
-                      <ConfirmButton size="sm" disabled={removeSchedule.isPending}
-                        onConfirm={() => removeSchedule.mutate(s.id)}>
-                        Remove
-                      </ConfirmButton>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {schedules?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No hours defined.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
+      <Grid
+        title="Operating hours"
+        columns={scheduleColumns}
+        rows={schedules ?? []}
+        getRowId={(s) => s.id}
+        isLoading={schedules === undefined}
+        emptyMessage="No hours defined."
+      >
           {manage && (
-            <div className="space-y-3 border-t pt-4">
+            <div className="space-y-3 border-t px-4 py-4">
               <div className="flex gap-1">
                 {DAYS.map((d) => (
                   <Button
@@ -134,21 +133,21 @@ export function SiteHours({ siteId, timeZone, manage }: {
                 ))}
               </div>
               <div className="flex items-end gap-3">
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="sched-name">Name</Label>
+                <Field className="flex-1">
+                  <FieldLabel htmlFor="sched-name">Name</FieldLabel>
                   <Input id="sched-name" value={scheduleName}
                     onChange={(e) => setScheduleName(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="sched-opens">Opens</Label>
+                </Field>
+                <Field className="w-36">
+                  <FieldLabel htmlFor="sched-opens">Opens</FieldLabel>
                   <Input id="sched-opens" type="time" value={opens}
                     onChange={(e) => setOpens(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="sched-closes">Closes</Label>
+                </Field>
+                <Field className="w-36">
+                  <FieldLabel htmlFor="sched-closes">Closes</FieldLabel>
                   <Input id="sched-closes" type="time" value={closes}
                     onChange={(e) => setCloses(e.target.value)} />
-                </div>
+                </Field>
                 <Button
                   disabled={days.length === 0 || !scheduleName || addSchedule.isPending}
                   onClick={() =>
@@ -165,12 +164,9 @@ export function SiteHours({ siteId, timeZone, manage }: {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </Grid>
 
-      <Card>
-        <CardHeader><CardTitle>Holiday closures</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <Panel title="Holiday closures" bodyClassName="space-y-3">
           {closures && closures.length > 0 ? (
             <ul className="space-y-1 text-sm">
               {closures.map((date) => (
@@ -198,11 +194,11 @@ export function SiteHours({ siteId, timeZone, manage }: {
           )}
           {manage && (
             <div className="flex items-end gap-2 border-t pt-3">
-              <div className="space-y-1">
-                <Label htmlFor="closure-date">Close a day</Label>
+              <Field>
+                <FieldLabel htmlFor="closure-date">Close a day</FieldLabel>
                 <Input id="closure-date" type="date" value={closureDate}
                   onChange={(e) => setClosureDate(e.target.value)} />
-              </div>
+              </Field>
               <Button size="sm" disabled={!closureDate || addClosure.isPending}
                 onClick={() => {
                   addClosure.mutate(closureDate);
@@ -211,12 +207,9 @@ export function SiteHours({ siteId, timeZone, manage }: {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Open this week</CardTitle></CardHeader>
-        <CardContent>
+      <Panel title="Open this week">
           {windows?.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No open windows in the next 7 days.
@@ -238,8 +231,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
     </>
   );

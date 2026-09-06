@@ -18,8 +18,12 @@ done
 cleanup() { docker rm -f smoke-pg smoke-api smoke-worker >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 docker network create "$net" >/dev/null
-docker run -d --name smoke-pg --network "$net" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise postgres:17-alpine >/dev/null
-for _ in $(seq 1 30); do docker exec smoke-pg pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+source "$(cd "$(dirname "$0")" && pwd)/postgres-image.sh"
+docker run -d --name smoke-pg --network "$net" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" >/dev/null
+# Over TCP, not the socket: the image's first-time init runs a temporary
+# server on the socket alone (PostGIS extension scripts take seconds), so a
+# socket check says "ready" before the real server is up (ADR 50).
+for _ in $(seq 1 60); do docker exec smoke-pg pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
 
 common=(
   --network "$net"

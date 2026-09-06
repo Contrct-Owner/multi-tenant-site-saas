@@ -11,6 +11,8 @@ export const CAPABILITIES = [
   'ingest:manage',
   'checklists:manage',
   'checklists:complete',
+  'overlays:read',
+  'overlays:manage',
   'audit:read',
   'audit:manage',
   'entitlements:manage',

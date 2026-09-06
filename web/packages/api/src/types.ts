@@ -364,6 +364,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map/basemaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_map_basemaps
+         * @description GET_api_map_basemaps
+         */
+        get: operations["GET_api_map_basemaps"];
+        /**
+         * PUT_api_map_basemaps
+         * @description PUT_api_map_basemaps
+         */
+        put: operations["PUT_api_map_basemaps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/map/basemaps/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_map_basemaps_settings
+         * @description GET_api_map_basemaps_settings
+         */
+        get: operations["GET_api_map_basemaps_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/org/export": {
         parameters: {
             query?: never;
@@ -686,6 +730,114 @@ export interface paths {
          * @description POST_api_hierarchy_nodes_id_move
          */
         post: operations["POST_api_hierarchy_nodes_id_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_overlays
+         * @description GET_api_overlays
+         */
+        get: operations["GET_api_overlays"];
+        put?: never;
+        /**
+         * POST_api_overlays
+         * @description POST_api_overlays
+         */
+        post: operations["POST_api_overlays"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_overlays_id
+         * @description POST_api_overlays_id
+         */
+        post: operations["POST_api_overlays_id"];
+        /**
+         * DELETE_api_overlays_id
+         * @description DELETE_api_overlays_id
+         */
+        delete: operations["DELETE_api_overlays_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_overlays_id_features
+         * @description PUT_api_overlays_id_features
+         */
+        put: operations["PUT_api_overlays_id_features"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_overlays_id_restore
+         * @description POST_api_overlays_id_restore
+         */
+        post: operations["POST_api_overlays_id_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tiles/overlays/{id}/{z}/{x}/{y}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_tiles_overlays_id_z_x_y
+         * @description GET_api_tiles_overlays_id_z_x_y
+         */
+        get: operations["GET_api_tiles_overlays_id_z_x_y"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2660,6 +2812,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DataLayerListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tiles/{layer}/{z}/{x}/{y}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    under?: string;
+                };
+                header?: never;
+                path: {
+                    layer: string;
+                    z: number;
+                    x: number;
+                    y: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.mapbox-vector-tile": string;
+                    };
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -2784,6 +3020,38 @@ export interface components {
             path?: null | string;
             /** Format: int32 */
             statusCode?: null | number | string;
+        };
+        Basemap: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom: number | string;
+        };
+        BasemapInput: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom?: null | number | string;
+            key?: null | string;
+        };
+        BasemapListResponse: {
+            basemaps: components["schemas"]["Basemap"][];
+        };
+        BasemapSetting: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom: number | string;
+            hasKey: boolean;
+        };
+        BasemapSettingsResponse: {
+            basemaps: components["schemas"]["BasemapSetting"][];
         };
         BillingLinkResponse: {
             url: string;
@@ -2929,6 +3197,13 @@ export interface components {
             name: string;
             slug: string;
         };
+        CreateOverlayLayerRequest: {
+            name: string;
+            kind: string;
+            style?: unknown;
+            /** Format: uuid */
+            nodeId?: null | string;
+        };
         CreateRoleRequest: {
             name: string;
             grants: components["schemas"]["GrantSpec"][];
@@ -2966,6 +3241,23 @@ export interface components {
         CreateWebhookRequest: {
             url: string;
             events?: null | string[];
+        };
+        DataLayerDescriptor: {
+            name: string;
+            title: string;
+            description: string;
+            capability: string;
+            /** Format: int32 */
+            minPointZoom: number | string;
+            statuses: components["schemas"]["DataLayerStatusResponse"][];
+        };
+        DataLayerListResponse: {
+            layers: components["schemas"]["DataLayerDescriptor"][];
+        };
+        DataLayerStatusResponse: {
+            key: string;
+            label: string;
+            color: string;
         };
         DeadLetterListResponse: {
             /** Format: int32 */
@@ -3140,6 +3432,7 @@ export interface components {
             generatedAt: string;
             organization: string;
             listings: components["schemas"]["ListingRecord"][];
+            next: null | string;
         };
         MemberListResponse: {
             items: components["schemas"]["MemberSummary"][];
@@ -3255,6 +3548,45 @@ export interface components {
             /** Format: int32 */
             count: number | string;
         };
+        OverlayFeaturesReplaced: {
+            /** Format: uuid */
+            layerId: string;
+            /** Format: int32 */
+            count: number | string;
+            /** Format: int32 */
+            version: number | string;
+        };
+        OverlayFeaturesUpload: {
+            geoJson: components["schemas"]["JsonElement"];
+        };
+        OverlayLayerListResponse: {
+            layers: components["schemas"]["OverlayLayerSummary"][];
+        };
+        OverlayLayerState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            version: number | string;
+            /** Format: date-time */
+            deletedAt: null | string;
+        };
+        OverlayLayerSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: string;
+            style: null | components["schemas"]["JsonElement"];
+            /** Format: uuid */
+            nodeId: string;
+            /** Format: int32 */
+            featureCount: number | string;
+            /** Format: int32 */
+            version: number | string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            deletedAt: null | string;
+        };
         PlanSummary: {
             id: string;
             name: string;
@@ -3318,6 +3650,9 @@ export interface components {
         PublicUrlResponse: {
             url: string;
             embedSnippet: string;
+        };
+        PutBasemapsRequest: {
+            basemaps: components["schemas"]["BasemapInput"][];
         };
         PutSettingRequest: {
             value: string;
@@ -3411,8 +3746,11 @@ export interface components {
             total: number | string;
             /** Format: int32 */
             openCount: number | string;
+            next: null | string;
             /** Format: int32 */
-            nextOffset: null | number | string;
+            withoutCoordinates?: null | number | string;
+            /** @default false */
+            totalIsLowerBound: boolean;
         };
         SiteResponse: {
             /** Format: uuid */
@@ -3491,6 +3829,10 @@ export interface components {
             apiKey?: null | string;
             /** Format: int32 */
             syncIntervalHours?: null | number | string;
+        };
+        UpdateOverlayLayerRequest: {
+            name?: null | string;
+            style?: unknown;
         };
         UpdateProfileRequest: {
             name: string;
@@ -3687,8 +4029,11 @@ export interface operations {
             query?: {
                 under?: string;
                 q?: string;
+                status?: string;
+                bbox?: string;
+                zoom?: number | string;
                 limit?: number | string;
-                offset?: number | string;
+                after?: string;
             };
             header?: never;
             path?: never;
@@ -3986,7 +4331,10 @@ export interface operations {
     };
     GET_api_listings_feed: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | string;
+                after?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4288,6 +4636,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_map_basemaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_map_basemaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutBasemapsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapSettingsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_map_basemaps_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapSettingsResponse"];
                 };
             };
             /** @description Not Found */
@@ -4929,6 +5368,245 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_overlays: {
+        parameters: {
+            query?: {
+                deleted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOverlayLayerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOverlayLayerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_overlays_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_overlays_id_features: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverlayFeaturesUpload"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayFeaturesReplaced"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays_id_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_tiles_overlays_id_z_x_y: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                z: number | string;
+                x: number | string;
+                y: number | string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.mapbox-vector-tile": string;
                 };
             };
             /** @description No Content */

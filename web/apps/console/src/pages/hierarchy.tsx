@@ -1,8 +1,9 @@
 import { api, ApiError } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
-  Input, Label, Select } from '@premise/ui';
+import { Button, Field, FieldLabel, FormDialog, Input, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Loading, PageHeader, Panel } from '../components/page';
+import { HierarchyTree } from '../features/hierarchy/hierarchy-tree';
 import { useApiMutation } from '../lib/mutation';
 
 export function HierarchyPage() {
@@ -34,14 +35,11 @@ export function HierarchyPage() {
       setAdding(false);
     },
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
   const rename = useApiMutation({
     mutationFn: (input: { id: string; name: string }) =>
       api.put('/api/hierarchy/nodes/{id}', { name: input.name }, { path: { id: input.id } }),
     invalidate: [['hierarchy']],
     success: 'Node renamed',
-    onSuccess: () => setEditingId(null),
   });
   const removeNode = useApiMutation({
     mutationFn: (id: string) => api.del('/api/hierarchy/nodes/{id}', { path: { id } }),
@@ -51,21 +49,19 @@ export function HierarchyPage() {
   });
 
   if (isPending)
-    return <p className="text-sm text-muted-foreground">Loading hierarchy…</p>;
+    return <Loading text="Loading hierarchy…" />;
   if (isError && !(error instanceof ApiError && error.status === 404))
     return <p className="text-sm text-destructive">Could not load hierarchy.</p>;
 
   if (!data) {
     return (
       <div className="max-w-lg space-y-6">
-        <h1 className="text-2xl font-semibold">Hierarchy</h1>
-        <Card>
-          <CardHeader><CardTitle>Provision the org hierarchy</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="levels">Level names (root-first, comma-separated)</Label>
+        <PageHeader title="Hierarchy" description="The rollup structure every site sits in." />
+        <Panel title="Provision the org hierarchy" bodyClassName="space-y-3">
+            <Field>
+              <FieldLabel htmlFor="levels">Level names (root-first, comma-separated)</FieldLabel>
               <Input id="levels" value={levels} onChange={(e) => setLevels(e.target.value)} />
-            </div>
+            </Field>
             <Button disabled={provision.isPending} onClick={() => provision.mutate()}>
               Create hierarchy
             </Button>
@@ -74,16 +70,17 @@ export function HierarchyPage() {
                 {String((provision.error as { body?: { error?: string } }).body?.error ?? 'failed')}
               </p>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Hierarchy</h1>
+      <PageHeader
+        title="Hierarchy"
+        description={<>Levels: {data.levels.join(' → ')}</>}
+        actions={
         <FormDialog
           open={adding}
           onOpenChange={setAdding}
@@ -92,13 +89,13 @@ export function HierarchyPage() {
           description="A new branch under an existing node."
         >
           <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="node-name">Name</Label>
+            <Field>
+              <FieldLabel htmlFor="node-name">Name</FieldLabel>
               <Input id="node-name" value={nodeName}
                 onChange={(e) => setNodeName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="node-parent">Parent</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="node-parent">Parent</FieldLabel>
               <Select id="node-parent" value={parentId}
                 onChange={(e) => setParentId(e.target.value)}>
                 <option value="">Choose…</option>
@@ -108,85 +105,28 @@ export function HierarchyPage() {
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
             <Button className="w-full" disabled={!nodeName || !parentId || addNode.isPending}
               onClick={() => addNode.mutate()}>
               Add node
             </Button>
           </div>
         </FormDialog>
-      </div>
-      <p className="text-sm text-muted-foreground">Levels: {data.levels.join(' → ')}</p>
-      <Card>
-        <CardContent className="pt-4">
-          <ul className="space-y-1 text-sm">
-            {data.nodes.map((n) => {
-              const isLeaf =
-                !data.nodes.some((c) => c.parentId === n.id) && Number(n.depth) > 0;
-              return (
-                <li
-                  key={n.id}
-                  className="group flex items-center gap-2"
-                  style={{ paddingLeft: `${Number(n.depth) * 1.25}rem` }}
-                >
-                  {editingId === n.id ? (
-                    <>
-                      <Input
-                        className="h-7 w-48"
-                        value={editName}
-                        autoFocus
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && editName.trim())
-                            rename.mutate({ id: n.id, name: editName.trim() });
-                          if (e.key === 'Escape') setEditingId(null);
-                        }}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!editName.trim() || rename.isPending}
-                        onClick={() => rename.mutate({ id: n.id, name: editName.trim() })}
-                      >
-                        Save
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-mono">
-                        {Number(n.depth) > 0 ? '└ ' : ''}{n.name}
-                      </span>
-                      <span className="flex gap-1 opacity-50 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => {
-                            setEditingId(n.id);
-                            setEditName(n.name);
-                          }}
-                        >
-                          Rename
-                        </Button>
-                        {isLeaf && (
-                          <ConfirmButton
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            disabled={removeNode.isPending}
-                            onConfirm={() => removeNode.mutate(n.id)}
-                          >
-                            Delete
-                          </ConfirmButton>
-                        )}
-                      </span>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
+        }
+      />
+      <Panel>
+        <HierarchyTree
+          nodes={data.nodes.map((n) => ({
+            id: n.id,
+            name: n.name,
+            depth: Number(n.depth),
+            parentId: n.parentId ?? null,
+          }))}
+          busy={rename.isPending || removeNode.isPending}
+          onRename={(id, name) => rename.mutate({ id, name })}
+          onDelete={(id) => removeNode.mutate(id)}
+        />
+      </Panel>
     </div>
   );
 }

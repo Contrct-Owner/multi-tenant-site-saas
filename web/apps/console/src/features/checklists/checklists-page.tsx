@@ -1,9 +1,9 @@
 import { checklistsApi } from './api';
 import { useSites } from '../sites';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
-  Input, Label, Select } from '@premise/ui';
+import { Button, Checkbox, ConfirmButton, Field, FieldLabel, FormDialog, Input, Select, Textarea } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Loading, PageHeader, Panel } from '../../components/page';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 
@@ -30,18 +30,21 @@ export function ChecklistsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Checklists</h1>
-        {sites && sites.length > 1 && (
-          <Select aria-label="Checklist site" className="w-56" value={activeSite}
-            onChange={(e) => setSiteId(e.target.value)}>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
-        )}
-      </div>
-      {siteQuery.isPending && <p role="status">Loading sites…</p>}
+      <PageHeader
+        title="Checklists"
+        description="Today's lists at a site, on that site's own clock."
+        actions={
+          sites && sites.length > 1 ? (
+            <Select aria-label="Checklist site" className="w-56" value={activeSite}
+              onChange={(e) => setSiteId(e.target.value)}>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </Select>
+          ) : undefined
+        }
+      />
+      {siteQuery.isPending && <Loading text="Loading sites…" />}
       {siteQuery.isError && <div role="alert">Could not load sites. <Button onClick={() => {
         if (siteQuery.isFetchNextPageError) void siteQuery.fetchNextPage();
         else void siteQuery.refetch();
@@ -60,40 +63,35 @@ export function ChecklistsPage() {
         </p>
       )}
       {today?.lists.length === 0 && (
-        <Card>
-          <CardContent className="pt-4 text-sm text-muted-foreground">
+        <Panel bodyClassName="text-sm text-muted-foreground">
             No checklists apply to this site yet.
             {manage && ' Create a template below.'}
-          </CardContent>
-        </Card>
+        </Panel>
       )}
       {today?.lists.map((list) => {
         const done = list.items.filter((i) => i.done).length;
         return (
-          <Card key={list.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-base">
-                {list.name}
-                <span className="text-sm font-normal text-muted-foreground">
-                  {done}/{list.items.length}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Panel
+            key={list.id}
+            title={list.name}
+            actions={
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {done}/{list.items.length}
+              </span>
+            }
+          >
               <ul className="space-y-2">
                 {list.items.map((item) => (
                   <li key={item.index}>
                     <label className="flex cursor-pointer items-center gap-3 text-sm">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
+                      <Checkbox
                         checked={item.done}
                         disabled={check.isPending}
-                        onChange={(e) =>
+                        onCheckedChange={(checked) =>
                           check.mutate({
                             templateId: list.id,
                             itemIndex: Number(item.index),
-                            done: e.target.checked,
+                            done: checked === true,
                           })
                         }
                       />
@@ -104,8 +102,7 @@ export function ChecklistsPage() {
                   </li>
                 ))}
               </ul>
-            </CardContent>
-          </Card>
+          </Panel>
         );
       })}
       {manage && <TemplatesCard />}
@@ -144,10 +141,9 @@ function TemplatesCard() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between text-base">
-          Templates
+    <Panel
+      title="Templates"
+      actions={
           <FormDialog
             open={open}
             onOpenChange={setOpen}
@@ -156,21 +152,21 @@ function TemplatesCard() {
             description="Applies daily at every site. One item per line."
           >
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="cl-name">Name</Label>
+              <Field>
+                <FieldLabel htmlFor="cl-name">Name</FieldLabel>
                 <Input id="cl-name" value={name} placeholder="Opening"
                   onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cl-items">Items</Label>
-                <textarea
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="cl-items">Items</FieldLabel>
+                <Textarea
                   id="cl-items"
-                  className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  className="min-h-28"
                   value={items}
                   placeholder={'Unlock doors\nCount register'}
                   onChange={(e) => setItems(e.target.value)}
                 />
-              </div>
+              </Field>
               <Button className="w-full"
                 disabled={!name.trim() || !items.trim() || create.isPending}
                 onClick={() => create.mutate()}>
@@ -178,10 +174,10 @@ function TemplatesCard() {
               </Button>
             </div>
           </FormDialog>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {templatesQuery.isPending && <p role="status">Loading templates…</p>}
+      }
+      bodyClassName="space-y-2"
+    >
+        {templatesQuery.isPending && <Loading text="Loading templates…" rows={2} />}
         {templatesQuery.isError && <div role="alert">Could not load templates. <Button
           onClick={() => void templatesQuery.refetch()}>Retry templates</Button></div>}
         {templates?.length === 0 && (
@@ -199,7 +195,6 @@ function TemplatesCard() {
             </ConfirmButton>
           </div>
         ))}
-      </CardContent>
-    </Card>
+    </Panel>
   );
 }

@@ -11,6 +11,7 @@ using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Ingest;
+using Premise.Modules.Spatial;
 using Premise.Modules.Storage;
 using Premise.Modules.Tenancy;
 using Premise.Platform.Audit;
@@ -128,6 +129,7 @@ builder.Services.AddSingleton<IPrincipalAccessor, RequestPrincipalAccessor>();
 builder.Services.AddScoped<TenantContext>(); // envelope-tenant holder (ADR 24)
 builder.Services.AddScoped<ITenantContext, PrincipalTenantContext>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddMemoryCache(); // low-zoom tiles (ADR 51), keyed by org and scope
 
 // Gates 2+3: roles compile to grants; scope evaluated per request (ADR 6),
 // decorated with authz-decision audit (ADR 12: denials always).
@@ -145,6 +147,7 @@ builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 builder.Services.AddChecklistsModule();
+builder.Services.AddSpatialModule();
 
 // Platform infra context (idempotency, ADR 29; sweep leases)
 builder.Services.AddScoped<ISweepLease, SweepLease>(); // by TYPE: Wolverine codegen refuses factories
@@ -294,6 +297,7 @@ builder.UseWolverine(opts =>
         opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(SpatialModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(AuditModule).Assembly);
@@ -387,6 +391,7 @@ if (role == "api")
     app.MapOperatorDeadLetterEndpoints();
     app.MapOperatorOverviewEndpoint();
     app.MapOperatorHealthEndpoint();
+    app.MapDataLayerEndpoints();
     app.MapWolverineEndpoints();
 }
 

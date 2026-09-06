@@ -39,5 +39,43 @@ export * from './components/checkbox';
 export * from './components/separator';
 export * from './components/skeleton';
 export * from './components/spinner';
+// the console map (ADR 50 §5): MapLibre GL behind the barrel, loaded on demand
+export * from './components/site-map';
 export { useIsMobile } from './hooks/use-mobile';
+// The grid is headless TanStack Table underneath; apps wire it through the
+// barrel too, so no app takes a direct dependency on the table library.
+export {
+  useTable,
+  type ColumnDef,
+  type RowSelectionState,
+  type SortingState,
+} from '@tanstack/react-table';
 export { cn } from './lib/utils';
+
+// UI/UX review (2026-09-06): the shadcn defaults and free ReUI components the
+// console now composes instead of hand-rolled equivalents. ConfirmButton is
+// the AlertDialog; toast is sonner; empty and loading states are Empty,
+// Skeleton and Icon Stack; segmented choices are ToggleGroup and Tabs.
+export * from './components/alert-dialog';
+export * from './components/avatar';
+export * from './components/breadcrumb';
+export * from './components/button-group';
+export * from './components/collapsible';
+export * from './components/empty';
+export * from './components/field';
+export * from './components/input-group';
+export * from './components/item';
+export * from './components/kbd';
+export * from './components/command';
+export * from './components/progress';
+export * from './components/radio-group';
+export * from './components/scroll-area';
+export * from './components/switch';
+export * from './components/tabs';
+export * from './components/toggle-group';
+export * from './components/toggle';
+export * from './components/reui/icon-stack';
+export * from './components/reui/icon-tile';
+export * from './components/reui/timeline';
+export * from './components/reui/tree';
+export * from './components/reui/filters/filters';

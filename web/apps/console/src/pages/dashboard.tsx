@@ -1,7 +1,9 @@
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
+import { IconTile, Progress } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
+import { Activity, MapPin, Users } from 'lucide-react';
+import { EmptyState, Loading, PageHeader, Panel, Stat } from '../components/page';
 import {entitlementLabel, fmtDateTime, eventLabel } from '../lib/format';
 import { can, useMe } from '../session';
 
@@ -38,61 +40,59 @@ export function DashboardPage() {
   const pending = invitations?.filter((i) => i.state === 'pending').length ?? 0;
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="max-w-4xl space-y-6">
+      <PageHeader title="Dashboard" description="What needs attention, then the plan." />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         {seesSites && (
-          <Card>
-            <CardContent className="pt-5">
-              <Link to="/sites" className="block">
-                <div className="text-3xl font-semibold tabular-nums">
-                  {sites === undefined ? '—' : sites.total}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  sites · {sites?.openCount ?? 0} open
-                </div>
-              </Link>
-            </CardContent>
-          </Card>
+          <Stat
+            to="/sites"
+            icon={MapPin}
+            label="Sites"
+            value={sites === undefined ? '—' : sites.total}
+            hint={sites === undefined ? undefined : `${sites.openCount ?? 0} open right now`}
+          />
         )}
         {seesMembers && (
-          <Card>
-            <CardContent className="pt-5">
-              <Link to="/members" className="block">
-                <div className="text-3xl font-semibold tabular-nums">
-                  {invitations === undefined ? '—' : pending}
-                </div>
-                <div className="text-sm text-muted-foreground">pending invitations</div>
-              </Link>
-            </CardContent>
-          </Card>
+          <Stat
+            to="/members"
+            icon={Users}
+            label="Pending invitations"
+            value={invitations === undefined ? '—' : pending}
+            hint={pending === 0 ? 'Everyone invited has joined' : 'Waiting on a reply'}
+          />
         )}
       </div>
 
       {seesAudit && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Recent activity
-              <Link to="/audit" className="text-sm font-normal text-muted-foreground hover:underline">
-                All activity →
-              </Link>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel
+          title="Recent activity"
+          actions={
+            <Link to="/audit" className="text-sm text-muted-foreground hover:underline">
+              All activity →
+            </Link>
+          }
+        >
             {events === undefined ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <Loading text="Loading activity…" rows={3} />
             ) : events.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
+              <EmptyState
+                icon={Activity}
+                title="Nothing recorded yet"
+                description="Changes people make show up here as they happen."
+                className="py-6"
+              />
             ) : (
-              <ul className="space-y-1.5 text-sm">
+              <ul className="divide-y text-sm">
                 {events.map((e) => (
-                  <li key={e.id} className="flex justify-between gap-4">
-                    <span className="min-w-0 truncate">
-                      {eventLabel(e.eventName ?? 'unknown')}
+                  <li key={e.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+                    <IconTile variant="soft" size="sm">
+                      <Activity />
+                    </IconTile>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{eventLabel(e.eventName ?? 'unknown')}</span>
                       {e.actorLabel && (
-                        <span className="ml-2 text-xs text-muted-foreground">{e.actorLabel}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{e.actorLabel}</span>
                       )}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
@@ -102,13 +102,10 @@ export function DashboardPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
-        <CardContent>
+      <Panel title="Plan">
           <div className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             {entitlements &&
               (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
@@ -130,19 +127,17 @@ export function DashboardPage() {
                       </span>
                     </div>
                     {showBar && (
-                      <div className="h-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={ratio >= 1 ? 'h-full bg-destructive' : 'h-full bg-primary'}
-                          style={{ width: `${Math.max(ratio * 100, 2)}%` }}
-                        />
-                      </div>
+                      <Progress
+                        value={Math.max(ratio * 100, 2)}
+                        aria-label={`${entitlementLabel(code)} usage`}
+                        className={ratio >= 1 ? '**:data-[slot=progress-indicator]:bg-destructive' : undefined}
+                      />
                     )}
                   </div>
                 );
               })}
           </div>
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

@@ -3,6 +3,8 @@
 // flag), with the Aspire dashboard as the OTLP sink (ADR 33). Local dev runs
 // the REAL WorkOS adapter (ADR 14) against @workos/emulate - the local
 // provider remains for bare `dotnet run` and the test suites.
+using Premise.Platform.Data;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 // PREMISE_AUTH=local boots WITHOUT the WorkOS emulator, using the local auth
@@ -18,6 +20,9 @@ var localAuth = string.Equals(
 
 var postgres = builder
     .AddPostgres("postgres")
+    // PostGIS (ADR 50), the same pinned multi-arch image the tests and scripts use
+    .WithImage(PostgresImage.Repository, PostgresImage.Tag)
+    .WithImageSHA256(PostgresImage.Sha256)
     .WithDataVolume("premise-pgdata")
     .AddDatabase("premise");
 

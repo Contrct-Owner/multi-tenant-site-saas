@@ -46,6 +46,7 @@ public static class ModuleCatalog
             "checklists",
             typeof(Premise.Modules.Checklists.Data.ChecklistsDbContext)
         ),
+        new("spatial", "spatial", typeof(Premise.Modules.Spatial.Data.SpatialDbContext)),
     ];
 
     /// <summary>

@@ -11,18 +11,48 @@ export function useRefreshSite(siteId: string) {
   };
 }
 
-export function useSites(filter: string) {
+export function useSites(
+  filter: string,
+  under: string | null = null,
+  bbox?: string,
+  zoom?: number,
+  status?: string,
+) {
   return useInfiniteQuery({
-    queryKey: ['sites', 'list', filter],
-    queryFn: ({ pageParam, signal }) => sitesApi.list(50, pageParam, filter || undefined, signal),
-    initialPageParam: 0,
-    getNextPageParam: (last) =>
-      last.nextOffset == null ? undefined : Number(last.nextOffset),
+    queryKey: ['sites', 'list', filter, under, bbox ?? null, zoom ?? null, status ?? null],
+    queryFn: ({ pageParam, signal }) =>
+      sitesApi.list(50, pageParam, filter || undefined, under ?? undefined, bbox, zoom, signal, status || undefined),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.next == null ? undefined : String(last.next)),
   });
 }
 
+// a picker, not the management page: the shell has usually just read this
+// tree (same key), and a hierarchy edit invalidates it - no refetch per mount
 export const useHierarchy = () =>
-  useQuery({ queryKey: ['hierarchy'], queryFn: ({ signal }) => sitesApi.hierarchy(signal) });
+  useQuery({
+    queryKey: ['hierarchy'],
+    queryFn: ({ signal }) => sitesApi.hierarchy(signal),
+    staleTime: 5 * 60_000,
+  });
+
+// an org setting, edited on the settings page: fresh enough for a session
+export const useBasemaps = (enabled = true) =>
+  useQuery({
+    queryKey: ['basemaps'],
+    queryFn: ({ signal }) => sitesApi.basemaps(signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+
+// the registry is code: what changes is who may see which layer
+export const useDataLayers = (enabled = true) =>
+  useQuery({
+    queryKey: ['map-layers'],
+    queryFn: ({ signal }) => sitesApi.layers(signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
 
 export const useSite = (id: string) =>
   useQuery({ queryKey: ['site', id], queryFn: ({ signal }) => sitesApi.get(id, signal) });

@@ -13,9 +13,9 @@ it.
 ## What's in the box
 
 - **Vertically sliced modular monolith** — C# / .NET 10 / EF Core / PostgreSQL,
-  Wolverine for mediation, messaging, and the transactional outbox. Eight
+  Wolverine for mediation, messaging, and the transactional outbox. Nine
   modules (tenancy, identity, entitlements, audit, storage, ingest,
-  checklists + platform),
+  checklists, spatial + platform),
   each with its own schema, DbContext, and migration history.
 - **Two-axis tenancy, three gates.** Every request passes entitlement (402,
   upsell) → grant (403) → scope (never fails — it *filters*). Row-level
@@ -82,7 +82,8 @@ guards that refuse to boot until dev-only adapters are replaced.
 
 Current engineering maturity and the prioritized path to production readiness:
 [software maturity review and forward roadmap](docs/software-maturity-review-details.md)
-(follow-up remediation active; deployment readiness conditional; maintained by the project maintainers; last updated 2026-09-05).
+(hosted CI verified; unreproduced reliability risks provisionally accepted for staging, not resolved;
+deployment strategy and acceptance remain open; maintained by the project maintainers; last updated 2026-09-05).
 
 Public authentication failure behavior and verification:
 [public session recovery](docs/public-session-recovery.md).

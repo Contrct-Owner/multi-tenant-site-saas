@@ -9,6 +9,8 @@ test('a pending or unavailable hierarchy never offers provisioning', async ({ pa
     await held;
     await route.fulfill({ status: 503, body: 'Hierarchy unavailable' });
   });
+  // the cold path: a warm tab renders the shell's remembered tree instead of loading
+  await page.evaluate(() => sessionStorage.clear());
   await page.goto('/hierarchy');
   await expect(page.getByText('Loading hierarchy…', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create hierarchy', exact: true })).toHaveCount(0);
@@ -73,12 +75,12 @@ test('role editor owns fresh drafts and preserves failed edits for retry', async
   await expect(dialog.getByRole('button', { name: 'Create role', exact: true })).toBeDisabled();
   const name = `Editor ${Date.now()}`;
   await dialog.getByLabel('Name', { exact: true }).fill(name);
-  await dialog.getByLabel('sites:read', { exact: true }).check();
+  await dialog.getByRole('checkbox', { name: 'sites:read', exact: true }).check();
   await dialog.getByRole('button', { name: 'Create role', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue(name);
-  await expect(dialog.getByLabel('sites:read', { exact: true })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'sites:read', exact: true })).toBeChecked();
   await dialog.getByLabel('Name', { exact: true }).fill(`${name} revised`);
   await page.route('**/api/roles/*', async (route) => {
     if (route.request().method() === 'PUT')
@@ -93,7 +95,7 @@ test('role editor owns fresh drafts and preserves failed edits for retry', async
   await expect(page.getByRole('cell', { name: `${name} revised`, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New role', exact: true }).click();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('');
-  await expect(dialog.getByLabel('sites:read', { exact: true })).not.toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'sites:read', exact: true })).not.toBeChecked();
 });
 
 test('site hours and closures retain failed drafts and refresh their own data', async ({ page }) => {
@@ -152,7 +154,8 @@ test('site hours and closures retain failed drafts and refresh their own data', 
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toHaveCount(0);
 
   await schedule.getByRole('button', { name: 'Remove', exact: true }).click();
-  await schedule.getByRole('button', { name: 'Sure?', exact: true }).click();
+  // the confirmation is the shadcn AlertDialog, portaled out of the row
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Sure?', exact: true }).click();
   await expect(schedule).toHaveCount(0);
   await expect(page.getByText('No open windows in the next 7 days.', { exact: true })).toBeVisible();
 });

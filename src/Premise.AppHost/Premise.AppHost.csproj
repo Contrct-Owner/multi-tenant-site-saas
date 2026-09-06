@@ -16,4 +16,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Premise.Api\Premise.Api.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- the one Postgres image reference (ADR 50), shared as source so the
+         host does not take a dependency on the platform assembly -->
+    <Compile Include="..\Premise.Platform\Data\PostgresImage.cs" Link="PostgresImage.cs" />
+  </ItemGroup>
 </Project>

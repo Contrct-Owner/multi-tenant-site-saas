@@ -1,10 +1,29 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label, Select } from '@premise/ui';
+import { Button, cn, ConfirmButton, Field, FieldLabel, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useIsMobile } from '@premise/ui';
+import { Building2, CreditCard, Database, Globe, KeyRound, Map as MapIcon, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
+import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 import { can, useMe } from '../session';
+
+type SettingsTab = {
+  value: string;
+  label: string;
+  icon: typeof Building2;
+  manageSites?: boolean;
+};
+
+const SETTINGS_TABS: SettingsTab[] = [
+  { value: 'profile', label: 'Profile', icon: Building2 },
+  { value: 'billing', label: 'Billing', icon: CreditCard },
+  { value: 'sso', label: 'Sign-on', icon: KeyRound },
+  { value: 'sites', label: 'Site attributes', icon: MapPin, manageSites: true },
+  { value: 'map', label: 'Map', icon: MapIcon },
+  { value: 'locator', label: 'Public locator', icon: Globe },
+  { value: 'data', label: 'Your data', icon: Database },
+];
 
 export function SettingsPage() {
   const { data: me } = useMe();
@@ -70,33 +89,60 @@ export function SettingsPage() {
     },
   });
 
+  const [tab, setTab] = useState('profile');
+  const isMobile = useIsMobile();
   if (!activeOrg) return null;
   const draft = name ?? activeOrg.name;
   return (
-    <div className="max-w-lg space-y-6">
-      <h1 className="text-2xl font-semibold">Organization settings</h1>
-      <Card>
-        <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="org-rename">Name</Label>
+    <div className="max-w-5xl space-y-6">
+      <PageHeader title="Organization settings" description="Profile, billing, sign-on, the map, the public locator, and your data." />
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(String(value))}
+        orientation={isMobile ? 'horizontal' : 'vertical'}
+        className="w-full gap-5 lg:gap-8"
+      >
+        <div className={isMobile ? '-mx-1 w-full overflow-x-auto px-1 pb-1' : 'w-44 shrink-0'}>
+          <TabsList
+            className={
+              isMobile
+                ? 'h-auto w-max min-w-max justify-start gap-1 bg-transparent p-0'
+                : 'h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0'
+            }
+          >
+            {SETTINGS_TABS.filter((t) => !t.manageSites || can(me, 'sites:manage')).map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className={cn('w-full justify-start gap-3 px-3 py-1.5 shadow-none', tab === t.value ? 'bg-muted!' : 'bg-transparent')}
+              >
+                <t.icon aria-hidden />
+                <span className="truncate">{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <div className="min-w-0 flex-1 space-y-6">
+          <TabsContent value="profile" className="mt-0">
+      <Panel title="Profile" bodyClassName="space-y-3">
+          <Field>
+            <FieldLabel htmlFor="org-rename">Name</FieldLabel>
             <Input id="org-rename" value={draft} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="org-slug">URL slug</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="org-slug">URL slug</FieldLabel>
             <Input id="org-slug" value={activeOrg.slug} disabled />
-          </div>
+          </Field>
           <Button
             disabled={draft === activeOrg.name || !draft.trim() || rename.isPending}
             onClick={() => rename.mutate(draft.trim())}
           >
             Save
           </Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Billing</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        </Panel>
+          </TabsContent>
+          <TabsContent value="billing" className="mt-0">
+      <Panel title="Billing" bodyClassName="space-y-3">
           {billing?.status === 'PastDue' && (
             <div className="rounded-md bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
               <span className="font-semibold">Payment failed.</span> Your features continue
@@ -147,12 +193,11 @@ export function SettingsPage() {
               </p>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Single sign-on</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+          </TabsContent>
+          <TabsContent value="sso" className="mt-0">
+      <Panel title="Single sign-on" bodyClassName="space-y-2">
           {!sso ? null : !sso.available ? (
             <p className="text-sm text-muted-foreground">
               Enterprise SSO and directory sync are not supported by this
@@ -182,14 +227,19 @@ export function SettingsPage() {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {can(me, 'sites:manage') && <SiteAttributesCard />}
-
-      <Card>
-        <CardHeader><CardTitle>Public locator</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+          </TabsContent>
+          {can(me, 'sites:manage') && (
+            <TabsContent value="sites" className="mt-0">
+              <SiteAttributesCard />
+            </TabsContent>
+          )}
+          <TabsContent value="map" className="mt-0">
+            <MapBasemapsCard />
+          </TabsContent>
+          <TabsContent value="locator" className="mt-0">
+      <Panel title="Public locator" bodyClassName="space-y-2">
           {publicUrl && (
             <>
               <p className="text-sm text-muted-foreground">
@@ -205,12 +255,11 @@ export function SettingsPage() {
               </code>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Your data</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+          </TabsContent>
+          <TabsContent value="data" className="mt-0 space-y-6">
+      <Panel title="Your data" bodyClassName="space-y-2">
           <p className="text-sm text-muted-foreground">
             Take a full archive of this organization&apos;s data - sites, people, roles,
             entitlements, and audit history. The archive is delivered to Files.
@@ -222,12 +271,9 @@ export function SettingsPage() {
           >
             {exportData.isSuccess ? 'Queued - check Files shortly' : 'Export org data'}
           </Button>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Close this organization</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Panel title="Close this organization" bodyClassName="space-y-2">
           {closure?.requestedAt ? (
             <>
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -254,8 +300,10 @@ export function SettingsPage() {
               </ConfirmButton>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }
@@ -288,9 +336,7 @@ function SiteAttributesCard() {
   });
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Site attributes</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+    <Panel title="Site attributes" bodyClassName="space-y-3">
         <p className="text-sm text-muted-foreground">
           Your own fields on every site - a drive-thru flag, a cost center, a manager name.
           Public attributes appear on the site&apos;s public page; the rest stay internal.
@@ -311,31 +357,30 @@ function SiteAttributesCard() {
           </div>
         ))}
         <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="attr-label">Label</Label>
+          <Field>
+            <FieldLabel htmlFor="attr-label">Label</FieldLabel>
             <Input id="attr-label" className="w-40" value={label} placeholder="Drive-thru"
               onChange={(e) => {
                 setLabel(e.target.value);
                 setKey(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''));
               }} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="attr-key">Key</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="attr-key">Key</FieldLabel>
             <Input id="attr-key" className="w-36 font-mono text-xs" value={key}
               onChange={(e) => setKey(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="attr-type">Type</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="attr-type">Type</FieldLabel>
             <Select id="attr-type" className="w-28" value={type}
               onChange={(e) => setType(e.target.value)}>
               <option>Text</option>
               <option>Number</option>
               <option>Boolean</option>
             </Select>
-          </div>
-          <label className="flex h-9 items-center gap-1.5 text-sm">
-            <input type="checkbox" className="size-4 accent-primary" checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)} />
+          </Field>
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <Switch checked={isPublic} onCheckedChange={(checked) => setIsPublic(checked)} />
             Public
           </label>
           <Button size="sm" disabled={!key.trim() || !label.trim() || create.isPending}
@@ -343,7 +388,120 @@ function SiteAttributesCard() {
             Add
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </Panel>
+  );
+}
+
+/**
+ * The org's own basemaps (ADR 50 §3, the `map.basemaps` setting): raster
+ * tile providers the map offers beside the open ones it ships with. A
+ * provider key is written once and never shown again; the map receives it
+ * in the tile URL, which is how providers key by referrer.
+ */
+function MapBasemapsCard() {
+  const [name, setName] = useState('');
+  const [id, setId] = useState('');
+  const [urlTemplate, setUrlTemplate] = useState('');
+  const [attribution, setAttribution] = useState('');
+  const [maxZoom, setMaxZoom] = useState('19');
+  const [key, setKey] = useState('');
+
+  const { data } = useQuery({
+    queryKey: ['basemaps', 'settings'],
+    queryFn: ({ signal }) => api.get('/api/map/basemaps/settings', { signal }),
+  });
+  const entries = data?.basemaps ?? [];
+  // the whole list is the setting: a save carries every entry, keys kept server-side by id
+  const keep = entries.map((e) => ({
+    id: e.id,
+    name: e.name,
+    urlTemplate: e.urlTemplate,
+    attribution: e.attribution,
+    maxZoom: Number(e.maxZoom),
+  }));
+  const save = useApiMutation({
+    mutationFn: (basemaps: typeof keep & { key?: string | null }[]) =>
+      api.put('/api/map/basemaps', { basemaps }),
+    invalidate: [['basemaps']],
+    success: 'Basemaps saved',
+    onSuccess: () => {
+      setName('');
+      setId('');
+      setUrlTemplate('');
+      setAttribution('');
+      setMaxZoom('19');
+      setKey('');
+    },
+  });
+  const needsKey = urlTemplate.includes('{key}');
+
+  return (
+    <Panel title="Map basemaps" bodyClassName="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Raster tile providers the map offers beside OpenStreetMap and the themed default. Put{' '}
+          <code className="rounded bg-muted px-1">{'{key}'}</code> in the URL where the provider wants its
+          key; the key is stored encrypted and never shown again.
+        </p>
+        {entries.map((e) => (
+          <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+            <span className="min-w-0">
+              <span className="font-medium">{e.name}</span>
+              <span className="ml-2 text-muted-foreground">{e.id} · zoom {String(e.maxZoom)}{e.hasKey && ' · keyed'}</span>
+              <span className="block truncate text-xs text-muted-foreground">{e.urlTemplate}</span>
+            </span>
+            <ConfirmButton size="sm" variant="ghost" confirmLabel="Remove?" disabled={save.isPending}
+              onConfirm={() => save.mutate(keep.filter((k) => k.id !== e.id))}>
+              Remove
+            </ConfirmButton>
+          </div>
+        ))}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="basemap-name">Name</FieldLabel>
+            <Input id="basemap-name" value={name} placeholder="Aerial"
+              onChange={(e) => {
+                setName(e.target.value);
+                setId(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+              }} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="basemap-id">Id</FieldLabel>
+            <Input id="basemap-id" className="font-mono text-xs" value={id} onChange={(e) => setId(e.target.value)} />
+          </Field>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="basemap-url">URL template</Label>
+            <Input id="basemap-url" className="font-mono text-xs" value={urlTemplate}
+              placeholder="https://tiles.example.com/{z}/{x}/{y}.png?key={key}"
+              onChange={(e) => setUrlTemplate(e.target.value)} />
+          </div>
+          <Field>
+            <FieldLabel htmlFor="basemap-attribution">Attribution</FieldLabel>
+            <Input id="basemap-attribution" value={attribution} placeholder="© Example Maps"
+              onChange={(e) => setAttribution(e.target.value)} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="basemap-zoom">Max zoom</FieldLabel>
+            <Input id="basemap-zoom" type="number" min={1} max={22} value={maxZoom}
+              onChange={(e) => setMaxZoom(e.target.value)} />
+          </Field>
+          {needsKey && (
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="basemap-key">Provider key</Label>
+              <Input id="basemap-key" type="password" autoComplete="off" value={key}
+                onChange={(e) => setKey(e.target.value)} />
+            </div>
+          )}
+        </div>
+        <Button size="sm" disabled={!name.trim() || !id || !urlTemplate.trim() || (needsKey && !key) || save.isPending}
+          onClick={() =>
+            save.mutate([
+              ...keep,
+              { id, name: name.trim(), urlTemplate: urlTemplate.trim(), attribution: attribution.trim(),
+                maxZoom: Number(maxZoom) || 19, key: key || null },
+            ])
+          }>
+          Add basemap
+        </Button>
+      </Panel>
   );
 }

@@ -156,5 +156,7 @@ public sealed record PurgeOrgWebhooks;
 
 public sealed record PurgeOrgChecklists;
 
+public sealed record PurgeOrgSpatial;
+
 /// <summary>The org is gone: read models drop it, provider directory follows.</summary>
 public sealed record OrganizationDeleted(OrgId OrgId, string? ExternalId);
