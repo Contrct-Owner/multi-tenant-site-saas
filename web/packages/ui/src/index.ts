@@ -39,6 +39,8 @@ export * from './components/checkbox';
 export * from './components/separator';
 export * from './components/skeleton';
 export * from './components/spinner';
+// the console map (ADR 50 §5): MapLibre GL behind the barrel, loaded on demand
+export * from './components/site-map';
 export { useIsMobile } from './hooks/use-mobile';
 // The grid is headless TanStack Table underneath; apps wire it through the
 // barrel too, so no app takes a direct dependency on the table library.

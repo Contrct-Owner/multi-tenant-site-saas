@@ -8,8 +8,17 @@ type CreateSchedule = components['schemas']['CreateScheduleRequest'];
 export const sitesApi = {
   // `under` is the console's global scope (direction B): the node the list
   // asks under; the server's own scope gate still applies on top (ADR 49)
-  list: (limit: number, offset: number, q?: string, under?: string, signal?: AbortSignal) =>
-    api.get('/api/sites', { query: { limit, offset, q, under }, signal }),
+  // bbox/zoom are the map view's viewport (ADR 49): one more predicate on
+  // the same list, applied after scope; absent in the table view
+  list: (
+    limit: number,
+    offset: number,
+    q?: string,
+    under?: string,
+    bbox?: string,
+    zoom?: number,
+    signal?: AbortSignal,
+  ) => api.get('/api/sites', { query: { limit, offset, q, under, bbox, zoom }, signal }),
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
   create: (body: CreateSite) => api.post('/api/sites', body),
   get: async (id: string, signal?: AbortSignal) =>

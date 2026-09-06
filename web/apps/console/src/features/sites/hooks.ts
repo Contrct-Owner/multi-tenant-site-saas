@@ -11,11 +11,16 @@ export function useRefreshSite(siteId: string) {
   };
 }
 
-export function useSites(filter: string, under: string | null = null) {
+export function useSites(
+  filter: string,
+  under: string | null = null,
+  bbox?: string,
+  zoom?: number,
+) {
   return useInfiniteQuery({
-    queryKey: ['sites', 'list', filter, under],
+    queryKey: ['sites', 'list', filter, under, bbox ?? null, zoom ?? null],
     queryFn: ({ pageParam, signal }) =>
-      sitesApi.list(50, pageParam, filter || undefined, under ?? undefined, signal),
+      sitesApi.list(50, pageParam, filter || undefined, under ?? undefined, bbox, zoom, signal),
     initialPageParam: 0,
     getNextPageParam: (last) =>
       last.nextOffset == null ? undefined : Number(last.nextOffset),
