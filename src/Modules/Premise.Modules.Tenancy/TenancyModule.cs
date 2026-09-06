@@ -37,6 +37,7 @@ public static class TenancyModule
         );
         services.AddScoped<ISiteLookup, SiteLookup>();
         services.AddScoped<ISiteDirectory, Sites.SiteDirectory>();
+        services.AddScoped<IHierarchyDirectory, Hierarchy.HierarchyDirectory>();
         services.AddScoped<IEntitlementUsageProbe, MaxSitesProbe>();
         services.AddScoped<IEntitlementUsageProbe, HierarchyDepthProbe>();
         services.AddScoped<IOrgDataExporter, Organizations.TenancyExporter>();

@@ -6,6 +6,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Premise.Api;
 using Premise.Modules.Audit;
+using Premise.Modules.Spatial;
 using Premise.Modules.Checklists;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
@@ -145,6 +146,7 @@ builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 builder.Services.AddChecklistsModule();
+builder.Services.AddSpatialModule();
 
 // Platform infra context (idempotency, ADR 29; sweep leases)
 builder.Services.AddScoped<ISweepLease, SweepLease>(); // by TYPE: Wolverine codegen refuses factories
@@ -294,6 +296,7 @@ builder.UseWolverine(opts =>
         opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(SpatialModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(AuditModule).Assembly);

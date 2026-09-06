@@ -1862,6 +1862,354 @@
         }
       }
     },
+    "/api/overlays": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "GET_api_overlays",
+        "description": "GET_api_overlays",
+        "operationId": "GET_api_overlays",
+        "parameters": [
+          {
+            "name": "deleted",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayLayerListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "POST_api_overlays",
+        "description": "POST_api_overlays",
+        "operationId": "POST_api_overlays",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOverlayLayerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayLayerState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/overlays/{id}": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "POST_api_overlays_id",
+        "description": "POST_api_overlays_id",
+        "operationId": "POST_api_overlays_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOverlayLayerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayLayerState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "DELETE_api_overlays_id",
+        "description": "DELETE_api_overlays_id",
+        "operationId": "DELETE_api_overlays_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayLayerState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/overlays/{id}/features": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "PUT_api_overlays_id_features",
+        "description": "PUT_api_overlays_id_features",
+        "operationId": "PUT_api_overlays_id_features",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverlayFeaturesUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayFeaturesReplaced"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/overlays/{id}/restore": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+        ],
+        "summary": "POST_api_overlays_id_restore",
+        "description": "POST_api_overlays_id_restore",
+        "operationId": "POST_api_overlays_id_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayLayerState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tiles/overlays/{id}/{z}/{x}/{y}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Spatial.Overlays.OverlayTilesEndpoint"
+        ],
+        "summary": "GET_api_tiles_overlays_id_z_x_y",
+        "description": "GET_api_tiles_overlays_id_z_x_y",
+        "operationId": "GET_api_tiles_overlays_id_z_x_y",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "z",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.mapbox-vector-tile": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notifications/bounce": {
       "post": {
         "tags": [
@@ -6333,6 +6681,29 @@
           }
         }
       },
+      "CreateOverlayLayerRequest": {
+        "required": [
+          "name",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "style": { },
+          "nodeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "CreateRoleRequest": {
         "required": [
           "name",
@@ -7620,6 +7991,157 @@
           }
         }
       },
+      "OverlayFeaturesReplaced": {
+        "required": [
+          "layerId",
+          "count",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "layerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "OverlayFeaturesUpload": {
+        "required": [
+          "geoJson"
+        ],
+        "type": "object",
+        "properties": {
+          "geoJson": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
+      "OverlayLayerListResponse": {
+        "required": [
+          "layers"
+        ],
+        "type": "object",
+        "properties": {
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverlayLayerSummary"
+            }
+          }
+        }
+      },
+      "OverlayLayerState": {
+        "required": [
+          "id",
+          "version",
+          "deletedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "deletedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "OverlayLayerSummary": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "style",
+          "nodeId",
+          "featureCount",
+          "version",
+          "updatedAt",
+          "deletedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            ]
+          },
+          "nodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "featureCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "PlanSummary": {
         "required": [
           "id",
@@ -8534,6 +9056,18 @@
           }
         }
       },
+      "UpdateOverlayLayerRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "style": { }
+        }
+      },
       "UpdateProfileRequest": {
         "required": [
           "name"
@@ -8854,6 +9388,12 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Spatial.Overlays.OverlayEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Spatial.Overlays.OverlayTilesEndpoint"
     },
     {
       "name": "Premise.Modules.Identity.Users.BounceWebhookEndpoint"

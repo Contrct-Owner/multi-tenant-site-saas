@@ -1,6 +1,9 @@
 import {
   Button,
   Checkbox,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   cn,
   DataGrid,
   DataGridColumnVisibility,
@@ -24,10 +27,11 @@ import {
   type ColumnDef,
   type DataGridFeatures,
   type RowSelectionState,
+  type SiteMapOverlay,
   type SiteMapPoint,
 } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
-import { Columns3, MapPin, Plus, Search, Table2 } from 'lucide-react';
+import { Columns3, Layers, MapPin, Plus, Search, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useScope } from '../../../app/scope';
 import { useTheme } from '../../../app/theme';
@@ -35,6 +39,8 @@ import { bboxParam, snapToTileGrid, type Viewport } from '../../../lib/map';
 import { useApiMutation } from '../../../lib/mutation';
 import { can, useMe } from '../../../session';
 import { StatusBadge } from '../../../shell';
+import { overlaysApi } from '../../overlays/api';
+import { useOverlays } from '../../overlays/hooks';
 import { sitesApi } from '../api';
 import { useHierarchy, useSites } from '../hooks';
 
@@ -46,6 +52,16 @@ type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
 
 type View = 'table' | 'map';
 const VIEW_KEY = 'premise.sites.view';
+const HIDDEN_OVERLAYS_KEY = 'premise.sites.overlays.hidden';
+
+function readHiddenOverlays(): Set<string> {
+  try {
+    const raw = localStorage.getItem(HIDDEN_OVERLAYS_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
 
 const readView = (): View => {
   try {
@@ -96,6 +112,40 @@ export function SitesPage() {
       sourceLayer: 'sites',
     }),
     [scope.nodeId],
+  );
+  // the org's overlays (ADR 50 §3) ride under the sites; each is its own
+  // tile source, and the viewer decides which are showing
+  const canSeeOverlays = can(me, 'overlays:read');
+  const overlaysQuery = useOverlays(canSeeOverlays && view === 'map');
+  const [hiddenOverlays, setHiddenOverlays] = useState(readHiddenOverlays);
+  const toggleOverlay = useCallback((id: string) => {
+    setHiddenOverlays((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(HIDDEN_OVERLAYS_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage is a convenience
+      }
+      return next;
+    });
+  }, []);
+  const overlayLayers = useMemo(
+    () => (overlaysQuery.data?.layers ?? []).filter((l) => Number(l.featureCount) > 0),
+    [overlaysQuery.data],
+  );
+  const overlays = useMemo<SiteMapOverlay[]>(
+    () =>
+      overlayLayers
+        .filter((l) => !hiddenOverlays.has(l.id))
+        .map((l) => ({
+          id: l.id,
+          url: overlaysApi.tiles(l.id),
+          sourceLayer: 'overlay',
+          style: (l.style ?? null) as SiteMapOverlay['style'],
+        })),
+    [overlayLayers, hiddenOverlays],
   );
   const sitesQuery = useSites(
     filter,
@@ -356,6 +406,51 @@ export function SitesPage() {
                   }
                 />
               )}
+              {view === 'map' && canSeeOverlays && (
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button variant="outline" size="sm" className="ml-auto">
+                        <Layers className="size-4" aria-hidden />
+                        Layers
+                        {overlays.length > 0 && (
+                          <span className="text-muted-foreground">{overlays.length}</span>
+                        )}
+                      </Button>
+                    }
+                  />
+                  <PopoverContent align="end" className="w-64">
+                    <p className="px-1 text-xs font-medium text-muted-foreground">Overlays</p>
+                    {overlayLayers.length === 0 ? (
+                      <p className="px-1 text-sm text-muted-foreground">
+                        No overlay layers with shapes yet.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {overlayLayers.map((l) => (
+                          <li key={l.id}>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted">
+                              <Checkbox
+                                checked={!hiddenOverlays.has(l.id)}
+                                onCheckedChange={() => toggleOverlay(l.id)}
+                              />
+                              <span
+                                className="size-3 shrink-0 rounded-sm border"
+                                style={{
+                                  background: (l.style as { fill?: string } | null)?.fill ?? '#7c6cf0',
+                                }}
+                                aria-hidden
+                              />
+                              <span className="truncate">{l.name}</span>
+                              <span className="ml-auto text-xs text-muted-foreground">{l.kind}</span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
             </FrameHeader>
 
             {view === 'table' ? (
@@ -437,6 +532,7 @@ export function SitesPage() {
                   points={points}
                   tiles={tiles}
                   selectedIds={selectedIds}
+                  overlays={overlays}
                   basemap={theme === 'dark' ? 'dark' : 'light'}
                   fitKey={fitKey}
                   onViewportChange={setViewport}

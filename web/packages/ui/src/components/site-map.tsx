@@ -14,7 +14,8 @@ import { cn } from '../lib/utils';
  * server applies scope and clusters below its point zoom, and selection is
  * feature state keyed by the tile feature's id. Without `tiles`, `points`
  * are drawn as a GeoJSON layer. Either way `points` provide the bounds for
- * Fit to scope.
+ * Fit to scope. `overlays` are the org's own shapes (ADR 50 §3), each its
+ * own tile source drawn under the sites; they come and go without a reload.
  *
  * Accessibility: the canvas is presentational; the list beside the map is
  * the accessible equivalent (the page owns that). Basemaps are open and
@@ -47,6 +48,15 @@ export type SiteMapTiles = {
   sourceLayer: string;
 };
 
+export type SiteMapOverlay = {
+  id: string;
+  /** Absolute URL template with {z}/{x}/{y}; the API's overlay tile endpoint. */
+  url: string;
+  sourceLayer: string;
+  /** Style JSON from the layer: fill and stroke as CSS hex, opacity 0-1. */
+  style?: { fill?: string; stroke?: string; opacity?: number } | null;
+};
+
 const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
   osm: {
     version: 8,
@@ -69,6 +79,7 @@ const SOURCE = 'premise-sites';
 const LAYER_HALO = 'premise-sites-halo';
 const LAYER_DOT = 'premise-sites-dot';
 const LAYER_CLUSTER = 'premise-sites-cluster';
+const OVERLAY_PREFIX = 'premise-overlay-';
 // MapLibre paints literal colors, not CSS tokens: the accent and neutral pin
 // from tokens.css, in hex, for both schemes
 const ACCENT = '#7c6cf0';
@@ -84,6 +95,8 @@ type Props = {
   tiles?: SiteMapTiles;
   /** Selected site ids (tile mode); in point mode each point carries `selected`. */
   selectedIds?: readonly string[];
+  /** Overlay layers to draw under the sites; an empty list draws none. */
+  overlays?: readonly SiteMapOverlay[];
   basemap?: SiteMapBasemap;
   /** Bump this to fit the view to the current points (Fit to scope). */
   fitKey?: number;
@@ -177,6 +190,58 @@ function addSitesLayers(map: MapLibre.Map, mode: Mode, data: FeatureCollection, 
   });
 }
 
+const overlayKey = (o: SiteMapOverlay) => JSON.stringify([o.url, o.sourceLayer, o.style ?? null]);
+
+/**
+ * Bring the map's overlay sources in line with `overlays`: sources that are
+ * gone or restyled are removed, new ones added under the sites layers.
+ * `known` remembers what is on the map (source id -> key) because a style
+ * swap drops everything and the caller resets it then.
+ */
+function syncOverlays(map: MapLibre.Map, overlays: readonly SiteMapOverlay[], known: Map<string, string>) {
+  const wanted = new Map(overlays.map((o) => [OVERLAY_PREFIX + o.id, o] as const));
+  for (const [id, key] of [...known]) {
+    const o = wanted.get(id);
+    if (o && overlayKey(o) === key) continue;
+    for (const layer of [`${id}-fill`, `${id}-line`]) if (map.getLayer(layer)) map.removeLayer(layer);
+    if (map.getSource(id)) map.removeSource(id);
+    known.delete(id);
+  }
+  // sites stay on top: overlays slot in under the first sites layer present
+  const before = [LAYER_CLUSTER, LAYER_HALO, LAYER_DOT].find((l) => map.getLayer(l));
+  for (const [id, o] of wanted) {
+    if (known.has(id)) continue;
+    known.set(id, overlayKey(o));
+    // `load` and `style.load` both fire on the first style: a source the
+    // earlier pass added is registered, not added twice
+    if (map.getSource(id)) continue;
+    map.addSource(id, { type: 'vector', tiles: [o.url], minzoom: 0, maxzoom: 22 });
+    const fill = o.style?.fill ?? ACCENT;
+    const stroke = o.style?.stroke ?? fill;
+    const opacity = o.style?.opacity ?? 0.15;
+    map.addLayer(
+      {
+        id: `${id}-fill`,
+        type: 'fill',
+        source: id,
+        'source-layer': o.sourceLayer,
+        paint: { 'fill-color': fill, 'fill-opacity': opacity },
+      },
+      before,
+    );
+    map.addLayer(
+      {
+        id: `${id}-line`,
+        type: 'line',
+        source: id,
+        'source-layer': o.sourceLayer,
+        paint: { 'line-color': stroke, 'line-width': 1.5, 'line-opacity': 0.8 },
+      },
+      before,
+    );
+  }
+}
+
 function bounds(points: SiteMapPoint[]): [[number, number], [number, number]] | null {
   if (points.length === 0) return null;
   let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
@@ -193,6 +258,7 @@ export function SiteMap({
   points,
   tiles,
   selectedIds = [],
+  overlays = [],
   basemap = 'light',
   fitKey = 0,
   onViewportChange,
@@ -204,6 +270,9 @@ export function SiteMap({
   const pointsRef = useRef(points);
   const tilesRef = useRef(tiles);
   const selectionRef = useRef(selectedIds);
+  const overlaysRef = useRef(overlays);
+  // overlay sources on the map right now (source id -> key)
+  const knownOverlays = useRef<Map<string, string>>(new Map());
   const viewportCb = useRef(onViewportChange);
   const clickCb = useRef(onPointClick);
   const lastFit = useRef(fitKey);
@@ -214,6 +283,7 @@ export function SiteMap({
   pointsRef.current = points;
   tilesRef.current = tiles;
   selectionRef.current = selectedIds;
+  overlaysRef.current = overlays;
   viewportCb.current = onViewportChange;
   clickCb.current = onPointClick;
   const mode: Mode = tiles ? 'tiles' : 'points';
@@ -278,6 +348,9 @@ export function SiteMap({
         addSitesLayers(map, mode, toGeoJson(pointsRef.current), tilesRef.current);
         flagged.current = new Set();
         applySelection(map, selectionRef.current);
+        // a fresh style has no overlay sources, whatever was known before
+        knownOverlays.current = new Map();
+        syncOverlays(map, overlaysRef.current, knownOverlays.current);
       };
       map.on('load', () => {
         addLayers();
@@ -346,6 +419,12 @@ export function SiteMap({
     // applySelection reads refs; selectedIds is the input
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds]);
+
+  // overlays changed: add, drop or restyle their sources in place
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && map.getSource(SOURCE)) syncOverlays(map, overlays, knownOverlays.current);
+  }, [overlays]);
 
   // basemap changed: swap the style, layers are re-added on style.load
   useEffect(() => {

@@ -45,6 +45,7 @@
       Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"
       Version="10.0.3"
     />
+    <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ" Version="4.0.0" />
     <PackageVersion Include="WolverineFx" Version="6.30.3" />
     <PackageVersion Include="WolverineFx.Http" Version="6.30.3" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="6.30.3" />

@@ -712,6 +712,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/overlays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_overlays
+         * @description GET_api_overlays
+         */
+        get: operations["GET_api_overlays"];
+        put?: never;
+        /**
+         * POST_api_overlays
+         * @description POST_api_overlays
+         */
+        post: operations["POST_api_overlays"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_overlays_id
+         * @description POST_api_overlays_id
+         */
+        post: operations["POST_api_overlays_id"];
+        /**
+         * DELETE_api_overlays_id
+         * @description DELETE_api_overlays_id
+         */
+        delete: operations["DELETE_api_overlays_id"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * PUT_api_overlays_id_features
+         * @description PUT_api_overlays_id_features
+         */
+        put: operations["PUT_api_overlays_id_features"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/overlays/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_overlays_id_restore
+         * @description POST_api_overlays_id_restore
+         */
+        post: operations["POST_api_overlays_id_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tiles/overlays/{id}/{z}/{x}/{y}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_tiles_overlays_id_z_x_y
+         * @description GET_api_tiles_overlays_id_z_x_y
+         */
+        get: operations["GET_api_tiles_overlays_id_z_x_y"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications/bounce": {
         parameters: {
             query?: never;
@@ -2949,6 +3057,13 @@ export interface components {
             name: string;
             slug: string;
         };
+        CreateOverlayLayerRequest: {
+            name: string;
+            kind: string;
+            style?: unknown;
+            /** Format: uuid */
+            nodeId?: null | string;
+        };
         CreateRoleRequest: {
             name: string;
             grants: components["schemas"]["GrantSpec"][];
@@ -3275,6 +3390,45 @@ export interface components {
             /** Format: int32 */
             count: number | string;
         };
+        OverlayFeaturesReplaced: {
+            /** Format: uuid */
+            layerId: string;
+            /** Format: int32 */
+            count: number | string;
+            /** Format: int32 */
+            version: number | string;
+        };
+        OverlayFeaturesUpload: {
+            geoJson: components["schemas"]["JsonElement"];
+        };
+        OverlayLayerListResponse: {
+            layers: components["schemas"]["OverlayLayerSummary"][];
+        };
+        OverlayLayerState: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            version: number | string;
+            /** Format: date-time */
+            deletedAt: null | string;
+        };
+        OverlayLayerSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: string;
+            style: null | components["schemas"]["JsonElement"];
+            /** Format: uuid */
+            nodeId: string;
+            /** Format: int32 */
+            featureCount: number | string;
+            /** Format: int32 */
+            version: number | string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            deletedAt: null | string;
+        };
         PlanSummary: {
             id: string;
             name: string;
@@ -3513,6 +3667,10 @@ export interface components {
             apiKey?: null | string;
             /** Format: int32 */
             syncIntervalHours?: null | number | string;
+        };
+        UpdateOverlayLayerRequest: {
+            name?: null | string;
+            style?: unknown;
         };
         UpdateProfileRequest: {
             name: string;
@@ -4997,6 +5155,245 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IResult"];
+                };
+            };
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_overlays: {
+        parameters: {
+            query?: {
+                deleted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOverlayLayerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOverlayLayerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    DELETE_api_overlays_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_overlays_id_features: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverlayFeaturesUpload"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayFeaturesReplaced"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_overlays_id_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayLayerState"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_tiles_overlays_id_z_x_y: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                z: number | string;
+                x: number | string;
+                y: number | string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.mapbox-vector-tile": string;
                 };
             };
             /** @description No Content */
