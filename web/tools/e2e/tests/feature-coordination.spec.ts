@@ -137,8 +137,18 @@ test('site hours and closures retain failed drafts and refresh their own data', 
   await expect(schedule).toContainText('09:00 – 17:00');
   await expect(page.getByText('9:00 AM – 5:00 PM', { exact: true }).first()).toBeVisible();
 
-  const date = new Date(Date.now() + 2 * 86400_000).toISOString().slice(0, 10);
-  await page.getByLabel('Close a day', { exact: true }).fill(date);
+  // the closure date is a calendar (the shadcn date picker): open it, step to
+  // the target's month if the day after tomorrow crosses one, pick the day
+  const target = new Date(Date.now() + 2 * 86400_000);
+  const closeADay = page.getByLabel('Close a day', { exact: true });
+  await closeADay.click();
+  const calendar = page.getByRole('dialog').last();
+  if (target.getMonth() !== new Date().getMonth())
+    await calendar.getByRole('button', { name: /next month/i }).click();
+  await calendar
+    .getByRole('button', { name: new RegExp(`${target.toLocaleString('en-US', { month: 'long' })} ${target.getDate()}(st|nd|rd|th)`) })
+    .click();
+  const shown = target.toLocaleDateString();
   await page.route('**/api/sites/*/closures', async (route) => {
     if (route.request().method() === 'POST')
       await route.fulfill({ status: 503, body: 'Closure unavailable' });
@@ -146,9 +156,9 @@ test('site hours and closures retain failed drafts and refresh their own data', 
   }, { times: 1 });
   await page.getByRole('button', { name: 'Close this day', exact: true }).click();
   await expect(page.getByText('Closure unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Close a day', { exact: true })).toHaveValue(date);
+  await expect(closeADay).toContainText(shown);
   await page.getByRole('button', { name: 'Close this day', exact: true }).click();
-  await expect(page.getByLabel('Close a day', { exact: true })).toHaveValue('');
+  await expect(closeADay).toContainText('Pick a day');
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   await page.getByRole('button', { name: 'Reopen?', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Reopen', exact: true })).toHaveCount(0);

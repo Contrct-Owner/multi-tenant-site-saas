@@ -1,5 +1,48 @@
 import { api, ApiError, type Capability } from '@premise/api';
-import { Badge, Button, cn, Field, FieldLabel, Input, Label, Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, Toaster, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@premise/ui';
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  Field,
+  FieldLabel,
+  Input,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  Toaster,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
@@ -26,7 +69,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { can, parseMe, useMe, type Me } from './session';
 import { persisted } from './app/persisted';
@@ -126,13 +169,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const activeOrg = me.organizations.find((o) => o.id === me.activeOrg);
   if (activeOrg && (activeOrg as { status?: string }).status === 'Suspended') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="w-full max-w-sm space-y-3 rounded-lg border bg-card p-8 text-center">
-          <h1 className="text-xl font-semibold">{activeOrg.name} is suspended</h1>
-          <p className="text-sm text-muted-foreground">
-            Contact support to restore access. Your data is retained.
-          </p>
-        </div>
+      <main className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-sm text-center">
+          <CardHeader>
+            <CardTitle role="heading" aria-level={1}>{activeOrg.name} is suspended</CardTitle>
+            <CardDescription>Contact support to restore access. Your data is retained.</CardDescription>
+          </CardHeader>
+        </Card>
       </main>
     );
   }
@@ -140,24 +183,27 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <ScopeProvider orgId={me.activeOrg ?? 'none'}>
-        <div className="flex min-h-screen flex-col bg-background">
-          {me.impersonationExpiresAt && (
-            <ImpersonationBanner
-              orgName={activeOrg?.name ?? 'organization'}
-              expiresAt={me.impersonationExpiresAt}
-            />
-          )}
-          <div className="flex flex-1">
-            <Rail me={me} />
-            <ScopePanel me={me} orgName={activeOrg?.name ?? 'No organization'} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Topbar me={me} />
-              <main className="min-w-0 flex-1 overflow-auto p-4 pb-24 md:p-8 md:pb-8">{children}</main>
-            </div>
-          </div>
+        {/* shadcn Sidebar (the app-shell block's layout): the sidebar is fixed
+            and scrolls itself, the page scrolls on its own, Cmd/Ctrl-B folds
+            the Scope panel away to the icon rail */}
+        <SidebarProvider
+          className="bg-background"
+          style={{ '--sidebar-width': '316px', '--sidebar-width-icon': '76px' } as CSSProperties}
+        >
+          <AppSidebar me={me} orgName={activeOrg?.name ?? 'No organization'} />
+          <SidebarInset className="min-w-0">
+            {me.impersonationExpiresAt && (
+              <ImpersonationBanner
+                orgName={activeOrg?.name ?? 'organization'}
+                expiresAt={me.impersonationExpiresAt}
+              />
+            )}
+            <Topbar me={me} />
+            <main className="min-w-0 flex-1 p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+          </SidebarInset>
           <TabBar me={me} />
           <Toaster theme={theme} />
-        </div>
+        </SidebarProvider>
       </ScopeProvider>
     </TooltipProvider>
   );
@@ -165,87 +211,107 @@ export function Shell({ children }: { children: ReactNode }) {
 
 /* ----------------------------------------------------------------- desktop */
 
-function Rail({ me }: { me: User }) {
+/**
+ * Direction B on the shadcn Sidebar's double-sidebar pattern: one
+ * icon-collapsible sidebar holding the 76px area rail and the 240px Scope
+ * panel. Collapsed, only the rail stays; the trigger in the top bar and
+ * Cmd/Ctrl-B toggle it. Nothing here is drawn by hand - rows are
+ * SidebarMenuButtons, the org picker is the barrel Select.
+ */
+function AppSidebar({ me, orgName }: { me: User; orgName: string }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const groups = visibleGroups(me);
   return (
-    <nav
-      aria-label="Areas"
-      className="hidden w-[76px] shrink-0 flex-col items-center gap-1 border-r bg-sidebar py-3 md:flex"
+    <Sidebar
+      collapsible="icon"
+      className="hidden overflow-hidden md:flex *:data-[sidebar=sidebar]:flex-row"
     >
-      <Link
-        to="/"
-        aria-label="Premise home"
-        className="mb-2 flex size-8 items-center justify-center rounded-lg bg-foreground text-sm font-extrabold text-background"
+      {/* the area rail: always icons, a tooltip names each */}
+      <Sidebar collapsible="none" className="w-[calc(var(--sidebar-width-icon)+1px)]! border-r">
+        <SidebarHeader className="items-center pt-3">
+          <Link
+            to="/"
+            aria-label="Premise home"
+            className="flex size-8 items-center justify-center rounded-lg bg-foreground text-sm font-extrabold text-background"
+          >
+            P
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <nav aria-label="Areas" className="contents">
+            {groups.map((group, i) => (
+              <SidebarGroup key={group.label ?? 'operate'} className={cn('items-center px-0', i > 0 && 'border-t')}>
+                <SidebarGroupContent>
+                  <SidebarMenu className="items-center gap-1">
+                    {group.items.map((n) => (
+                      <RailLink key={n.to} item={n} active={isActive(path, n.to)} />
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
+          </nav>
+        </SidebarContent>
+      </Sidebar>
+      {/* the Scope panel: what every list reads under */}
+      <Sidebar
+        collapsible="none"
+        role="complementary"
+        aria-label="Scope"
+        className="hidden min-w-0 flex-1 md:flex"
       >
-        P
-      </Link>
-      {groups.map((group, i) => (
-        <div key={group.label ?? 'operate'} className="flex flex-col items-center gap-1">
-          {i > 0 && <div className="my-1 h-px w-8 bg-sidebar-border" aria-hidden />}
-          {group.items.map((n) => (
-            <RailLink key={n.to} item={n} active={isActive(path, n.to)} />
-          ))}
-        </div>
-      ))}
-    </nav>
+        <SidebarHeader className="gap-2 border-b p-3">
+          <div className="flex items-center gap-2 px-1">
+            <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+              {orgName.charAt(0).toUpperCase()}
+            </span>
+            <span className="truncate text-sm font-semibold">{orgName}</span>
+          </div>
+          <OrgSwitcher me={me} />
+        </SidebarHeader>
+        <SidebarContent className="p-2">
+          <ScopeTree me={me} />
+        </SidebarContent>
+        <SidebarFooter className="border-t p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0">
+              <Link
+                to="/account"
+                className="block truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {me.email}
+              </Link>
+              <ApiVersion />
+            </span>
+            <SignOutButton />
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+    </Sidebar>
   );
 }
 
 function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Link
-            to={item.to}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'flex size-11 items-center justify-center rounded-[10px] border border-transparent text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground',
-              active && 'border-sidebar-border bg-sidebar-accent text-foreground',
-            )}
-          />
-        }
-      >
-        <Icon className="size-[18px]" aria-hidden />
-        <span className="sr-only">{item.label}</span>
-      </TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function ScopePanel({ me, orgName }: { me: User; orgName: string }) {
-  return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar md:flex">
-      <div className="flex flex-col gap-2 border-b p-3">
-        <div className="flex items-center gap-2 px-1">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-            {orgName.charAt(0).toUpperCase()}
-          </span>
-          <span className="truncate text-sm font-semibold">{orgName}</span>
-        </div>
-        <OrgSwitcher me={me} />
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col p-2">
-        <ScopeTree me={me} />
-      </div>
-      <div className="space-y-2 border-t p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0">
-            <Link
-              to="/account"
-              className="block truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-            >
-              {me.email}
-            </Link>
-            <ApiVersion />
-          </span>
-          <SignOutButton />
-        </div>
-      </div>
-    </aside>
+    <SidebarMenuItem>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <SidebarMenuButton
+              isActive={active}
+              size="lg"
+              className="size-11 justify-center rounded-[10px] border border-transparent p-0 data-[active=true]:border-sidebar-border"
+              render={<Link to={item.to} aria-current={active ? 'page' : undefined} />}
+            />
+          }
+        >
+          <Icon className="size-[18px]" aria-hidden />
+          <span className="sr-only">{item.label}</span>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
+    </SidebarMenuItem>
   );
 }
 
@@ -259,14 +325,21 @@ function Topbar({ me }: { me: User }) {
       : hierarchy?.nodes.find((n) => n.id === scope.nodeId)?.name ?? 'All sites';
   const title = pageTitle(path);
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-3 border-b px-4 md:px-5">
-      {/* desktop: breadcrumb - scope first, because it is what every list reads under */}
-      <div className="hidden min-w-0 items-center gap-2 text-sm md:flex">
-        <span className="truncate text-muted-foreground">{scopeName}</span>
-        <span className="text-muted-foreground" aria-hidden>
-          ›
-        </span>
-        <span className="truncate font-medium">{title}</span>
+    <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-3 border-b bg-background px-4 md:px-5">
+      {/* desktop: the panel toggle, then the breadcrumb - scope first, because it is what every list reads under */}
+      <div className="hidden min-w-0 items-center gap-2 md:flex">
+        <SidebarTrigger className="-ml-1" />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <span className="truncate">{scopeName}</span>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{title}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
       {/* phone: the page, then the scope chip */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
@@ -473,6 +546,7 @@ function ScopeTree({
   const { data: hierarchy, isError, error } = useHierarchyForScope(me);
   // nodes whose default (open at the top, closed below) has been flipped
   const [toggled, setToggled] = useState<Set<string>>(() => new Set());
+  const rootIdRef = useRef<string | null>(null);
   const nodes = hierarchy?.nodes ?? [];
   const rows = useMemo<ScopeRow[]>(() => {
     const children = new Map<string | null, typeof nodes>();
@@ -483,16 +557,18 @@ function ScopeTree({
       ancestors.add(cursor.parentId);
     const isOpen = (n: (typeof nodes)[number]) =>
       ancestors.has(n.id) || (Number(n.depth) === 0) !== toggled.has(n.id);
-    const out: ScopeRow[] = [{ id: null, name: 'All sites', depth: 0, icon: Building2, hasChildren: false, expanded: false }];
+    const rootId = nodes.find((n) => Number(n.depth) === 0)?.id ?? null;
+    // the root node IS "all sites": one row, selected as the whole org
+    const out: ScopeRow[] = [];
     const visit = (parent: string | null) => {
       for (const n of children.get(parent) ?? []) {
         const depth = Number(n.depth);
         const kids = children.get(n.id)?.length ?? 0;
         const expanded = kids > 0 && isOpen(n);
         out.push({
-          id: n.id,
+          id: depth === 0 ? null : n.id,
           name: n.name,
-          depth: depth + 1,
+          depth,
           icon: depth === 0 ? Building2 : depth === 1 ? Network : MapPin,
           hasChildren: kids > 0,
           expanded,
@@ -501,6 +577,8 @@ function ScopeTree({
       }
     };
     visit(null);
+    rootIdRef.current = rootId;
+    if (out.length === 0) out.push({ id: null, name: 'All sites', depth: 0, icon: Building2, hasChildren: false, expanded: false });
     return out;
   }, [nodes, toggled, scope.nodeId]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -541,9 +619,10 @@ function ScopeTree({
                     aria-expanded={row.expanded}
                     onClick={() =>
                       setToggled((prev) => {
+                        const key = row.id ?? rootIdRef.current ?? '';
                         const next = new Set(prev);
-                        if (next.has(row.id!)) next.delete(row.id!);
-                        else next.add(row.id!);
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
                         return next;
                       })
                     }
@@ -596,9 +675,9 @@ function OrgSwitcher({ me }: { me: User }) {
   const changeSession = useSessionTransition();
   if (me.organizations.length <= 1) return null;
   return (
-    <select
+    <Select
       aria-label="Active organization"
-      className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+      className="w-full"
       value={me.activeOrg ?? ''}
       onChange={async (e) => {
         const orgId = e.target.value;
@@ -610,7 +689,7 @@ function OrgSwitcher({ me }: { me: User }) {
           {o.name}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -703,46 +782,58 @@ function SignInScreen() {
   const authError = new URLSearchParams(location.search).get('authError');
   const [signupEmail, setSignupEmail] = useState<string | null>(null);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-8 text-center">
-        <h1 className="text-xl font-semibold">Premise Console</h1>
-        <p className="text-sm text-muted-foreground">Sign in to manage your organization.</p>
-        {authError && (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {authError === 'user_not_found'
-              ? 'No account for that email yet — use Create account below.'
-              : `Sign-in didn't complete (${authError.replaceAll('_', ' ')}). Try again.`}
-          </p>
-        )}
-        <Button
-          className="w-full"
-          render={<a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`} />}
-        >
-          Sign in
-        </Button>
-        {signupEmail === null ? (
-          <button
-            type="button"
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-            onClick={() => setSignupEmail('')}
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-4">
+      {/* the auth block's shape: a wordmark header, one card, one primary action */}
+      <div className="flex items-center gap-2">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-foreground text-sm font-extrabold text-background">
+          P
+        </span>
+        <span className="text-lg font-semibold">Premise</span>
+      </div>
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle role="heading" aria-level={1}>Premise Console</CardTitle>
+          <CardDescription>Sign in to manage your organization.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {authError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {authError === 'user_not_found'
+                  ? 'No account for that email yet - use Create account below.'
+                  : `Sign-in didn't complete (${authError.replaceAll('_', ' ')}). Try again.`}
+              </AlertDescription>
+            </Alert>
+          )}
+          <Button
+            className="w-full"
+            render={<a href={`/auth/login?returnUrl=${encodeURIComponent(location.pathname)}`} />}
           >
-            Create account
-          </button>
-        ) : (
-          <div className="space-y-2 text-left">
-            <Label htmlFor="signup-email">Email for your new account</Label>
-            <Input
-              id="signup-email"
-              type="email"
-              value={signupEmail}
-              onChange={(e) => setSignupEmail(e.target.value)}
-            />
-            <Button className="w-full" variant="secondary" render={<a href={`/auth/signup?email=${encodeURIComponent(signupEmail)}`} aria-disabled={!signupEmail.includes('@')} />}>
+            Sign in
+          </Button>
+          {signupEmail !== null && (
+            <Field>
+              <FieldLabel htmlFor="signup-email">Email for your new account</FieldLabel>
+              <Input
+                id="signup-email"
+                type="email"
+                value={signupEmail}
+                onChange={(e) => setSignupEmail(e.target.value)}
+              />
+              <Button className="w-full" variant="secondary" render={<a href={`/auth/signup?email=${encodeURIComponent(signupEmail)}`} aria-disabled={!signupEmail.includes('@')} />}>
+                Create account
+              </Button>
+            </Field>
+          )}
+        </CardContent>
+        {signupEmail === null && (
+          <CardFooter className="justify-center">
+            <Button variant="link" size="sm" onClick={() => setSignupEmail('')}>
               Create account
             </Button>
-          </div>
+          </CardFooter>
         )}
-      </div>
+      </Card>
     </main>
   );
 }
@@ -778,14 +869,13 @@ function CreateOrgScreen() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-8">
-        <div>
-          <h1 className="text-xl font-semibold">Create your organization</h1>
-          <p className="text-sm text-muted-foreground">
-            You&apos;re signed in but don&apos;t belong to an organization yet.
-          </p>
-        </div>
+    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle role="heading" aria-level={1}>Create your organization</CardTitle>
+          <CardDescription>You&apos;re signed in but don&apos;t belong to an organization yet.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
         <Field>
           <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
           <Input
@@ -809,15 +899,14 @@ function CreateOrgScreen() {
         <Button className="w-full" disabled={!name || slug.length < 3 || creating} onClick={create}>
           {creating ? 'Setting up…' : 'Create organization'}
         </Button>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <button
-          type="button"
-          className="w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
-          onClick={() => void signOut()}
-        >
-          Sign out
-        </button>
-      </div>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        </CardContent>
+        <CardFooter className="justify-center">
+          <Button variant="link" size="sm" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </CardFooter>
+      </Card>
     </main>
   );
 }
@@ -839,7 +928,7 @@ export function StatusBadge({ status }: { status: string }) {
             ? 'destructive-light'
             : 'secondary';
   return (
-    <Badge variant={variant} size="sm">
+    <Badge variant={variant}>
       {status.replace(/([a-z])([A-Z])/g, '$1 $2')}
     </Badge>
   );

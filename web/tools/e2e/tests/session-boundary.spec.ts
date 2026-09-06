@@ -1,4 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
+
+// the node picker is a Cascader: open it, take the first row (the root, a
+// committable branch - a site may sit on any node)
+async function pickRootNode(page: Page) {
+  await page.getByLabel('Hierarchy node').click();
+  // the listbox is the cascader's; the time-zone select's <option>s are not it
+  await page.getByRole('listbox').getByRole('option').first().click();
+}
 import { ALICE, nav, OPERATOR, signIn } from './support';
 
 async function request(page: Page, path: string, body?: unknown) {
@@ -13,9 +21,12 @@ async function request(page: Page, path: string, body?: unknown) {
   }, { path, body });
 }
 
+// the Scope panel is the shadcn Sidebar's second column, a complementary landmark
+const scopePanel = (page: Page) => page.getByRole('complementary', { name: 'Scope' });
+
 async function switchTo(page: Page, name: string) {
-  await page.locator('aside').getByRole('combobox', { name: 'Active organization' }).selectOption({ label: name });
-  await expect(page.locator('aside').getByText(name, { exact: true }).first()).toBeVisible();
+  await scopePanel(page).getByRole('combobox', { name: 'Active organization' }).selectOption({ label: name });
+  await expect(scopePanel(page).getByText(name, { exact: true }).first()).toBeVisible();
 }
 
 async function twoOrganizations(page: Page) {
@@ -138,11 +149,11 @@ test('an in-flight tenant mutation finishes before switching the cookie', async 
   });
   await page.getByRole('button', { name: 'New site' }).click();
   await page.getByLabel('Name', { exact: true }).fill('Pending A write');
-  await page.getByLabel('Hierarchy node').selectOption({ index: 1 });
+  await pickRootNode(page);
   await page.getByRole('button', { name: 'Create site', exact: true }).click();
   await started;
   await page.keyboard.press('Escape');
-  await page.locator('aside').getByRole('combobox').selectOption({ label: b });
+  await scopePanel(page).getByRole('combobox').selectOption({ label: b });
   await expect(page.getByRole('status')).toContainText('Changing session');
   expect(switches).toBe(0);
   release();
@@ -181,11 +192,11 @@ test('a stalled write releases a session transition with an outcome warning and 
   try {
     await page.getByRole('button', { name: 'New site' }).click();
     await page.getByLabel('Name', { exact: true }).fill('Uncertain A write');
-    await page.getByLabel('Hierarchy node').selectOption({ index: 1 });
+    await pickRootNode(page);
     await page.getByRole('button', { name: 'Create site', exact: true }).click();
     await saved;
     await page.keyboard.press('Escape');
-    await page.locator('aside').getByRole('combobox').selectOption({ label: b });
+    await scopePanel(page).getByRole('combobox').selectOption({ label: b });
     await expect(page.getByRole('status')).toContainText('Changing session');
     await page.evaluate(() => window.dispatchEvent(new Event('test:expire-network')));
     await expect(page.getByRole('link', { name: 'B-only site' })).toBeVisible();
@@ -238,7 +249,7 @@ test('session changes abort the previous tenant network read', async ({ page }) 
     const firstRead = () => page.evaluate(() =>
       (window as unknown as { cancellationProbe: { aborted: boolean; settled?: string }[] }).cancellationProbe[0]);
     expect(await firstRead()).toEqual({ aborted: false });
-    await page.locator('aside').getByRole('combobox').selectOption({ label: b });
+    await scopePanel(page).getByRole('combobox').selectOption({ label: b });
     // Assert native fetch cancellation, not WebKit's interception event timing.
     await expect.poll(firstRead).toEqual({ aborted: true, settled: 'AbortError' });
     await expect(page.getByRole('link', { name: 'B-only site' })).toBeVisible();

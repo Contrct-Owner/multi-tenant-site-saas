@@ -1,8 +1,9 @@
 import { api, type components } from '@premise/api';
 import { Button, ConfirmButton, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Grid, PageHeader } from '../components/page';
+import { FileDropzone } from '../components/file-dropzone';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
@@ -57,7 +58,6 @@ export function FilesPage() {
     invalidate: [['files']],
     success: 'File restored',
   });
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const download = async (id: string) => {
     const { url } = await api.get('/api/files/{id}/download', { path: { id } });
@@ -143,29 +143,19 @@ export function FilesPage() {
             onClick={() => setTrash(!trash)}>
             Trash
           </Button>
-          {manage && (
-            <>
-              {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
-              {upload.isError && (
-                <span className="text-sm text-destructive">{String(upload.error)}</span>
-              )}
-              <input
-                ref={fileInput}
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) upload.mutate(file);
-                  e.target.value = '';
-                }}
-              />
-              <Button disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
-                Upload file
-              </Button>
-            </>
-          )}
         </>}
       />
+      {manage && !trash && (
+        <FileDropzone
+          onFile={(file) => upload.mutate(file)}
+          busy={upload.isPending}
+          phase={phase}
+          error={upload.isError ? String(upload.error) : undefined}
+          label="Drop a file here, or choose one"
+          hint="Scanned before anyone can download it."
+          buttonLabel="Upload file"
+        />
+      )}
       <Grid
         columns={columns}
         rows={files ?? []}
@@ -173,15 +163,9 @@ export function FilesPage() {
         isLoading={files === undefined}
         loadingMessage="Loading…"
         emptyMessage={`No files yet.${manage ? ' Upload one to get started.' : ''}`}
-        footer={
-          filesQuery.hasNextPage ? (
-            <Button variant="outline" size="sm"
-              disabled={filesQuery.isFetchingNextPage}
-              onClick={() => void filesQuery.fetchNextPage()}>
-              Load more
-            </Button>
-          ) : undefined
-        }
+        onFetchMore={() => void filesQuery.fetchNextPage()}
+        hasMore={filesQuery.hasNextPage}
+        isFetchingMore={filesQuery.isFetchingNextPage}
       />
     </div>
   );

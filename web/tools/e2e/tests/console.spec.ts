@@ -1,6 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ALICE, OPERATOR, expectAccessible, nav, signIn } from './support';
 
+// the node picker is a Cascader: open it, take the first row (the root, a
+// committable branch - a site may sit on any node)
+async function pickRootNode(page: Page) {
+  await page.getByLabel('Hierarchy node').click();
+  // the listbox is the cascader's; the time-zone select's <option>s are not it
+  await page.getByRole('listbox').getByRole('option').first().click();
+}
+
 async function createSite(page: Page) {
   await page.goto('/hierarchy');
   const create = page.getByRole('button', { name: 'Create hierarchy' });
@@ -16,7 +24,7 @@ async function createSite(page: Page) {
   const name = `E2E Site ${Date.now()}`;
   await page.getByRole('button', { name: 'New site' }).click();
   await page.getByLabel('Name', { exact: true }).fill(name);
-  await page.getByLabel('Hierarchy node').selectOption({ index: 1 });
+  await pickRootNode(page);
   await page.getByRole('button', { name: 'Create site' }).click();
   await expect(page.getByText('Site created', { exact: true })).toBeVisible();
   return name;
@@ -86,8 +94,9 @@ test.describe('sign-in and the shell', () => {
       return me.organizations.map((org) => org.name);
     })).toContain(second);
     await page.reload();
-    await page.locator('aside').getByRole('combobox').selectOption({ label: second });
-    await expect(page.locator('aside').getByText(second, { exact: true }).first()).toBeVisible();
+    const scopePanel = page.getByRole('complementary', { name: 'Scope' });
+    await scopePanel.getByRole('combobox').selectOption({ label: second });
+    await expect(scopePanel.getByText(second, { exact: true }).first()).toBeVisible();
   });
 });
 

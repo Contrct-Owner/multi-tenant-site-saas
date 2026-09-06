@@ -1,6 +1,7 @@
 import type { components } from '@premise/api';
 import { Button, ConfirmButton, Field, FieldLabel, Input, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useMemo, useState } from 'react';
+import { DateField } from '../../../components/date-field';
 import { fmtDayInZone, fmtTimeInZone } from '../../../lib/format';
 import { Grid, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
@@ -196,8 +197,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
             <div className="flex items-end gap-2 border-t pt-3">
               <Field>
                 <FieldLabel htmlFor="closure-date">Close a day</FieldLabel>
-                <Input id="closure-date" type="date" value={closureDate}
-                  onChange={(e) => setClosureDate(e.target.value)} />
+                <DateField id="closure-date" value={closureDate} onChange={setClosureDate} placeholder="Pick a day" />
               </Field>
               <Button size="sm" disabled={!closureDate || addClosure.isPending}
                 onClick={() => {

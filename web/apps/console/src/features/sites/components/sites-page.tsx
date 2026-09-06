@@ -1,4 +1,4 @@
-import { Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridScrollArea, DataGridTable, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Select, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
+import { Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridTableVirtual, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { Columns3, Layers, MapPin, Plus, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -6,6 +6,7 @@ import { useScope } from '../../../app/scope';
 import { useTheme } from '../../../app/theme';
 import { bboxParam, snapToTileGrid, type Viewport } from '../../../lib/map';
 import { useApiMutation } from '../../../lib/mutation';
+import { NodePicker } from '../../hierarchy/node-picker';
 import { can, useMe } from '../../../session';
 import { StatusBadge } from '../../../shell';
 import { overlaysApi } from '../../overlays/api';
@@ -408,6 +409,7 @@ export function SitesPage() {
             isLoading={sitesQuery.isPending}
             loadingMode="skeleton"
             loadingMessage="Loading sites…"
+            fetchingMoreMessage="Loading more sites…"
             emptyMessage={emptyMessage}
             tableLayout={{
               headerBackground: false,
@@ -531,9 +533,13 @@ export function SitesPage() {
 
             {view === 'table' ? (
               <DataGridContainer>
-                <DataGridScrollArea>
-                  <DataGridTable />
-                </DataGridScrollArea>
+                <DataGridTableVirtual
+                  height={Math.min(Math.max(sites.length, 5) * 53 + 48, Math.max(window.innerHeight - 320, 320))}
+                  onFetchMore={() => void sitesQuery.fetchNextPage()}
+                  hasMore={sitesQuery.hasNextPage}
+                  isFetchingMore={sitesQuery.isFetchingNextPage}
+                  fetchMoreOffset={5}
+                />
               </DataGridContainer>
             ) : (
               <div className="grid md:grid-cols-[300px_minmax(0,1fr)]">
@@ -649,7 +655,7 @@ export function SitesPage() {
                     Fit to scope
                   </Button>
                 )}
-                {loadMore}
+                {view === 'map' && loadMore}
               </div>
             </FrameFooter>
           </DataGrid>
@@ -704,15 +710,7 @@ function NewSiteDialog() {
         </Field>
         <Field>
           <FieldLabel htmlFor="site-node">Hierarchy node</FieldLabel>
-          <Select id="site-node" value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
-            <option value="">Choose…</option>
-            {hierarchy?.nodes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {' '.repeat(Number(n.depth) * 2)}
-                {n.name}
-              </option>
-            ))}
-          </Select>
+          <NodePicker id="site-node" nodes={hierarchy?.nodes ?? []} value={nodeId} onChange={setNodeId} />
         </Field>
         <Button
           className="w-full"

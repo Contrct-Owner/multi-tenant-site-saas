@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Button, ToggleGroup, ToggleGroupItem } from '@premise/ui';
+import { Button, Tabs, TabsList, TabsTrigger } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
@@ -39,25 +39,23 @@ export function AuditPage() {
           </Button>
         }
       />
-      <ToggleGroup
-        aria-label="Audit kind"
-        variant="outline"
-        spacing={0}
-        value={[kind]}
+      <Tabs
+        value={kind}
         onValueChange={(next) => {
-          const k = next[0];
-          if (k && (KINDS as readonly string[]).includes(k)) {
-            setKind(k as AuditKind);
+          if ((KINDS as readonly string[]).includes(String(next))) {
+            setKind(next as AuditKind);
             setLimit(50);
           }
         }}
       >
-        {KINDS.map((k) => (
-          <ToggleGroupItem key={k} value={k}>
-            {KIND_LABELS[k]}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+        <TabsList variant="line" aria-label="Audit kind">
+          {KINDS.map((k) => (
+            <TabsTrigger key={k} value={k}>
+              {KIND_LABELS[k]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       {rows === undefined ? (
         <Loading text="Loading the trail…" rows={4} />
       ) : rows.length === 0 ? (

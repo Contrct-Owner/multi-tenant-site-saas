@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '../../components/page';
+import { FileDropzone } from '../../components/file-dropzone';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 import { useHierarchy } from '../sites/hooks';
@@ -299,16 +300,12 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       description="A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map."
     >
       <div className="space-y-3">
-        <Field>
-          <FieldLabel htmlFor="overlay-file">GeoJSON file</FieldLabel>
-          <Input
-            id="overlay-file"
-            type="file"
-            accept=".geojson,.json,application/geo+json,application/json"
-            onChange={(e) => void pick(e.target.files?.[0])}
-          />
-          {fileName && <p className="text-xs text-muted-foreground">{fileName}</p>}
-        </Field>
+        <FileDropzone
+          accept=".geojson,.json,application/geo+json,application/json"
+          onFile={(file) => void pick(file)}
+          label={fileName ? `Ready: ${fileName}` : 'Drop a GeoJSON file here, or choose one'}
+          buttonLabel="Choose GeoJSON…"
+        />
         <Field>
           <FieldLabel htmlFor="overlay-geojson">Or paste it</FieldLabel>
           <Textarea

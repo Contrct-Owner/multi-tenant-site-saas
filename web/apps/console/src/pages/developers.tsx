@@ -1,6 +1,7 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { Alert, AlertAction, AlertDescription, AlertTitle, Button, CodeBlock, ConfirmButton, Field, FieldLabel, FormDialog, Input, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
+import { KeyRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
 import { Grid, PageHeader } from '../components/page';
@@ -18,12 +19,29 @@ export function DevelopersPage() {
 }
 
 function SecretReveal({ secret, note }: { secret: string; note: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <div className="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-3">
-      <p className="text-sm font-medium">Copy this now - it will not be shown again.</p>
-      <code className="block break-all rounded bg-background p-2 text-xs">{secret}</code>
-      <p className="text-xs text-muted-foreground">{note}</p>
-    </div>
+    <Alert variant="warning">
+      <KeyRound aria-hidden />
+      <AlertTitle>Copy this now - it will not be shown again.</AlertTitle>
+      <AlertDescription>
+        <code className="block break-all rounded bg-background/60 p-2 text-xs">{secret}</code>
+        <span>{note}</span>
+      </AlertDescription>
+      <AlertAction>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={async () => {
+            await navigator.clipboard.writeText(secret);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </AlertAction>
+    </Alert>
   );
 }
 
@@ -112,6 +130,15 @@ function ApiKeysCard() {
   return (
     <Grid
       title="API keys"
+      children={
+        <div className="border-t px-4 py-4">
+          <CodeBlock
+            code={`curl -H "Authorization: Bearer premise_…" \\\n  "${window.location.origin}/api/sites?limit=5"`}
+            language="bash"
+            highlight={false}
+          />
+        </div>
+      }
       description={
         <>
           Authenticate with <code className="rounded bg-muted px-1">Authorization: Bearer premise_…</code>{' '}

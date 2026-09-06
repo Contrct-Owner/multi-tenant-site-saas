@@ -36,7 +36,10 @@
   --accent: oklch(0.955 0.02 283);
   --accent-foreground: oklch(0.32 0.08 283);
   --destructive: oklch(0.5 0.19 25); /* darkened for 4.5:1 with white text (axe) */
-  --destructive-foreground: oklch(0.98 0 0);
+  /* ink, like the other *-foreground tokens: the light badge variants paint
+     their text with it (solid fills use text-white), so white here made
+     "Closed" vanish on its own tint in the light theme */
+  --destructive-foreground: oklch(0.36 0.14 25);
   --border: oklch(0.92 0.004 286);
   --input: oklch(0.92 0.004 286);
   --ring: oklch(0.56 0.21 283);

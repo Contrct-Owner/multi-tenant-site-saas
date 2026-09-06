@@ -1,11 +1,24 @@
+import type { ReactNode } from 'react';
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
 import { useQuery } from '@tanstack/react-query';
-import { IconTile, Progress } from '@premise/ui';
+import { Badge, IconTile, Progress } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { Activity, MapPin, Users } from 'lucide-react';
 import { EmptyState, Loading, PageHeader, Panel, Stat } from '../components/page';
 import {entitlementLabel, fmtDateTime, eventLabel } from '../lib/format';
 import { can, useMe } from '../session';
+
+
+/** A plan value the way a person reads it: "20,006", not "20006"; "On", not "true". */
+const planNumber = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString() : String(v ?? '');
+};
+const planValue = (v: unknown): ReactNode => {
+  if (v === 'true' || v === true) return <Badge variant="success-light">On</Badge>;
+  if (v === 'false' || v === false) return <Badge variant="secondary">Off</Badge>;
+  return planNumber(v);
+};
 
 
 /** The overview (UX review P2): what needs attention, then the plan. */
@@ -49,8 +62,8 @@ export function DashboardPage() {
             to="/sites"
             icon={MapPin}
             label="Sites"
-            value={sites === undefined ? '—' : sites.total}
-            hint={sites === undefined ? undefined : `${sites.openCount ?? 0} open right now`}
+            value={sites === undefined ? '—' : Number(sites.total).toLocaleString()}
+            hint={sites === undefined ? undefined : `${Number(sites.openCount ?? 0).toLocaleString()} open right now`}
           />
         )}
         {seesMembers && (
@@ -122,8 +135,8 @@ export function DashboardPage() {
                       </span>
                       <span className="font-medium tabular-nums">
                         {entry?.usage != null
-                          ? `${entry.usage} of ${entry.value}`
-                          : entry?.value}
+                          ? `${planNumber(entry.usage)} of ${planNumber(entry.value)}`
+                          : planValue(entry?.value)}
                       </span>
                     </div>
                     {showBar && (

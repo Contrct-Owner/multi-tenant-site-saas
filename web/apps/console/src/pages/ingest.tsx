@@ -1,12 +1,15 @@
 import { api, type components } from '@premise/api';
-import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, type ColumnDef, type DataGridFeatures, CodeBlock, Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle, StepperTrigger } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
 import { Grid, PageHeader, Panel } from '../components/page';
+import { FileDropzone } from '../components/file-dropzone';
 import { useApiMutation } from '../lib/mutation';
 import { StatusBadge } from '../shell';
 import { uploadFile } from '../lib/uploads';
+
+const STEPS = ['Upload', 'Review the diff', 'Commit'] as const;
 
 type Connector = components['schemas']['ConnectorResponse'];
 
@@ -14,7 +17,6 @@ export function IngestPage() {
   const queryClient = useQueryClient();
   const [batchId, setBatchId] = useState<string | null>(null);
   const [phase, setPhase] = useState<string>('');
-  const csvInput = useRef<HTMLInputElement>(null);
 
   const stage = useMutation({
     mutationFn: async (file: File) => {
@@ -112,28 +114,41 @@ export function IngestPage() {
     [],
   );
 
+  const step = preview === undefined ? 1 : preview.status === 'Committed' ? 3 : 2;
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Site ingest" description="Bulk-load sites from a CSV or a connector; nothing applies until you review the diff and commit." />
+      {/* where a batch is: the ReUI Stepper, read-only, follows the batch's status */}
+      <Stepper value={step} orientation="horizontal" className="max-w-xl">
+        <StepperNav>
+          {STEPS.map((label, i) => (
+            <StepperItem key={label} step={i + 1} completed={step > i + 1}>
+              <StepperTrigger className="pointer-events-none">
+                <StepperIndicator>{i + 1}</StepperIndicator>
+                <StepperTitle>{label}</StepperTitle>
+              </StepperTrigger>
+              {i < STEPS.length - 1 && <StepperSeparator />}
+            </StepperItem>
+          ))}
+        </StepperNav>
+      </Stepper>
       <Panel title="Upload CSV" bodyClassName="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Columns: external_id, name, time_zone, node, status (open|closed). Nothing is applied
-            until you review the diff and commit.
+            One row per site. Nothing is applied until you review the diff and commit.
           </p>
-          <input
-            ref={csvInput}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) stage.mutate(file);
-              e.target.value = '';
-            }}
+          <CodeBlock
+            code={'external_id,name,time_zone,node,status\nstore-001,Northgate,America/Los_Angeles,Seattle,open'}
+            language="csv"
+            highlight={false}
           />
-          <Button disabled={stage.isPending} onClick={() => csvInput.current?.click()}>
-            Choose CSV…
-          </Button>
+          <FileDropzone
+            accept=".csv,text/csv"
+            onFile={(file) => stage.mutate(file)}
+            busy={stage.isPending}
+            phase="Staging…"
+            label="Drop a CSV here, or choose one"
+            buttonLabel="Choose CSV…"
+          />
           {phase && <p className="text-sm text-muted-foreground">{phase}</p>}
           {stage.isError && (
             <Alert variant="destructive">

@@ -327,15 +327,9 @@ export function MembersPage() {
         isLoading={members === undefined}
         loadingMessage="Loading…"
         emptyMessage={search ? 'No members match the search.' : 'No members yet.'}
-        footer={
-          membersQuery.hasNextPage ? (
-            <Button variant="outline" size="sm"
-              disabled={membersQuery.isFetchingNextPage}
-              onClick={() => void membersQuery.fetchNextPage()}>
-              Load more
-            </Button>
-          ) : undefined
-        }
+        onFetchMore={() => void membersQuery.fetchNextPage()}
+        hasMore={membersQuery.hasNextPage}
+        isFetchingMore={membersQuery.isFetchingNextPage}
       />
 
       {invitations && invitations.length > 0 && (
