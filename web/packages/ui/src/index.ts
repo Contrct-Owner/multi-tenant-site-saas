@@ -40,4 +40,12 @@ export * from './components/separator';
 export * from './components/skeleton';
 export * from './components/spinner';
 export { useIsMobile } from './hooks/use-mobile';
+// The grid is headless TanStack Table underneath; apps wire it through the
+// barrel too, so no app takes a direct dependency on the table library.
+export {
+  useTable,
+  type ColumnDef,
+  type RowSelectionState,
+  type SortingState,
+} from '@tanstack/react-table';
 export { cn } from './lib/utils';
