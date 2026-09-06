@@ -2,7 +2,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "../lib/utils"
+import { cn } from "../../lib/utils"
 
 const badgeVariants = cva(
   [
@@ -16,10 +16,10 @@ const badgeVariants = cva(
         default: "bg-primary text-primary-foreground",
         outline: "border-border bg-transparent dark:bg-input/32",
         secondary: "bg-secondary text-secondary-foreground",
-        info: "bg-info text-white dark:text-background",
-        success: "bg-success text-white dark:text-background",
-        warning: "bg-warning text-white dark:text-background",
-        destructive: "bg-destructive text-destructive-foreground",
+        info: "bg-info text-white",
+        success: "bg-success text-white",
+        warning: "bg-warning text-white",
+        destructive: "bg-destructive text-white",
         focus: "bg-focus text-focus-foreground",
         invert: "bg-invert text-invert-foreground",
         "primary-light":

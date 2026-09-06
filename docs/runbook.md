@@ -43,6 +43,22 @@ immutable — write a new one), redeploy. Never edit an applied migration;
 never run api/worker with owner credentials to "get past" a permissions
 error (that silently disables RLS — ADR 38).
 
+## PostGIS is not installed (ADR 50)
+
+Symptom: the `migrate` role fails on the Tenancy migration with `permission
+denied to create extension "postgis"` or `extension "postgis" is not
+available`. `postgis.control` is not marked `trusted`, so unlike `ltree` the
+database owner cannot create it unless it is a superuser or the provider's
+owner role is allowed to (RDS, Cloud SQL, Neon and Supabase permit it).
+
+1. Confirm the server image or managed instance ships PostGIS 3.5+.
+2. Once, as a role allowed to: `CREATE EXTENSION IF NOT EXISTS postgis;` in
+   the application database.
+3. Re-run migrate; it is idempotent and picks up where it failed.
+
+Local and CI never hit this: the pinned multi-arch image
+(`imresamu/postgis:17-3.5-alpine`) runs migrate as the superuser owner.
+
 ## Email: bounced address, angry user
 
 The 422 on contact-link issuance tells the tenant to contact support.
