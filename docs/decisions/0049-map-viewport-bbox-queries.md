@@ -28,7 +28,11 @@ GET /api/sites?bbox=<west>,<south>,<east>,<north>&zoom=<z>&under=&q=&limit=
 ```
 
 - `bbox` is WGS84 degrees, west/south/east/north. A box with `west > east`
-  crosses the antimeridian and is evaluated as two longitude ranges.
+  crosses the antimeridian and is evaluated as two longitude ranges. Any
+  span wider than 90° on either axis is cut again: a geography polygon edge
+  of 180° has no defined great circle and PostGIS refuses it, and a
+  planet-sized box at zoom 0 is a legitimate request (up to eight envelopes,
+  each an indexed `ST_Intersects`, OR-ed).
 - The box is a filter over `NodeScope`, never a substitute for it: `InScope`
   runs first, the box runs on the rows scope allows. A box that covers the
   whole planet returns exactly what the unboxed list returns.
@@ -37,7 +41,9 @@ GET /api/sites?bbox=<west>,<south>,<east>,<north>&zoom=<z>&under=&q=&limit=
   coordinates, so nothing vanishes silently; the table view still lists
   them.
 - The response is the existing `SiteListResponse`: items capped at the
-  existing `limit` ceiling (200), plus `total` for the box. When `total`
+  existing `limit` ceiling (200), plus `total` for the box, plus
+  `withoutCoordinates` - the count of sites the scope and search hold that
+  can never be inside a box, present only on a bbox query. When `total`
   exceeds the cap the client shows the count and asks the user to zoom in;
   it does not page a map. `zoom` selects the clustering level for point
   layers (ADR 50); the contract carries it from the first version.

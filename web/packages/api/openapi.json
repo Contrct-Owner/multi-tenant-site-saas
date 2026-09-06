@@ -232,6 +232,25 @@
             }
           },
           {
+            "name": "bbox",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "zoom",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "schema": {
@@ -8107,6 +8126,15 @@
             "format": "int32"
           },
           "nextOffset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "withoutCoordinates": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",

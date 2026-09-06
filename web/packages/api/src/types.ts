@@ -3413,6 +3413,8 @@ export interface components {
             openCount: number | string;
             /** Format: int32 */
             nextOffset: null | number | string;
+            /** Format: int32 */
+            withoutCoordinates?: null | number | string;
         };
         SiteResponse: {
             /** Format: uuid */
@@ -3687,6 +3689,8 @@ export interface operations {
             query?: {
                 under?: string;
                 q?: string;
+                bbox?: string;
+                zoom?: number | string;
                 limit?: number | string;
                 offset?: number | string;
             };

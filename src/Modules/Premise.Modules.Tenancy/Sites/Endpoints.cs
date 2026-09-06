@@ -8,6 +8,7 @@ using Premise.Platform.Data;
 using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
+using Premise.Platform.Spatial;
 using Wolverine;
 using Wolverine.Attributes;
 using Wolverine.Http;
@@ -143,26 +144,45 @@ public static class SiteEndpoints
     /// FIRST, then searched, then paged. Offset paging on purpose - it
     /// translates everywhere and is right at template scale; keyset is a
     /// fork optimization past ~100k rows.
+    ///
+    /// The map view sends its viewport as <c>bbox=west,south,east,north</c>
+    /// (ADR 49): one more predicate in the same chain, on the geography
+    /// column (ADR 50), never a substitute for scope. <c>zoom</c> is part of
+    /// the contract from the first version so clustering (ADR 50 §4) lands
+    /// without a contract change; today it is validated and unused.
     /// </summary>
     [WolverineGet("/api/sites")]
-    public static async Task<SiteListResponse> List(
+    [ProducesResponseType(typeof(SiteListResponse), StatusCodes.Status200OK)]
+    public static async Task<IResult> List(
         TenancyDbContext db,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         Guid? under,
         string? q,
+        string? bbox,
+        int? zoom,
         int? limit,
         int? offset,
         CancellationToken ct
     )
     {
+        BoundingBox? box = null;
+        if (bbox is not null)
+        {
+            if (!BoundingBox.TryParse(bbox, out var parsed, out var error))
+                return Results.BadRequest(new { error });
+            box = parsed;
+        }
+        if (zoom is < 0 or > 22)
+            return Results.BadRequest(new { error = "zoom must be between 0 and 22" });
+
         var scope = await scopes.ScopeForAsync(accessor.Current, Capabilities.SitesRead, ct);
         var query = db.Sites.InScope(scope);
         if (under is { } nodeId)
         {
             var node = await db.HierarchyNodes.FirstOrDefaultAsync(n => n.Id == nodeId, ct);
             if (node is null)
-                return new SiteListResponse([], 0, 0, null);
+                return Results.Ok(new SiteListResponse([], 0, 0, null));
             var nodePath = node.Path;
             query = query.Where(s => s.Path.IsDescendantOf(nodePath));
         }
@@ -174,16 +194,32 @@ public static class SiteEndpoints
                 || (s.City != null && EF.Functions.ILike(s.City, pattern))
             );
         }
+        int? withoutCoordinates = null;
+        if (box is { } viewport)
+        {
+            // Counted before the box so the map's list can name what it can
+            // never show; a site without coordinates is inside no box.
+            withoutCoordinates = await query.CountAsync(s => s.Location == null, ct);
+            // one envelope for a viewport, two across the antimeridian, up to
+            // eight for the planet (no geography edge may reach 180°) - each an
+            // ST_Intersects the GiST index serves
+            query = query.Where(
+                SpatialPredicates.IntersectsAny<Site>(s => s.Location, viewport.Envelopes())
+            );
+        }
         var total = await query.CountAsync(ct);
         var openCount = await query.CountAsync(s => s.Status == SiteStatus.Open, ct);
         var take = Math.Clamp(limit ?? 50, 1, 200);
         var skip = Math.Max(offset ?? 0, 0);
         var sites = await query.OrderBy(s => s.Name).Skip(skip).Take(take).ToListAsync(ct);
-        return new SiteListResponse(
-            sites.Select(ToResponse).ToList(),
-            total,
-            openCount,
-            skip + sites.Count < total ? skip + sites.Count : null
+        return Results.Ok(
+            new SiteListResponse(
+                sites.Select(ToResponse).ToList(),
+                total,
+                openCount,
+                skip + sites.Count < total ? skip + sites.Count : null,
+                withoutCoordinates
+            )
         );
     }
 
@@ -360,11 +396,17 @@ public static class SiteEndpoints
         return Results.Ok(new ScheduleCreatedResponse(schedule.Id));
     }
 
+    /// <summary>
+    /// WithoutCoordinates is set only for a bbox query (ADR 49): sites the
+    /// scope (and search) hold that can never be inside a box, so the map's
+    /// list can name them instead of letting them vanish.
+    /// </summary>
     public sealed record SiteListResponse(
         IReadOnlyList<SiteResponse> Items,
         int Total,
         int OpenCount,
-        int? NextOffset
+        int? NextOffset,
+        int? WithoutCoordinates = null
     );
 
     private static SiteResponse ToResponse(Site s) =>
