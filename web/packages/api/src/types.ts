@@ -4027,6 +4027,7 @@ export interface operations {
             query?: {
                 under?: string;
                 q?: string;
+                status?: string;
                 bbox?: string;
                 zoom?: number | string;
                 limit?: number | string;

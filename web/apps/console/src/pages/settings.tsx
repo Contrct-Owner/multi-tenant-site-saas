@@ -1,11 +1,29 @@
 import { api } from '@premise/api';
-import { Button, ConfirmButton, Input, Label, Select, Switch } from '@premise/ui';
+import { Button, ConfirmButton, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, cn, useIsMobile } from '@premise/ui';
+import { Building2, CreditCard, Database, Globe, KeyRound, Map as MapIcon, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
 import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 import { can, useMe } from '../session';
+
+type SettingsTab = {
+  value: string;
+  label: string;
+  icon: typeof Building2;
+  manageSites?: boolean;
+};
+
+const SETTINGS_TABS: SettingsTab[] = [
+  { value: 'profile', label: 'Profile', icon: Building2 },
+  { value: 'billing', label: 'Billing', icon: CreditCard },
+  { value: 'sso', label: 'Sign-on', icon: KeyRound },
+  { value: 'sites', label: 'Site attributes', icon: MapPin, manageSites: true },
+  { value: 'map', label: 'Map', icon: MapIcon },
+  { value: 'locator', label: 'Public locator', icon: Globe },
+  { value: 'data', label: 'Your data', icon: Database },
+];
 
 export function SettingsPage() {
   const { data: me } = useMe();
@@ -71,11 +89,41 @@ export function SettingsPage() {
     },
   });
 
+  const [tab, setTab] = useState('profile');
+  const isMobile = useIsMobile();
   if (!activeOrg) return null;
   const draft = name ?? activeOrg.name;
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <PageHeader title="Organization settings" description="Profile, billing, sign-on, the map, the public locator, and your data." />
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(String(value))}
+        orientation={isMobile ? 'horizontal' : 'vertical'}
+        className="w-full gap-5 lg:gap-8"
+      >
+        <div className={isMobile ? '-mx-1 w-full overflow-x-auto px-1 pb-1' : 'w-44 shrink-0'}>
+          <TabsList
+            className={
+              isMobile
+                ? 'h-auto w-max min-w-max justify-start gap-1 bg-transparent p-0'
+                : 'h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0'
+            }
+          >
+            {SETTINGS_TABS.filter((t) => !t.manageSites || can(me, 'sites:manage')).map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className={cn('w-full justify-start gap-3 px-3 py-1.5 shadow-none', tab === t.value ? 'bg-muted!' : 'bg-transparent')}
+              >
+                <t.icon aria-hidden />
+                <span className="truncate">{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <div className="min-w-0 flex-1 space-y-6">
+          <TabsContent value="profile" className="mt-0">
       <Panel title="Profile" bodyClassName="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="org-rename">Name</Label>
@@ -92,6 +140,8 @@ export function SettingsPage() {
             Save
           </Button>
         </Panel>
+          </TabsContent>
+          <TabsContent value="billing" className="mt-0">
       <Panel title="Billing" bodyClassName="space-y-3">
           {billing?.status === 'PastDue' && (
             <div className="rounded-md bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
@@ -145,6 +195,8 @@ export function SettingsPage() {
           )}
         </Panel>
 
+          </TabsContent>
+          <TabsContent value="sso" className="mt-0">
       <Panel title="Single sign-on" bodyClassName="space-y-2">
           {!sso ? null : !sso.available ? (
             <p className="text-sm text-muted-foreground">
@@ -177,9 +229,16 @@ export function SettingsPage() {
           )}
         </Panel>
 
-      {can(me, 'sites:manage') && <SiteAttributesCard />}
-      <MapBasemapsCard />
-
+          </TabsContent>
+          {can(me, 'sites:manage') && (
+            <TabsContent value="sites" className="mt-0">
+              <SiteAttributesCard />
+            </TabsContent>
+          )}
+          <TabsContent value="map" className="mt-0">
+            <MapBasemapsCard />
+          </TabsContent>
+          <TabsContent value="locator" className="mt-0">
       <Panel title="Public locator" bodyClassName="space-y-2">
           {publicUrl && (
             <>
@@ -198,6 +257,8 @@ export function SettingsPage() {
           )}
         </Panel>
 
+          </TabsContent>
+          <TabsContent value="data" className="mt-0 space-y-6">
       <Panel title="Your data" bodyClassName="space-y-2">
           <p className="text-sm text-muted-foreground">
             Take a full archive of this organization&apos;s data - sites, people, roles,
@@ -240,6 +301,9 @@ export function SettingsPage() {
             </>
           )}
         </Panel>
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }

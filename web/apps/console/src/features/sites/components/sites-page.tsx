@@ -35,7 +35,7 @@ import {
   type SiteMapPoint,
 } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
-import { Columns3, Layers, MapPin, Plus, Search, Table2 } from 'lucide-react';
+import { Columns3, Layers, MapPin, Plus, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useScope } from '../../../app/scope';
 import { useTheme } from '../../../app/theme';
@@ -47,6 +47,7 @@ import { overlaysApi } from '../../overlays/api';
 import { useOverlays } from '../../overlays/hooks';
 import { sitesApi } from '../api';
 import { useBasemaps, useDataLayers, useHierarchy, useSites } from '../hooks';
+import { SiteFilters } from './site-filters';
 
 type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
   ? D extends { pages: { items: (infer R)[] }[] }
@@ -99,6 +100,7 @@ const toNumber = (v: unknown): number | null =>
 export function SitesPage() {
   const { data: me } = useMe();
   const [filter, setFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [view, setViewState] = useState<View>(readView);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [fitKey, setFitKey] = useState(0);
@@ -214,6 +216,7 @@ export function SitesPage() {
     scope.nodeId,
     box ? bboxParam(box) : undefined,
     box && viewport ? Math.max(0, Math.floor(viewport.zoom)) : undefined,
+    statusFilter,
   );
   const sites = useMemo(
     () => sitesQuery.data?.pages.flatMap((p) => p.items) ?? [],
@@ -352,18 +355,14 @@ export function SitesPage() {
     ? 'No sites match the search.'
     : `No sites in scope. ${manage ? 'Create one with "New site".' : ''}`;
 
+  // the filter bar (ReUI Filters): its chips become the list's `q` and `status`
   const search = (
-    <div className="relative min-w-0 flex-1 sm:max-w-xs">
-      <Search
-        className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden
-      />
-      <Input
-        className="pl-8"
-        aria-label="Search sites"
-        placeholder="Search name or city…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
+    <div className="min-w-0 flex-1">
+      <SiteFilters
+        onChange={(values) => {
+          setFilter(values.q);
+          setStatusFilter(values.statuses.join(','));
+        }}
       />
     </div>
   );

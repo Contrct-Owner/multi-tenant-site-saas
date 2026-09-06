@@ -17,6 +17,7 @@ import {
   FrameHeader,
   FramePanel,
   FrameTitle,
+  IconTile,
   cn,
   useTable,
   type ColumnDef,
@@ -105,14 +106,35 @@ export function Panel({
   );
 }
 
-/** A headline number that links to where it comes from (the dashboard). */
-export function Stat({ value, label, to }: { value: ReactNode; label: ReactNode; to: string }) {
+/** A headline number that links to where it comes from (the dashboard): the stats block's tile. */
+export function Stat({
+  value,
+  label,
+  to,
+  icon: Icon,
+  hint,
+}: {
+  value: ReactNode;
+  label: ReactNode;
+  to: string;
+  icon?: ComponentType<{ className?: string }>;
+  /** A second line under the number: a trend, a breakdown, a date. */
+  hint?: ReactNode;
+}) {
   return (
     <Frame>
       <FramePanel>
         <Link to={to} className="block px-4 py-4">
-          <div className="text-3xl font-semibold tabular-nums">{value}</div>
-          <div className="text-sm text-muted-foreground">{label}</div>
+          <div className="flex items-center gap-2.5">
+            {Icon && (
+              <IconTile variant="soft" size="sm">
+                <Icon />
+              </IconTile>
+            )}
+            <div className="text-sm text-muted-foreground">{label}</div>
+          </div>
+          <div className="mt-3 text-3xl font-semibold tabular-nums">{value}</div>
+          {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
         </Link>
       </FramePanel>
     </Frame>
@@ -145,6 +167,7 @@ export function Grid<TRow extends object>({
   description,
   actions,
   footer,
+  rowClassName,
   children,
 }: {
   columns: ColumnDef<DataGridFeatures, TRow>[];
@@ -158,6 +181,8 @@ export function Grid<TRow extends object>({
   description?: ReactNode;
   actions?: ReactNode;
   footer?: ReactNode;
+  /** A class every body row wears (the hover-revealed actions of the members block key on it). */
+  rowClassName?: string;
   /** Rendered under the table, inside the panel (a detail pane, a note). */
   children?: ReactNode;
 }) {
@@ -183,6 +208,7 @@ export function Grid<TRow extends object>({
           emptyMessage={emptyMessage}
           onRowClick={onRowClick}
           tableLayout={{ headerBackground: false, headerBorder: true, rowBorder: true }}
+          tableClassNames={rowClassName ? { bodyRow: rowClassName } : undefined}
         >
           {(title || actions) && (
             <FrameHeader className="flex-row flex-wrap items-center gap-2">

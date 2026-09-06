@@ -20,6 +20,12 @@ importers:
 
   apps/console:
     dependencies:
+      '@headless-tree/core':
+        specifier: ^1.7.0
+        version: 1.7.0
+      '@headless-tree/react':
+        specifier: ^1.7.0
+        version: 1.7.0(@headless-tree/core@1.7.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@premise/api':
         specifier: workspace:*
         version: link:../../packages/api

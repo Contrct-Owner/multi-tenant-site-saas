@@ -18,7 +18,8 @@ export const sitesApi = {
     bbox?: string,
     zoom?: number,
     signal?: AbortSignal,
-  ) => api.get('/api/sites', { query: { limit, offset, q, under, bbox, zoom }, signal }),
+    status?: string,
+  ) => api.get('/api/sites', { query: { limit, offset, q, under, bbox, zoom, status }, signal }),
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
   /** The org's raster basemaps (ADR 50 §3), provider keys already in the URLs. */
   basemaps: (signal?: AbortSignal) => api.get('/api/map/basemaps', { signal }),

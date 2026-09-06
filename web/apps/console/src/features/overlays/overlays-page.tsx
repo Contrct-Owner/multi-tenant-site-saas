@@ -11,12 +11,14 @@ import {
   Label,
   Select,
   Textarea,
-  cn,
+  ToggleGroup,
+  ToggleGroupItem,
   toast,
 } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { EmptyState } from '../../components/page';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 import { useHierarchy } from '../sites/hooks';
@@ -74,27 +76,20 @@ export function OverlaysPage() {
       <Frame>
         <FramePanel>
           <FrameHeader className="flex-row items-center gap-2">
-            <div role="group" aria-label="Layers" className="inline-flex gap-0.5 rounded-lg border bg-background p-0.5">
-              {(
-                [
-                  ['active', 'Active'],
-                  ['trash', 'Trash'],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={tab === key}
-                  onClick={() => setTab(key)}
-                  className={cn(
-                    'inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-muted-foreground',
-                    tab === key && 'bg-muted text-foreground shadow-xs',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <ToggleGroup
+              aria-label="Layers"
+              variant="outline"
+              size="sm"
+              spacing={0}
+              value={[tab]}
+              onValueChange={(next) => {
+                const key = next[0];
+                if (key === 'active' || key === 'trash') setTab(key);
+              }}
+            >
+              <ToggleGroupItem value="active">Active</ToggleGroupItem>
+              <ToggleGroupItem value="trash">Trash</ToggleGroupItem>
+            </ToggleGroup>
           </FrameHeader>
 
           {query.isPending && (
@@ -111,16 +106,17 @@ export function OverlaysPage() {
             </div>
           )}
           {query.data && layers.length === 0 && (
-            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-              <Layers className="size-6 text-muted-foreground" aria-hidden />
-              <p className="text-sm text-muted-foreground">
-                {tab === 'trash'
-                  ? 'The trash is empty.'
+            <EmptyState
+              icon={Layers}
+              title={tab === 'trash' ? 'The trash is empty' : 'No overlay layers yet'}
+              description={
+                tab === 'trash'
+                  ? 'Deleted layers wait here until you restore them.'
                   : manage
-                    ? 'No overlay layers yet. Create one, then upload its shapes as GeoJSON.'
-                    : 'No overlay layers in your scope yet.'}
-              </p>
-            </div>
+                    ? 'Create a layer, then upload its shapes as GeoJSON.'
+                    : 'Nothing in your scope has been drawn yet.'
+              }
+            />
           )}
           {layers.length > 0 && (
             <ul className="divide-y">

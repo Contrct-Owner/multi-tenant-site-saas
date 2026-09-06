@@ -44,6 +44,8 @@ import {
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { can, parseMe, useMe, type Me } from './session';
 import { persisted } from './app/persisted';
+import { CommandSearch } from './components/command-search';
+import { UserMenu } from './components/user-menu';
 import { ScopeProvider, useScope } from './app/scope';
 import { useSessionTransition } from './app/session-boundary';
 import { currentTheme, toggleTheme, useTheme } from './app/theme';
@@ -286,21 +288,9 @@ function Topbar({ me }: { me: User }) {
         <ScopeSheet me={me} scopeName={scopeName} />
       </div>
       <div className="ml-auto flex items-center gap-1">
+        <CommandSearch />
         <ThemeToggle />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Link
-                to="/account"
-                aria-label="Account"
-                className="flex size-8 items-center justify-center rounded-full border bg-card text-xs font-semibold"
-              />
-            }
-          >
-            {initials(me)}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{me.email}</TooltipContent>
-        </Tooltip>
+        <UserMenu email={me.email} name={me.name} canManageOrg={can(me, 'org:manage')} />
       </div>
     </header>
   );

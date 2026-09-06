@@ -1,6 +1,7 @@
 import { api, type components } from '@premise/api';
-import { Button, ConfirmButton, FormDialog, Input, Label, Select, type ColumnDef,
-  type DataGridFeatures } from '@premise/ui';
+import { Avatar, AvatarFallback, Button, ConfirmButton, FormDialog, Input, InputGroup, InputGroupAddon,
+  InputGroupButton, InputGroupInput, Label, Select, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { Search, X } from 'lucide-react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Grid, PageHeader } from '../components/page';
@@ -9,6 +10,14 @@ import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
 
 type MemberRow = components['schemas']['MemberSummary'];
+
+const initialsOf = (label: string) =>
+  label
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
 type InvitationRow = components['schemas']['InvitationResponse'];
 type ContactRow = components['schemas']['ContactResponse'];
 
@@ -90,6 +99,13 @@ export function MembersPage() {
   });
 
   const self = me?.tier === 'user' ? me.userId : undefined;
+  const [search, setSearch] = useState('');
+  const visibleMembers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const all = members ?? [];
+    if (!term) return all;
+    return all.filter((m) => [m.name, m.email, ...m.roles].join(' ').toLowerCase().includes(term));
+  }, [members, search]);
 
   const memberColumns = useMemo<ColumnDef<DataGridFeatures, MemberRow>[]>(
     () => [
@@ -98,9 +114,14 @@ export function MembersPage() {
         accessorKey: 'email',
         header: 'Member',
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <div className="font-medium">{row.original.name ?? row.original.email}</div>
-            <div className="text-xs text-muted-foreground">{row.original.email}</div>
+          <div className="flex min-w-0 items-center gap-2">
+            <Avatar className="size-8 shrink-0">
+              <AvatarFallback className="text-xs">{initialsOf(row.original.name ?? row.original.email)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{row.original.name ?? row.original.email}</div>
+              <div className="truncate text-xs text-muted-foreground">{row.original.email}</div>
+            </div>
           </div>
         ),
       },
@@ -139,8 +160,14 @@ export function MembersPage() {
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) =>
           row.original.userId !== self ? (
-            <div className="text-right">
-              <ConfirmButton size="sm" disabled={remove.isPending} onConfirm={() => remove.mutate(row.original.userId)}>
+            <div className="flex justify-end opacity-0 transition-opacity group-focus-within/member-row:opacity-100 group-hover/member-row:opacity-100">
+              <ConfirmButton
+                size="sm"
+                confirmLabel="Remove this member?"
+                description={`${row.original.name ?? row.original.email} loses access to this organization at once.`}
+                disabled={remove.isPending}
+                onConfirm={() => remove.mutate(row.original.userId)}
+              >
                 Remove
               </ConfirmButton>
             </div>
@@ -273,12 +300,34 @@ export function MembersPage() {
       />
 
       <Grid
+        title="People"
+        actions={
+          <InputGroup className="w-full sm:w-64">
+            <InputGroupAddon align="inline-start">
+              <Search aria-hidden />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search…"
+              aria-label="Search members"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search.length > 0 && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton type="button" aria-label="Clear search" size="icon-xs" onClick={() => setSearch('')}>
+                  <X aria-hidden />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+        }
+        rowClassName="group/member-row"
         columns={memberColumns}
-        rows={members ?? []}
+        rows={visibleMembers}
         getRowId={(m) => m.userId}
         isLoading={members === undefined}
         loadingMessage="Loading…"
-        emptyMessage="No members yet."
+        emptyMessage={search ? 'No members match the search.' : 'No members yet.'}
         footer={
           membersQuery.hasNextPage ? (
             <Button variant="outline" size="sm"

@@ -159,6 +159,7 @@ public static class SiteEndpoints
         IScopeResolver scopes,
         Guid? under,
         string? q,
+        string? status,
         string? bbox,
         int? zoom,
         int? limit,
@@ -166,6 +167,19 @@ public static class SiteEndpoints
         CancellationToken ct
     )
     {
+        // a comma-separated set of lifecycle statuses (the console's filter bar)
+        SiteStatus[]? statuses = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var wanted = new List<SiteStatus>();
+            foreach (var part in status.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!Enum.TryParse<SiteStatus>(part.Trim(), ignoreCase: true, out var one))
+                    return Results.BadRequest(new { error = $"unknown status '{part.Trim()}'" });
+                wanted.Add(one);
+            }
+            statuses = wanted.ToArray();
+        }
         BoundingBox? box = null;
         if (bbox is not null)
         {
@@ -194,6 +208,8 @@ public static class SiteEndpoints
                 || (s.City != null && EF.Functions.ILike(s.City, pattern))
             );
         }
+        if (statuses is not null)
+            query = query.Where(s => statuses.Contains(s.Status));
         int? withoutCoordinates = null;
         if (box is { } viewport)
         {

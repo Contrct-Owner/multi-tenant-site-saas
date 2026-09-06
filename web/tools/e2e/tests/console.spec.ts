@@ -15,7 +15,7 @@ async function createSite(page: Page) {
   await page.goto('/sites');
   const name = `E2E Site ${Date.now()}`;
   await page.getByRole('button', { name: 'New site' }).click();
-  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Name', { exact: true }).fill(name);
   await page.getByLabel('Hierarchy node').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Create site' }).click();
   await expect(page.getByText('Site created', { exact: true })).toBeVisible();
@@ -131,7 +131,7 @@ test.describe('critical workflows', () => {
     await page.goto('/roles');
     const name = `E2E role ${Date.now()}`;
     await page.getByRole('button', { name: 'New role' }).click();
-    await page.getByLabel('Name').fill(name);
+    await page.getByLabel('Name', { exact: true }).fill(name);
     await page.getByRole('dialog').getByLabel('sites:read', { exact: true }).check();
     await page.getByRole('button', { name: 'Create role' }).click();
     await expect(page.getByText('Role saved', { exact: true })).toBeVisible();
@@ -156,7 +156,7 @@ test.describe('critical workflows', () => {
     }
     const nodeName = `E2E Region ${Date.now()}`;
     await addNode.click();
-    await page.getByLabel('Name').fill(nodeName);
+    await page.getByLabel('Name', { exact: true }).fill(nodeName);
     await page.getByLabel('Parent').selectOption({ index: 1 });
     await page.getByRole('button', { name: 'Add node', exact: true }).last().click();
     await expect(page.getByText('Node added', { exact: true })).toBeVisible();

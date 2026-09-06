@@ -9,6 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@headless-tree/core": "^1.7.0",
+    "@headless-tree/react": "^1.7.0",
     "@premise/api": "workspace:*",
     "@premise/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",

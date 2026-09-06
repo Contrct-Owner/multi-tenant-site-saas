@@ -1,9 +1,10 @@
 import { api, ApiError } from '@premise/api';
-import { Button, ConfirmButton, FormDialog,
+import { Button, FormDialog,
   Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../components/page';
+import { HierarchyTree } from '../features/hierarchy/hierarchy-tree';
 import { useApiMutation } from '../lib/mutation';
 
 export function HierarchyPage() {
@@ -35,14 +36,11 @@ export function HierarchyPage() {
       setAdding(false);
     },
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
   const rename = useApiMutation({
     mutationFn: (input: { id: string; name: string }) =>
       api.put('/api/hierarchy/nodes/{id}', { name: input.name }, { path: { id: input.id } }),
     invalidate: [['hierarchy']],
     success: 'Node renamed',
-    onSuccess: () => setEditingId(null),
   });
   const removeNode = useApiMutation({
     mutationFn: (id: string) => api.del('/api/hierarchy/nodes/{id}', { path: { id } }),
@@ -118,72 +116,17 @@ export function HierarchyPage() {
         }
       />
       <Panel>
-          <ul className="space-y-1 text-sm">
-            {data.nodes.map((n) => {
-              const isLeaf =
-                !data.nodes.some((c) => c.parentId === n.id) && Number(n.depth) > 0;
-              return (
-                <li
-                  key={n.id}
-                  className="group flex items-center gap-2"
-                  style={{ paddingLeft: `${Number(n.depth) * 1.25}rem` }}
-                >
-                  {editingId === n.id ? (
-                    <>
-                      <Input
-                        className="h-7 w-48"
-                        value={editName}
-                        autoFocus
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && editName.trim())
-                            rename.mutate({ id: n.id, name: editName.trim() });
-                          if (e.key === 'Escape') setEditingId(null);
-                        }}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!editName.trim() || rename.isPending}
-                        onClick={() => rename.mutate({ id: n.id, name: editName.trim() })}
-                      >
-                        Save
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-mono">
-                        {Number(n.depth) > 0 ? '└ ' : ''}{n.name}
-                      </span>
-                      <span className="flex gap-1 opacity-50 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => {
-                            setEditingId(n.id);
-                            setEditName(n.name);
-                          }}
-                        >
-                          Rename
-                        </Button>
-                        {isLeaf && (
-                          <ConfirmButton
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            disabled={removeNode.isPending}
-                            onConfirm={() => removeNode.mutate(n.id)}
-                          >
-                            Delete
-                          </ConfirmButton>
-                        )}
-                      </span>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+        <HierarchyTree
+          nodes={data.nodes.map((n) => ({
+            id: n.id,
+            name: n.name,
+            depth: Number(n.depth),
+            parentId: n.parentId ?? null,
+          }))}
+          busy={rename.isPending || removeNode.isPending}
+          onRename={(id, name) => rename.mutate({ id, name })}
+          onDelete={(id) => removeNode.mutate(id)}
+        />
       </Panel>
     </div>
   );
