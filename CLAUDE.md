@@ -52,6 +52,9 @@ don't restate them here.
   materialized through the outbox (the `org_directory` pattern). Authority
   is which object you own plus which commands exist - never an RLS clause.
 - **Keys are UUIDv7**, never database sequences (ADR 35 preconditions).
+- **Spatial columns are `geography` in SRID 4326** (ADR 50), NetTopologySuite
+  types in code, geometry only inside tile generation. `sites.location` is
+  derived from latitude/longitude on save - never set it by hand.
 - **Never put tenant/site/actor on metric labels** — traces and logs only, as
   baggage (ADR 33).
 - **Frontend imports UI only from `@/ui`**, never `components/ui/*` directly

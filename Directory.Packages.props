@@ -41,6 +41,10 @@
     </PackageVersion>
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion
+      Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"
+      Version="10.0.3"
+    />
     <PackageVersion Include="WolverineFx" Version="6.30.3" />
     <PackageVersion Include="WolverineFx.Http" Version="6.30.3" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="6.30.3" />

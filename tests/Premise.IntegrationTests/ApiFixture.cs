@@ -14,6 +14,7 @@ using Premise.Modules.Ingest.Data;
 using Premise.Modules.Storage.Data;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Organizations;
+using Premise.Platform.Data;
 using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
 using Testcontainers.PostgreSql;
@@ -32,7 +33,7 @@ namespace Premise.IntegrationTests;
 public class ApiFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(
-        "postgres:17-alpine"
+        PostgresImage.Reference // PostGIS, pinned by digest (ADR 50)
     ).Build();
 
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
@@ -607,7 +608,10 @@ public class ApiFixture : IAsyncLifetime
             Activator.CreateInstance(
                 typeof(T),
                 new DbContextOptionsBuilder<T>()
-                    .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", schema))
+                    .UseNpgsql(
+                        cs,
+                        n => Premise.Platform.Data.ModulePersistence.Configure(n, schema, typeof(T))
+                    )
                     .Options,
                 new TenantContext()
             )!;

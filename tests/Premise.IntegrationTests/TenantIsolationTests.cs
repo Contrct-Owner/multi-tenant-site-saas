@@ -143,7 +143,15 @@ public class TenantIsolationTests(ApiFixture fixture) : IClassFixture<ApiFixture
         TenancyDbContext Make(TenantContext tenant) =>
             new(
                 new DbContextOptionsBuilder<TenancyDbContext>()
-                    .UseNpgsql(cs)
+                    .UseNpgsql(
+                        cs,
+                        n =>
+                            Premise.Platform.Data.ModulePersistence.Configure(
+                                n,
+                                "tenancy",
+                                typeof(TenancyDbContext)
+                            )
+                    )
                     .AddInterceptors(Premise.Platform.Data.TenantSessionInterceptor.Instance)
                     .Options,
                 tenant

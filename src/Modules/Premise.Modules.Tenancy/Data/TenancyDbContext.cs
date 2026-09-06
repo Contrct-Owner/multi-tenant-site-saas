@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using NetTopologySuite.Geometries;
 using Premise.Modules.Tenancy.Hierarchy;
 using Premise.Modules.Tenancy.Organizations;
 using Premise.Modules.Tenancy.Sites;
@@ -7,6 +9,7 @@ using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Tenancy.Data;
 
+[SpatialModule] // sites.location is geography (ADR 50)
 public sealed class TenancyDbContext(
     DbContextOptions<TenancyDbContext> options,
     ITenantContext tenant
@@ -24,10 +27,42 @@ public sealed class TenancyDbContext(
     public DbSet<Sites.SiteAttributeDefinition> SiteAttributeDefinitions =>
         Set<Sites.SiteAttributeDefinition>();
 
+    /// <summary>
+    /// sites.location is derived, never set by hand (ADR 50): every save
+    /// rewrites it from Latitude/Longitude, so ingest, the API, and the dev
+    /// seed all keep the geography in step without knowing it exists.
+    /// </summary>
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default
+    )
+    {
+        foreach (var entry in ChangeTracker.Entries<Site>())
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                SyncLocation(entry);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private static void SyncLocation(EntityEntry<Site> entry)
+    {
+        var site = entry.Entity;
+        var expected = site is { Latitude: { } lat, Longitude: { } lng }
+            ? new Point(lng, lat) { SRID = 4326 } // x = longitude, y = latitude
+            : null;
+        var current = site.Location;
+        if (expected is null && current is null)
+            return;
+        if (expected is not null && current is not null && expected.EqualsExact(current))
+            return;
+        site.Location = expected;
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.HasPostgresExtension("ltree");
+        // not a trusted extension: the migrate role creates it as owner (ADR 50)
+        modelBuilder.HasPostgresExtension("postgis");
 
         modelBuilder.Entity<Organization>(b =>
         {
@@ -121,6 +156,12 @@ public sealed class TenancyDbContext(
             b.Property(s => s.CountryCode).HasColumnName("country_code").HasMaxLength(2);
             b.Property(s => s.Latitude).HasColumnName("latitude");
             b.Property(s => s.Longitude).HasColumnName("longitude");
+            // geography, never geometry, for stored data (ADR 50): meters and
+            // planet-correct boxes without a projection decision per query
+            b.Property(s => s.Location)
+                .HasColumnName("location")
+                .HasColumnType("geography (point, 4326)");
+            b.HasIndex(s => s.Location).HasMethod("gist");
             b.Property(s => s.CreatedAt).HasColumnName("created_at");
             b.HasIndex(s => s.Path).HasMethod("gist");
             b.HasIndex(s => s.NodeId);

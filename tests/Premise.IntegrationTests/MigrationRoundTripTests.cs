@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Premise.Platform.Data;
 using Testcontainers.PostgreSql;
 
 namespace Premise.IntegrationTests;
@@ -15,7 +16,7 @@ namespace Premise.IntegrationTests;
 public sealed class MigrationDbFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(
-        "postgres:17-alpine"
+        PostgresImage.Reference
     ).Build();
 
     public string ConnectionString => _postgres.GetConnectionString();
@@ -72,7 +73,10 @@ public class MigrationRoundTripTests(MigrationDbFixture fixture) : IClassFixture
             Activator.CreateInstance(
                 typeof(T),
                 new DbContextOptionsBuilder<T>()
-                    .UseNpgsql(cs, n => n.MigrationsHistoryTable("__ef_migrations_history", schema))
+                    .UseNpgsql(
+                        cs,
+                        n => Premise.Platform.Data.ModulePersistence.Configure(n, schema, typeof(T))
+                    )
                     .Options,
                 new Premise.Platform.Kernel.TenantContext()
             )!;

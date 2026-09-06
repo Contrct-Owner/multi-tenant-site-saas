@@ -18,7 +18,8 @@ done
 cleanup() { docker rm -f smoke-pg smoke-api smoke-worker >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 docker network create "$net" >/dev/null
-docker run -d --name smoke-pg --network "$net" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise postgres:17-alpine >/dev/null
+source "$(cd "$(dirname "$0")" && pwd)/postgres-image.sh"
+docker run -d --name smoke-pg --network "$net" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" >/dev/null
 for _ in $(seq 1 30); do docker exec smoke-pg pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
 
 common=(

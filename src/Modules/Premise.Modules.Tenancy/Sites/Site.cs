@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 
@@ -37,6 +38,14 @@ public sealed class Site : IPathScoped
     public string? CountryCode { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+
+    /// <summary>
+    /// geography(Point, 4326) beside the doubles (ADR 50): the indexed column
+    /// spatial predicates run on. DERIVED - TenancyDbContext rewrites it from
+    /// Latitude/Longitude on every save, so callers never set it; the doubles
+    /// stay the request/response shape.
+    /// </summary>
+    public Point? Location { get; internal set; }
 
     /// <summary>
     /// Org-defined attribute values (ADR 46), keyed by definition Key. Raw

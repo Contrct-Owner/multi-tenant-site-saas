@@ -43,7 +43,8 @@ cleanup() {
 }
 trap cleanup EXIT
 docker rm -f e2e-pg >/dev/null 2>&1 || true
-docker run -d --name e2e-pg -p "$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise postgres:17-alpine >/dev/null
+source "$root/tools/postgres-image.sh"
+docker run -d --name e2e-pg -p "$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" >/dev/null
 for _ in $(seq 1 30); do docker exec e2e-pg pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
 
 cd "$root"
