@@ -25,6 +25,7 @@ import {
   Code2,
   FolderOpen,
   Home,
+  Layers,
   ListChecks,
   LogOut,
   MapPin,
@@ -70,6 +71,7 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
     items: [
       { to: '/', label: 'Dashboard', capability: null, icon: Home },
       { to: '/sites', label: 'Sites', capability: 'sites:read', icon: MapPin },
+      { to: '/overlays', label: 'Overlays', capability: 'overlays:read', icon: Layers },
       { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage', icon: Network },
       { to: '/checklists', label: 'Checklists', capability: 'checklists:complete', icon: ListChecks },
       { to: '/files', label: 'Files', capability: 'files:read', icon: FolderOpen },
