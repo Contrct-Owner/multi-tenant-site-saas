@@ -45,6 +45,15 @@ export const useBasemaps = (enabled = true) =>
     staleTime: 5 * 60_000,
   });
 
+// the registry is code: what changes is who may see which layer
+export const useDataLayers = (enabled = true) =>
+  useQuery({
+    queryKey: ['map-layers'],
+    queryFn: ({ signal }) => sitesApi.layers(signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+
 export const useSite = (id: string) =>
   useQuery({ queryKey: ['site', id], queryFn: ({ signal }) => sitesApi.get(id, signal) });
 

@@ -890,94 +890,6 @@
         }
       }
     },
-    "/api/tiles/sites/{z}/{x}/{y}": {
-      "get": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteTilesEndpoint"
-        ],
-        "summary": "GET_api_tiles_sites_z_x_y",
-        "description": "GET_api_tiles_sites_z_x_y",
-        "operationId": "GET_api_tiles_sites_z_x_y",
-        "parameters": [
-          {
-            "name": "z",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "x",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "y",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "under",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/vnd.mapbox-vector-tile": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
-          },
-          "204": {
-            "description": "No Content",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -5889,6 +5801,96 @@
         }
       }
     },
+    "/api/map/layers": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataLayerListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tiles/{layer}/{z}/{x}/{y}": {
+      "get": {
+        "tags": [
+          "Premise.Api"
+        ],
+        "parameters": [
+          {
+            "name": "layer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "z",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "under",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.mapbox-vector-tile": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -7097,6 +7099,78 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "DataLayerDescriptor": {
+        "required": [
+          "name",
+          "title",
+          "description",
+          "capability",
+          "minPointZoom",
+          "statuses"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "minPointZoom": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataLayerStatusResponse"
+            }
+          }
+        }
+      },
+      "DataLayerListResponse": {
+        "required": [
+          "layers"
+        ],
+        "type": "object",
+        "properties": {
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataLayerDescriptor"
+            }
+          }
+        }
+      },
+      "DataLayerStatusResponse": {
+        "required": [
+          "key",
+          "label",
+          "color"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
           }
         }
       },
@@ -9607,9 +9681,6 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
-    },
-    {
-      "name": "Premise.Modules.Tenancy.Sites.SiteTilesEndpoint"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"

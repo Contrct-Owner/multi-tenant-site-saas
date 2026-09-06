@@ -13,6 +13,11 @@ public static class ChecklistsModule
     {
         services.AddModuleDbContext<ChecklistsDbContext>("checklists");
         services.AddScoped<Premise.Contracts.IOrgDataExporter, ChecklistsExporter>();
+        // the checklists-today data layer (ADR 50 §3)
+        services.AddScoped<
+            Premise.Platform.Spatial.IDataLayer,
+            Checklists.ChecklistsTodayDataLayer
+        >();
 
         return services;
     }

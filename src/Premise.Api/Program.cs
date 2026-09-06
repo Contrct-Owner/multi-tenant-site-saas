@@ -390,6 +390,7 @@ if (role == "api")
     app.MapOperatorDeadLetterEndpoints();
     app.MapOperatorOverviewEndpoint();
     app.MapOperatorHealthEndpoint();
+    app.MapDataLayerEndpoints();
     app.MapWolverineEndpoints();
 }
 

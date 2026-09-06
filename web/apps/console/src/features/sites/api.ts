@@ -22,6 +22,13 @@ export const sitesApi = {
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
   /** The org's raster basemaps (ADR 50 §3), provider keys already in the URLs. */
   basemaps: (signal?: AbortSignal) => api.get('/api/map/basemaps', { signal }),
+  /** The data layers this principal may draw (ADR 50 §3): registered queries served as tiles. */
+  layers: (signal?: AbortSignal) => api.get('/api/map/layers', { signal }),
+  /** The tile URL template for a data layer; `under` narrows to the console's scope node. */
+  tiles: (layer: string, under: string | null) =>
+    `${window.location.origin}/api/tiles/${layer}/{z}/{x}/{y}${
+      under ? `?under=${encodeURIComponent(under)}` : ''
+    }`,
   create: (body: CreateSite) => api.post('/api/sites', body),
   get: async (id: string, signal?: AbortSignal) =>
     parseSiteResponse(await api.get('/api/sites/{id}', { path: { id }, signal })),

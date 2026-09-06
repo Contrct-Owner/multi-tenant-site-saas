@@ -304,26 +304,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/tiles/sites/{z}/{x}/{y}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GET_api_tiles_sites_z_x_y
-         * @description GET_api_tiles_sites_z_x_y
-         */
-        get: operations["GET_api_tiles_sites_z_x_y"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -2832,6 +2812,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DataLayerListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tiles/{layer}/{z}/{x}/{y}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    under?: string;
+                };
+                header?: never;
+                path: {
+                    layer: string;
+                    z: number;
+                    x: number;
+                    y: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.mapbox-vector-tile": string;
+                    };
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -3177,6 +3241,23 @@ export interface components {
         CreateWebhookRequest: {
             url: string;
             events?: null | string[];
+        };
+        DataLayerDescriptor: {
+            name: string;
+            title: string;
+            description: string;
+            capability: string;
+            /** Format: int32 */
+            minPointZoom: number | string;
+            statuses: components["schemas"]["DataLayerStatusResponse"][];
+        };
+        DataLayerListResponse: {
+            layers: components["schemas"]["DataLayerDescriptor"][];
+        };
+        DataLayerStatusResponse: {
+            key: string;
+            label: string;
+            color: string;
         };
         DeadLetterListResponse: {
             /** Format: int32 */
@@ -4445,50 +4526,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IResult"];
-                };
-            };
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    GET_api_tiles_sites_z_x_y: {
-        parameters: {
-            query?: {
-                under?: string;
-            };
-            header?: never;
-            path: {
-                z: number | string;
-                x: number | string;
-                y: number | string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/vnd.mapbox-vector-tile": string;
                 };
             };
             /** @description No Content */

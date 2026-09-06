@@ -42,7 +42,7 @@ import { StatusBadge } from '../../../shell';
 import { overlaysApi } from '../../overlays/api';
 import { useOverlays } from '../../overlays/hooks';
 import { sitesApi } from '../api';
-import { useBasemaps, useHierarchy, useSites } from '../hooks';
+import { useBasemaps, useDataLayers, useHierarchy, useSites } from '../hooks';
 
 type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
   ? D extends { pages: { items: (infer R)[] }[] }
@@ -54,6 +54,7 @@ type View = 'table' | 'map';
 const VIEW_KEY = 'premise.sites.view';
 const HIDDEN_OVERLAYS_KEY = 'premise.sites.overlays.hidden';
 const BASEMAP_KEY = 'premise.map.basemap';
+const LAYER_KEY = 'premise.map.layer';
 
 function readBasemapChoice(): string {
   try {
@@ -111,16 +112,37 @@ export function SitesPage() {
 
   // the box only exists in the map view: the table is the whole scope
   const box = view === 'map' && viewport ? snapToTileGrid(viewport) : null;
-  // the map draws the API's sites tiles (ADR 50 §4): scope and clustering are
-  // the server's; the console's chosen node rides along as `under`
+  // the map draws one data layer's tiles (ADR 50 §3-4): a registered query
+  // over the sites, scope and clustering the server's; the console's chosen
+  // node rides along as `under`. Sites is the default; the rest are offered
+  // by the registry for principals who may read them
+  const layersQuery = useDataLayers(view === 'map');
+  const dataLayers = layersQuery.data?.layers ?? [];
+  const [layerChoice, setLayerChoice] = useState(() => {
+    try {
+      return localStorage.getItem(LAYER_KEY) ?? 'sites';
+    } catch {
+      return 'sites';
+    }
+  });
+  const chooseLayer = useCallback((name: string) => {
+    setLayerChoice(name);
+    try {
+      localStorage.setItem(LAYER_KEY, name);
+    } catch {
+      // storage is a convenience
+    }
+  }, []);
+  const dataLayer =
+    dataLayers.find((l) => l.name === layerChoice) ?? dataLayers.find((l) => l.name === 'sites');
+  const layerName = dataLayer?.name ?? 'sites';
   const tiles = useMemo(
-    () => ({
-      url: `${window.location.origin}/api/tiles/sites/{z}/{x}/{y}${
-        scope.nodeId ? `?under=${encodeURIComponent(scope.nodeId)}` : ''
-      }`,
-      sourceLayer: 'sites',
-    }),
-    [scope.nodeId],
+    () => ({ url: sitesApi.tiles(layerName, scope.nodeId), sourceLayer: layerName }),
+    [layerName, scope.nodeId],
+  );
+  const statuses = useMemo(
+    () => (dataLayer?.statuses ?? []).map((s) => ({ key: s.key, color: s.color })),
+    [dataLayer],
   );
   // the org's overlays (ADR 50 §3) ride under the sites; each is its own
   // tile source, and the viewer decides which are showing
@@ -474,6 +496,43 @@ export function SitesPage() {
                         </label>
                       ))}
                     </fieldset>
+                    {dataLayers.length > 1 && (
+                      <fieldset className="flex flex-col gap-0.5">
+                        <legend className="px-1 pb-1 pt-1 text-xs font-medium text-muted-foreground">
+                          Data layer
+                        </legend>
+                        {dataLayers.map((l) => (
+                          <label
+                            key={l.name}
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
+                            title={l.description}
+                          >
+                            <input
+                              type="radio"
+                              name="data-layer"
+                              className="size-3.5 accent-primary"
+                              checked={layerName === l.name}
+                              onChange={() => chooseLayer(l.name)}
+                            />
+                            <span className="truncate">{l.title}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                    {dataLayer && dataLayer.statuses.length > 0 && (
+                      <ul className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground" aria-label="Legend">
+                        {dataLayer.statuses.map((s) => (
+                          <li key={s.key} className="flex items-center gap-1.5">
+                            <span
+                              className="size-2.5 rounded-full border border-background"
+                              style={{ background: s.color }}
+                              aria-hidden
+                            />
+                            {s.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="px-1 pt-1 text-xs font-medium text-muted-foreground">Overlays</p>
                     {overlayLayers.length === 0 ? (
                       <p className="px-1 text-sm text-muted-foreground">
@@ -585,6 +644,7 @@ export function SitesPage() {
                   className="order-1 h-[360px] md:order-2 md:h-[560px]"
                   points={points}
                   tiles={tiles}
+                  statuses={statuses}
                   selectedIds={selectedIds}
                   overlays={overlays}
                   basemap={basemap}

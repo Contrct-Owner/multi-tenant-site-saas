@@ -58,6 +58,9 @@ export type SiteMapTiles = {
   sourceLayer: string;
 };
 
+/** A colour per value of the tile feature's `status` property (a data layer's legend). */
+export type SiteMapStatus = { key: string; color: string };
+
 export type SiteMapOverlay = {
   id: string;
   /** Absolute URL template with {z}/{x}/{y}; the API's overlay tile endpoint. */
@@ -128,6 +131,8 @@ type Props = {
   tiles?: SiteMapTiles;
   /** Selected site ids (tile mode); in point mode each point carries `selected`. */
   selectedIds?: readonly string[];
+  /** Colours for the tile feature's `status` (tile mode); dots without a match paint neutral. */
+  statuses?: readonly SiteMapStatus[];
   /** Overlay layers to draw under the sites; an empty list draws none. */
   overlays?: readonly SiteMapOverlay[];
   /** A built-in basemap, or the id of one of `basemaps`. */
@@ -165,7 +170,24 @@ const selectedExpr = (mode: Mode): MapLibre.ExpressionSpecification =>
     ? ['==', ['get', 'selected'], 1]
     : ['boolean', ['feature-state', 'selected'], false];
 
-function addSitesLayers(map: MapLibre.Map, mode: Mode, data: FeatureCollection, tiles?: SiteMapTiles) {
+/** The dot's fill: the status colour when the layer has one, else the neutral pin. */
+function dotColor(statuses: readonly SiteMapStatus[]): MapLibre.ExpressionSpecification | string {
+  if (statuses.length === 0) return NEUTRAL_DOT;
+  return [
+    'match',
+    ['coalesce', ['get', 'status'], ''],
+    ...statuses.flatMap((s) => [s.key, s.color]),
+    NEUTRAL_DOT,
+  ] as unknown as MapLibre.ExpressionSpecification;
+}
+
+function addSitesLayers(
+  map: MapLibre.Map,
+  mode: Mode,
+  data: FeatureCollection,
+  tiles?: SiteMapTiles,
+  statuses: readonly SiteMapStatus[] = [],
+) {
   if (map.getSource(SOURCE)) return;
   if (mode === 'tiles' && tiles) {
     map.addSource(SOURCE, {
@@ -219,9 +241,14 @@ function addSitesLayers(map: MapLibre.Map, mode: Mode, data: FeatureCollection, 
     filter: ['!', isCluster],
     paint: {
       'circle-radius': ['case', selected, 8, 6],
-      'circle-color': ['case', selected, ACCENT, NEUTRAL_DOT],
-      'circle-stroke-color': STROKE,
-      'circle-stroke-width': 2,
+      // a status layer colours by status and marks selection on the ring;
+      // without one the accent is the selection colour, as in point mode
+      'circle-color':
+        mode === 'tiles' && statuses.length > 0
+          ? dotColor(statuses)
+          : ['case', selected, ACCENT, NEUTRAL_DOT],
+      'circle-stroke-color': mode === 'tiles' && statuses.length > 0 ? ['case', selected, ACCENT, STROKE] : STROKE,
+      'circle-stroke-width': mode === 'tiles' && statuses.length > 0 ? ['case', selected, 3, 2] : 2,
     },
   });
 }
@@ -294,6 +321,7 @@ export function SiteMap({
   points,
   tiles,
   selectedIds = [],
+  statuses = [],
   overlays = [],
   basemap = 'light',
   basemaps = [],
@@ -308,6 +336,7 @@ export function SiteMap({
   const tilesRef = useRef(tiles);
   const selectionRef = useRef(selectedIds);
   const overlaysRef = useRef(overlays);
+  const statusesRef = useRef(statuses);
   const basemapsRef = useRef(basemaps);
   // the style in force, so a basemap list refetch does not reset the map
   const styleKey = useRef('');
@@ -324,6 +353,7 @@ export function SiteMap({
   tilesRef.current = tiles;
   selectionRef.current = selectedIds;
   overlaysRef.current = overlays;
+  statusesRef.current = statuses;
   basemapsRef.current = basemaps;
   viewportCb.current = onViewportChange;
   clickCb.current = onPointClick;
@@ -386,7 +416,7 @@ export function SiteMap({
         }, 250);
       };
       const addLayers = () => {
-        addSitesLayers(map, mode, toGeoJson(pointsRef.current), tilesRef.current);
+        addSitesLayers(map, mode, toGeoJson(pointsRef.current), tilesRef.current, statusesRef.current);
         flagged.current = new Set();
         applySelection(map, selectionRef.current);
         // a fresh style has no overlay sources, whatever was known before
@@ -460,6 +490,20 @@ export function SiteMap({
     // applySelection reads refs; selectedIds is the input
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds]);
+
+  // the tile layer or its legend changed: rebuild the sites source and layers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mode !== 'tiles' || !tiles || !map.getSource(SOURCE)) return;
+    for (const layer of [LAYER_CLUSTER, LAYER_HALO, LAYER_DOT]) if (map.getLayer(layer)) map.removeLayer(layer);
+    map.removeSource(SOURCE);
+    addSitesLayers(map, mode, toGeoJson(pointsRef.current), tiles, statuses);
+    flagged.current = new Set();
+    applySelection(map, selectionRef.current);
+    // the overlays keep their place: they were added before the sites layers,
+    // and a re-added sites source draws on top of them regardless
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiles, statuses, mode]);
 
   // overlays changed: add, drop or restyle their sources in place
   useEffect(() => {
