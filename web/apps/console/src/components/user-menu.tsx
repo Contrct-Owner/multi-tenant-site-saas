@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@premise/ui';
 import { useNavigate } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { LogOut, MoonStar, Settings, Sun, UserRound } from 'lucide-react';
 import { api } from '@premise/api';
 import { useSessionTransition } from '../app/session-boundary';
@@ -25,10 +26,13 @@ export function UserMenu({
   email,
   name,
   canManageOrg,
+  footer,
 }: {
   email: string;
   name?: string | null;
   canManageOrg: boolean;
+  /** A muted last line: the build the console is talking to. */
+  footer?: ReactNode;
 }) {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -88,6 +92,7 @@ export function UserMenu({
           <LogOut aria-hidden />
           Sign out
         </DropdownMenuItem>
+        {footer && <div className="px-2 pb-1 pt-1.5 text-[11px] text-muted-foreground">{footer}</div>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

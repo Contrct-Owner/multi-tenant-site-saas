@@ -4,7 +4,8 @@ import { Button, Checkbox, ConfirmButton, Field, FieldDescription, FieldLabel, F
 import { GripVertical, Plus, X } from 'lucide-react';
 import { SitePicker, type PickedSite } from '../sites/components/site-picker';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useScope } from '../../app/scope';
 import { Loading, PageHeader, Panel } from '../../components/page';
 import { fmtBusinessDate } from '../../lib/format';
 import { useApiMutation } from '../../lib/mutation';
@@ -40,8 +41,14 @@ export function ChecklistsPage() {
     }
   };
 
-  // the first site in scope is the default; the picker searches the rest
-  const siteQuery = useSites('');
+  // the first site under the Scope node is the default; the picker searches
+  // the rest of that subtree. Narrowing the scope drops a remembered site
+  // outside it (the memory stays for next time)
+  const scope = useScope();
+  useEffect(() => {
+    if (scope.nodeId !== null) setPickedState(null);
+  }, [scope.nodeId]);
+  const siteQuery = useSites('', scope.nodeId);
   const sites = siteQuery.data?.pages.flatMap((page) => page.items);
   const first = sites?.[0];
   const current = picked ?? (first ? { id: first.id, name: first.name, city: first.city } : null);
@@ -120,7 +127,7 @@ export function ChecklistsPage() {
   const picker =
     sites && sites.length > 1 ? (
       <div className="w-full sm:w-72">
-        <SitePicker aria-label="Checklist site" value={current} onChange={setPicked} />
+        <SitePicker aria-label="Checklist site" value={current} onChange={setPicked} under={scope.nodeId} />
       </div>
     ) : undefined;
 

@@ -99,9 +99,9 @@ test.describe('sign-in and the shell', () => {
       return me.organizations.map((org) => org.name);
     })).toContain(second);
     await page.reload();
-    const scopePanel = page.getByRole('complementary', { name: 'Scope' });
-    await scopePanel.getByRole('combobox').selectOption({ label: second });
-    await expect(scopePanel.getByText(second, { exact: true }).first()).toBeVisible();
+    const orgSwitcher = page.getByRole('combobox', { name: 'Active organization' });
+    await orgSwitcher.selectOption({ label: second });
+    await expect(orgSwitcher.locator('option:checked')).toHaveText(second);
   });
 });
 

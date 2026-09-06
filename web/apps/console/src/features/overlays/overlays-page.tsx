@@ -2,6 +2,7 @@ import { Button, buttonVariants, ConfirmButton, Field, FieldLabel, FormDialog, F
 import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useScope } from '../../app/scope';
 import { EmptyState } from '../../components/page';
 import { FileDropzone } from '../../components/file-dropzone';
 import { useApiMutation } from '../../lib/mutation';
@@ -27,7 +28,18 @@ export function OverlaysPage() {
   const manage = can(me, 'overlays:manage');
   const [tab, setTab] = useState<'active' | 'trash'>('active');
   const query = useOverlays(true, tab === 'trash');
-  const layers = query.data?.layers ?? [];
+  // the Scope node narrows the list to layers anchored under it; a layer
+  // anchored to the whole org covers every scope, so it always shows
+  const scope = useScope();
+  const { data: hierarchy } = useHierarchy();
+  const scopePath = hierarchy?.nodes.find((n) => n.id === scope.nodeId)?.path;
+  const underScope = (layer: OverlayLayer) => {
+    if (!scopePath) return true;
+    const anchor = layer.nodeId ? hierarchy?.nodes.find((n) => n.id === layer.nodeId) : undefined;
+    if (!anchor) return !layer.nodeId;
+    return anchor.path === scopePath || anchor.path.startsWith(`${scopePath}.`);
+  };
+  const layers = (query.data?.layers ?? []).filter(underScope);
 
   const remove = useApiMutation({
     mutationFn: (id: string) => overlaysApi.remove(id),
@@ -93,7 +105,7 @@ export function OverlaysPage() {
           {query.data && layers.length === 0 && (
             <EmptyState
               icon={Layers}
-              title={tab === 'trash' ? 'The trash is empty' : 'No overlay layers yet'}
+              title={tab === 'trash' ? 'The trash is empty' : scopePath ? 'No overlay layers under this scope' : 'No overlay layers yet'}
               description={
                 tab === 'trash'
                   ? 'Deleted layers wait here until you restore them.'
@@ -164,11 +176,13 @@ export function OverlaysPage() {
 
 function NewLayerDialog() {
   const { data: hierarchy } = useHierarchy();
+  const scope = useScope();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<string>(KINDS[0]);
   const [fill, setFill] = useState(DEFAULT_FILL);
-  const [nodeId, setNodeId] = useState('');
+  // a layer made under a scope anchors there unless told otherwise
+  const [nodeId, setNodeId] = useState(scope.nodeId ?? '');
 
   const [shapes, setShapes] = useState<{ fileName: string; geoJson: unknown } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);

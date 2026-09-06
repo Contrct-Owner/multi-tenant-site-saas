@@ -36,3 +36,9 @@ export async function expectAccessible(page: Page) {
   await page.evaluate((on) => document.documentElement.classList.toggle('dark', on), wasDark);
   await freeze.evaluate((el) => (el as HTMLElement).remove());
 }
+
+/** Sign out through the account menu (the top bar's avatar), where sign-out lives on every page. */
+export async function signOut(page: Page) {
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+}

@@ -24,20 +24,23 @@ export function SitePicker({
   value,
   onChange,
   placeholder = 'Search sites…',
+  under,
   'aria-label': ariaLabel,
 }: {
   id?: string;
   value: PickedSite | null;
   onChange: (site: PickedSite | null) => void;
   placeholder?: string;
+  /** The console's scope node: the search stays inside it. */
+  under?: string | null;
   'aria-label'?: string;
 }) {
   const [typed, setTyped] = useState('');
   // the input shows the chosen site's name; that is not a query
   const q = useDebounced(typed.trim() === value?.name ? '' : typed.trim(), 250);
   const results = useQuery({
-    queryKey: ['sites', 'pick', q],
-    queryFn: ({ signal }) => sitesApi.list(20, undefined, q || undefined, undefined, undefined, undefined, signal),
+    queryKey: ['sites', 'pick', q, under ?? null],
+    queryFn: ({ signal }) => sitesApi.list(20, undefined, q || undefined, under ?? undefined, undefined, undefined, signal),
     staleTime: 30_000,
   });
   const items: PickedSite[] = results.data?.items.map((s) => ({ id: s.id, name: s.name, city: s.city })) ?? [];

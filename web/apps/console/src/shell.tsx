@@ -27,7 +27,6 @@ import {
   SheetTrigger,
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -139,6 +138,16 @@ const visibleGroups = (me: User) =>
 const isActive = (path: string, to: string) =>
   to === '/' ? path === '/' : path === to || path.startsWith(to + '/');
 
+/**
+ * The pages that read the Scope node (flow review follow-up, 2026-09): the
+ * site library and map, the checklists' site choice, and the overlays
+ * anchored under a node. Everywhere else the org's administration is the
+ * whole org, so the Scope panel stays away instead of promising a filter
+ * it does not apply.
+ */
+const SCOPED_PAGES = ['/sites', '/checklists', '/overlays'];
+const isScopedPage = (path: string) => SCOPED_PAGES.some((to) => isActive(path, to));
+
 const pageTitle = (path: string) => {
   if (path.startsWith('/account')) return 'Account';
   const hit = NAV_GROUPS.flatMap((g) => g.items).find((n) => isActive(path, n.to));
@@ -148,6 +157,8 @@ const pageTitle = (path: string) => {
 export function Shell({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const { data: me, isLoading, error, refetch } = useMe();
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const scoped = isScopedPage(path);
 
   if (isLoading) return <div className="p-12 text-muted-foreground">Loading session…</div>;
 
@@ -188,9 +199,9 @@ export function Shell({ children }: { children: ReactNode }) {
             the Scope panel away to the icon rail */}
         <SidebarProvider
           className="bg-background"
-          style={{ '--sidebar-width': '316px', '--sidebar-width-icon': '76px' } as CSSProperties}
+          style={{ '--sidebar-width': scoped ? '316px' : '77px', '--sidebar-width-icon': '76px' } as CSSProperties}
         >
-          <AppSidebar me={me} orgName={activeOrg?.name ?? 'No organization'} />
+          <AppSidebar me={me} scoped={scoped} />
           <SidebarInset className="min-w-0">
             {me.impersonationExpiresAt && (
               <ImpersonationBanner
@@ -198,7 +209,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 expiresAt={me.impersonationExpiresAt}
               />
             )}
-            <Topbar me={me} />
+            <Topbar me={me} scoped={scoped} orgName={activeOrg?.name ?? 'No organization'} />
             {/* SidebarInset IS the page's <main>; this is only its padding */}
             <div className="min-w-0 flex-1 p-4 pb-24 md:p-8 md:pb-8">{children}</div>
           </SidebarInset>
@@ -214,12 +225,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
 /**
  * Direction B on the shadcn Sidebar's double-sidebar pattern: one
- * icon-collapsible sidebar holding the 76px area rail and the 240px Scope
- * panel. Collapsed, only the rail stays; the trigger in the top bar and
- * Cmd/Ctrl-B toggle it. Nothing here is drawn by hand - rows are
- * SidebarMenuButtons, the org picker is the barrel Select.
+ * icon-collapsible sidebar holding the 76px area rail and, on the pages
+ * that read it, the 240px Scope panel. Collapsed, only the rail stays; the
+ * trigger in the top bar and Cmd/Ctrl-B toggle it. Nothing here is drawn
+ * by hand - rows are SidebarMenuButtons.
  */
-function AppSidebar({ me, orgName }: { me: User; orgName: string }) {
+function AppSidebar({ me, scoped }: { me: User; scoped: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const groups = visibleGroups(me);
   return (
@@ -254,40 +265,19 @@ function AppSidebar({ me, orgName }: { me: User; orgName: string }) {
           </nav>
         </SidebarContent>
       </Sidebar>
-      {/* the Scope panel: what every list reads under */}
-      <Sidebar
-        collapsible="none"
-        role="complementary"
-        aria-label="Scope"
-        className="hidden min-w-0 flex-1 md:flex"
-      >
-        <SidebarHeader className="gap-2 border-b p-3">
-          <div className="flex items-center gap-2 px-1">
-            <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-              {orgName.charAt(0).toUpperCase()}
-            </span>
-            <span className="truncate text-sm font-semibold">{orgName}</span>
-          </div>
-          <OrgSwitcher me={me} />
-        </SidebarHeader>
-        <SidebarContent className="p-2">
-          <ScopeTree me={me} />
-        </SidebarContent>
-        <SidebarFooter className="border-t p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0">
-              <Link
-                to="/account"
-                className="block truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-              >
-                {me.email}
-              </Link>
-              <ApiVersion />
-            </span>
-            <SignOutButton />
-          </div>
-        </SidebarFooter>
-      </Sidebar>
+      {/* the Scope panel: what the site-reading pages ask under */}
+      {scoped && (
+        <Sidebar
+          collapsible="none"
+          role="complementary"
+          aria-label="Scope"
+          className="hidden min-w-0 flex-1 md:flex"
+        >
+          <SidebarContent className="p-2">
+            <ScopeTree me={me} />
+          </SidebarContent>
+        </Sidebar>
+      )}
     </Sidebar>
   );
 }
@@ -316,7 +306,7 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function Topbar({ me }: { me: User }) {
+function Topbar({ me, scoped, orgName }: { me: User; scoped: boolean; orgName: string }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const scope = useScope();
   const { data: hierarchy } = useHierarchyForScope(me);
@@ -327,30 +317,44 @@ function Topbar({ me }: { me: User }) {
   const title = pageTitle(path);
   return (
     <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-3 border-b bg-background px-4 md:px-5">
-      {/* desktop: the panel toggle, then the breadcrumb - scope first, because it is what every list reads under */}
+      {/* desktop: the org (a switcher when there is a choice), then the
+          breadcrumb - the scope node only on the pages that read it */}
       <div className="hidden min-w-0 items-center gap-2 md:flex">
-        <SidebarTrigger className="-ml-1" />
+        {scoped && <SidebarTrigger className="-ml-1" />}
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground" aria-hidden>
+          {orgName.charAt(0).toUpperCase()}
+        </span>
+        {me.organizations.length > 1 ? (
+          <OrgSwitcher me={me} className="w-auto max-w-56" />
+        ) : (
+          <span className="truncate text-sm font-semibold">{orgName}</span>
+        )}
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem>
-              <span className="truncate">{scopeName}</span>
-            </BreadcrumbItem>
             <BreadcrumbSeparator />
+            {scoped && (
+              <>
+                <BreadcrumbItem>
+                  <span className="truncate">{scopeName}</span>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+              </>
+            )}
             <BreadcrumbItem>
               <BreadcrumbPage>{title}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      {/* phone: the page, then the scope chip */}
+      {/* phone: the page, then the scope chip where it applies */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
         <span className="shrink-0 text-base font-semibold">{title}</span>
-        <ScopeSheet me={me} scopeName={scopeName} />
+        {scoped && <ScopeSheet me={me} scopeName={scopeName} />}
       </div>
       <div className="ml-auto flex items-center gap-1">
         <CommandSearch />
         <ThemeToggle />
-        <UserMenu email={me.email} name={me.name} canManageOrg={can(me, 'org:manage')} />
+        <UserMenu email={me.email} name={me.name} canManageOrg={can(me, 'org:manage')} footer={<ApiVersion />} />
       </div>
     </header>
   );
@@ -665,20 +669,20 @@ function ScopeTree({
       )}
       {(!isError || notProvisioned) && nodes.length === 0 && (
         <p className="px-2 pt-2 text-xs text-muted-foreground">
-          No hierarchy yet. Scope applies to every screen; it filters, it never blocks.
+          No hierarchy yet. Scope narrows the sites, checklists and overlays you see; it filters, it never blocks.
         </p>
       )}
     </div>
   );
 }
 
-function OrgSwitcher({ me }: { me: User }) {
+function OrgSwitcher({ me, className = 'w-full' }: { me: User; className?: string }) {
   const changeSession = useSessionTransition();
   if (me.organizations.length <= 1) return null;
   return (
     <Select
       aria-label="Active organization"
-      className="w-full"
+      className={className}
       value={me.activeOrg ?? ''}
       onChange={async (e) => {
         const orgId = e.target.value;
