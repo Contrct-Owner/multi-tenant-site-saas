@@ -5,10 +5,16 @@ import { cn } from '../lib/utils';
 
 /**
  * The console map (ADR 50 §5): MapLibre GL JS behind the barrel. Pages hand
- * it points, a basemap, and a viewport callback; nothing outside this file
- * knows the library. The library and its stylesheet load on demand the first
- * time a map mounts, so pages that never show one pay nothing and the module
- * stays safe to import where there is no window.
+ * it a tile layer or points, a basemap, and a viewport callback; nothing
+ * outside this file knows the library. The library and its stylesheet load
+ * on demand the first time a map mounts, so pages that never show one pay
+ * nothing and the module stays safe to import where there is no window.
+ *
+ * With `tiles`, sites come from the API's vector tiles (ADR 50 §4): the
+ * server applies scope and clusters below its point zoom, and selection is
+ * feature state keyed by the tile feature's id. Without `tiles`, `points`
+ * are drawn as a GeoJSON layer. Either way `points` provide the bounds for
+ * Fit to scope.
  *
  * Accessibility: the canvas is presentational; the list beside the map is
  * the accessible equivalent (the page owns that). Basemaps are open and
@@ -34,6 +40,13 @@ export type SiteMapViewport = {
 
 export type SiteMapBasemap = 'osm' | 'light' | 'dark';
 
+export type SiteMapTiles = {
+  /** Absolute URL template with {z}/{x}/{y}; the API's tile endpoint. */
+  url: string;
+  /** The layer name inside the tile. */
+  sourceLayer: string;
+};
+
 const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
   osm: {
     version: 8,
@@ -55,18 +68,26 @@ const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
 const SOURCE = 'premise-sites';
 const LAYER_HALO = 'premise-sites-halo';
 const LAYER_DOT = 'premise-sites-dot';
+const LAYER_CLUSTER = 'premise-sites-cluster';
 // MapLibre paints literal colors, not CSS tokens: the accent and neutral pin
 // from tokens.css, in hex, for both schemes
 const ACCENT = '#7c6cf0';
 const NEUTRAL_DOT = '#5b5b66';
 const STROKE = '#ffffff';
 
+type Mode = 'points' | 'tiles';
+
 type Props = {
+  /** Sites in scope with coordinates; drawn when there are no tiles, and the bounds for fitting. */
   points: SiteMapPoint[];
+  /** The API's vector tiles for the sites layer; when set, tiles are drawn instead of points. */
+  tiles?: SiteMapTiles;
+  /** Selected site ids (tile mode); in point mode each point carries `selected`. */
+  selectedIds?: readonly string[];
   basemap?: SiteMapBasemap;
   /** Bump this to fit the view to the current points (Fit to scope). */
   fitKey?: number;
-  /** After the user pans or zooms (debounced): the box in view, and the zoom. */
+  /** After the user pans or zooms (debounced), and once after the first frame. */
   onViewportChange?: (viewport: SiteMapViewport) => void;
   onPointClick?: (id: string) => void;
   className?: string;
@@ -89,23 +110,67 @@ function toGeoJson(points: SiteMapPoint[]): FeatureCollection {
   };
 }
 
-function addSitesLayers(map: MapLibre.Map, data: FeatureCollection) {
+/** Selection reads from the feature property (points) or feature state (tiles). */
+const selectedExpr = (mode: Mode): MapLibre.ExpressionSpecification =>
+  mode === 'points'
+    ? ['==', ['get', 'selected'], 1]
+    : ['boolean', ['feature-state', 'selected'], false];
+
+function addSitesLayers(map: MapLibre.Map, mode: Mode, data: FeatureCollection, tiles?: SiteMapTiles) {
   if (map.getSource(SOURCE)) return;
-  map.addSource(SOURCE, { type: 'geojson', data });
+  if (mode === 'tiles' && tiles) {
+    map.addSource(SOURCE, {
+      type: 'vector',
+      tiles: [tiles.url],
+      minzoom: 0,
+      maxzoom: 22,
+      // the tile feature's `id` property becomes the feature id feature-state keys on
+      promoteId: { [tiles.sourceLayer]: 'id' },
+    });
+  } else {
+    map.addSource(SOURCE, { type: 'geojson', data });
+  }
+  const layerSource =
+    mode === 'tiles' && tiles ? { source: SOURCE, 'source-layer': tiles.sourceLayer } : { source: SOURCE };
+  const isCluster: MapLibre.ExpressionSpecification = ['>', ['coalesce', ['get', 'count'], 1], 1];
+  const selected = selectedExpr(mode);
+
+  if (mode === 'tiles') {
+    map.addLayer({
+      id: LAYER_CLUSTER,
+      type: 'circle',
+      ...layerSource,
+      filter: isCluster,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['get', 'count'], 2, 12, 20, 18, 100, 26],
+        'circle-color': NEUTRAL_DOT,
+        'circle-opacity': 0.85,
+        'circle-stroke-color': STROKE,
+        'circle-stroke-width': 2,
+      },
+    });
+  }
   map.addLayer({
     id: LAYER_HALO,
     type: 'circle',
-    source: SOURCE,
-    filter: ['==', ['get', 'selected'], 1],
-    paint: { 'circle-radius': 16, 'circle-color': ACCENT, 'circle-opacity': 0.18 },
+    ...layerSource,
+    // feature-state is not allowed in a filter, so the halo is always there
+    // and selection turns its opacity on
+    filter: ['!', isCluster],
+    paint: {
+      'circle-radius': 16,
+      'circle-color': ACCENT,
+      'circle-opacity': ['case', selected, 0.18, 0],
+    },
   });
   map.addLayer({
     id: LAYER_DOT,
     type: 'circle',
-    source: SOURCE,
+    ...layerSource,
+    filter: ['!', isCluster],
     paint: {
-      'circle-radius': ['case', ['==', ['get', 'selected'], 1], 8, 6],
-      'circle-color': ['case', ['==', ['get', 'selected'], 1], ACCENT, NEUTRAL_DOT],
+      'circle-radius': ['case', selected, 8, 6],
+      'circle-color': ['case', selected, ACCENT, NEUTRAL_DOT],
       'circle-stroke-color': STROKE,
       'circle-stroke-width': 2,
     },
@@ -126,6 +191,8 @@ function bounds(points: SiteMapPoint[]): [[number, number], [number, number]] | 
 
 export function SiteMap({
   points,
+  tiles,
+  selectedIds = [],
   basemap = 'light',
   fitKey = 0,
   onViewportChange,
@@ -134,16 +201,34 @@ export function SiteMap({
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibre.Map | null>(null);
-  const libRef = useRef<typeof MapLibre | null>(null);
   const pointsRef = useRef(points);
+  const tilesRef = useRef(tiles);
+  const selectionRef = useRef(selectedIds);
   const viewportCb = useRef(onViewportChange);
   const clickCb = useRef(onPointClick);
   const lastFit = useRef(fitKey);
   // true once the view means something: fitted to points, or moved by the user
   const positioned = useRef(false);
+  // ids currently flagged in feature state, to clear on the next change
+  const flagged = useRef<Set<string>>(new Set());
   pointsRef.current = points;
+  tilesRef.current = tiles;
+  selectionRef.current = selectedIds;
   viewportCb.current = onViewportChange;
   clickCb.current = onPointClick;
+  const mode: Mode = tiles ? 'tiles' : 'points';
+
+  const applySelection = (map: MapLibre.Map, ids: readonly string[]) => {
+    const t = tilesRef.current;
+    if (!t || !map.getSource(SOURCE)) return;
+    const next = new Set(ids);
+    for (const id of flagged.current)
+      if (!next.has(id))
+        map.setFeatureState({ source: SOURCE, sourceLayer: t.sourceLayer, id }, { selected: false });
+    for (const id of next)
+      map.setFeatureState({ source: SOURCE, sourceLayer: t.sourceLayer, id }, { selected: true });
+    flagged.current = next;
+  };
 
   // mount once: load the library, create the map, wire events
   useEffect(() => {
@@ -158,7 +243,6 @@ export function SiteMap({
         // Bundled as a chunk, the library cannot find its own script to spawn
         // its worker from (workerUrl resolves to ""), and a worker at the page
         // URL boots nothing: every tile and GeoJSON request then waits forever.
-        // Hand it the worker file as an asset the bundler emits.
         // `?worker&url`: the bundler builds the worker entry as its own
         // self-contained script and hands back its URL - a plain `?url` copy
         // still imports shared chunks that touch `window` and dies on boot
@@ -166,7 +250,6 @@ export function SiteMap({
       ]);
       if (disposed) return;
       lib.setWorkerUrl(worker.default);
-      libRef.current = lib;
       const initial = bounds(pointsRef.current);
       const map = new lib.Map({
         container: el,
@@ -191,12 +274,17 @@ export function SiteMap({
           });
         }, 250);
       };
+      const addLayers = () => {
+        addSitesLayers(map, mode, toGeoJson(pointsRef.current), tilesRef.current);
+        flagged.current = new Set();
+        applySelection(map, selectionRef.current);
+      };
       map.on('load', () => {
-        addSitesLayers(map, toGeoJson(pointsRef.current));
+        addLayers();
         // the list follows the map from the first frame, not the first drag
         if (positioned.current) emitViewport();
       });
-      map.on('style.load', () => addSitesLayers(map, toGeoJson(pointsRef.current)));
+      map.on('style.load', addLayers);
       map.on('movestart', (e) => {
         if ((e as { originalEvent?: unknown }).originalEvent) positioned.current = true;
       });
@@ -205,8 +293,22 @@ export function SiteMap({
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (id) clickCb.current?.(id);
       });
-      map.on('mouseenter', LAYER_DOT, () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', LAYER_DOT, () => { map.getCanvas().style.cursor = ''; });
+      map.on('click', LAYER_CLUSTER, (e) => {
+        // a cluster opens up on click: two zoom levels closer, centred on it
+        const geometry = e.features?.[0]?.geometry;
+        if (geometry && geometry.type === 'Point') {
+          positioned.current = true;
+          map.easeTo({ center: geometry.coordinates as [number, number], zoom: map.getZoom() + 2 });
+        }
+      });
+      for (const layer of [LAYER_DOT, LAYER_CLUSTER]) {
+        map.on('mouseenter', layer, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', layer, () => {
+          map.getCanvas().style.cursor = '';
+        });
+      }
       mapRef.current = map;
       // test hook: browser suites and a console can reach the instance
       // through the element; nothing in the app reads it
@@ -222,18 +324,28 @@ export function SiteMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // points changed: update the source in place; if the map was created before
-  // its points existed, the first points position it
+  // points changed: update the GeoJSON source in place (point mode); if the
+  // map was created before its points existed, the first points position it
   useEffect(() => {
     const map = mapRef.current;
-    const source = map?.getSource(SOURCE) as MapLibre.GeoJSONSource | undefined;
-    source?.setData(toGeoJson(points));
+    if (map && mode === 'points') {
+      const source = map.getSource(SOURCE) as MapLibre.GeoJSONSource | undefined;
+      source?.setData(toGeoJson(points));
+    }
     const b = bounds(points);
     if (map && b && !positioned.current) {
       positioned.current = true;
       map.fitBounds(b, { padding: 48, maxZoom: 13, duration: 0 });
     }
-  }, [points]);
+  }, [points, mode]);
+
+  // selection changed (tile mode): flag feature state
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) applySelection(map, selectedIds);
+    // applySelection reads refs; selectedIds is the input
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds]);
 
   // basemap changed: swap the style, layers are re-added on style.load
   useEffect(() => {

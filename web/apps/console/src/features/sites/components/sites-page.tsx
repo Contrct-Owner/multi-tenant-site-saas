@@ -86,6 +86,17 @@ export function SitesPage() {
 
   // the box only exists in the map view: the table is the whole scope
   const box = view === 'map' && viewport ? snapToTileGrid(viewport) : null;
+  // the map draws the API's sites tiles (ADR 50 §4): scope and clustering are
+  // the server's; the console's chosen node rides along as `under`
+  const tiles = useMemo(
+    () => ({
+      url: `${window.location.origin}/api/tiles/sites/{z}/{x}/{y}${
+        scope.nodeId ? `?under=${encodeURIComponent(scope.nodeId)}` : ''
+      }`,
+      sourceLayer: 'sites',
+    }),
+    [scope.nodeId],
+  );
   const sitesQuery = useSites(
     filter,
     scope.nodeId,
@@ -102,6 +113,10 @@ export function SitesPage() {
   const { data: hierarchy } = useHierarchy();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const selectedCount = Object.values(rowSelection).filter(Boolean).length;
+  const selectedIds = useMemo(
+    () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
+    [rowSelection],
+  );
   const toggleSelected = useCallback(
     (id: string) =>
       setRowSelection((current) => {
@@ -420,6 +435,8 @@ export function SitesPage() {
                 <SiteMap
                   className="order-1 h-[360px] md:order-2 md:h-[560px]"
                   points={points}
+                  tiles={tiles}
+                  selectedIds={selectedIds}
                   basemap={theme === 'dark' ? 'dark' : 'light'}
                   fitKey={fitKey}
                   onViewportChange={setViewport}
