@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Premise.Modules.Identity.Data;
@@ -21,6 +22,7 @@ public static class BounceWebhookEndpoint
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverinePost("/notifications/bounce")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public static async Task<IResult> Receive(
         BounceReport report,
         HttpContext http,

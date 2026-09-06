@@ -20,7 +20,10 @@ public static class AuditModule
         services.AddScoped<Premise.Contracts.IOrgDataExporter, AuditExporter>();
         services.AddScoped<Premise.Contracts.IAuditTrailExporter, AuditTrailExporter>();
         if (runBackgroundWork)
+        {
             services.AddHostedService<AuditRetentionService>();
+            services.AddHostedService<AuditPartitionMaintenanceService>();
+        }
         return services;
     }
 }

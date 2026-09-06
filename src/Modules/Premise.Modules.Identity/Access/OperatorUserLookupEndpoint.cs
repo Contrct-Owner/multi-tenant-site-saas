@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Identity.Data;
@@ -7,6 +8,16 @@ using Wolverine.Attributes;
 using Wolverine.Http;
 
 namespace Premise.Modules.Identity.Access;
+
+public sealed record OperatorUserOrgResponse(Guid Id, string Name, string Status);
+
+public sealed record OperatorUserResponse(
+    Guid Id,
+    string Email,
+    string? Name,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<OperatorUserOrgResponse> Orgs
+);
 
 /// <summary>
 /// "A ticket from jane@customer.com - which org is she?" (maturity review,
@@ -19,6 +30,7 @@ public static class OperatorUserLookupEndpoint
 {
     [Transactional(typeof(IdentityDbContext))]
     [WolverineGet("/api/operator/users")]
+    [ProducesResponseType(typeof(List<OperatorUserResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> Search(
         string q,
         IdentityDbContext db,

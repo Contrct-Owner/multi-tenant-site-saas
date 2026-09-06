@@ -8,6 +8,7 @@
   <Folder Name="/src/Integrations/">
     <Project Path="src/Integrations/Premise.Integrations.AmazonS3/Premise.Integrations.AmazonS3.csproj" />
     <Project Path="src/Integrations/Premise.Integrations.AzureBlob/Premise.Integrations.AzureBlob.csproj" />
+    <Project Path="src/Integrations/Premise.Integrations.ClamAV/Premise.Integrations.ClamAV.csproj" />
     <Project Path="src/Integrations/Premise.Integrations.Smtp/Premise.Integrations.Smtp.csproj" />
     <Project Path="src/Integrations/Premise.Integrations.Stripe/Premise.Integrations.Stripe.csproj" />
     <Project Path="src/Integrations/Premise.Integrations.WorkOS/Premise.Integrations.WorkOS.csproj" />
