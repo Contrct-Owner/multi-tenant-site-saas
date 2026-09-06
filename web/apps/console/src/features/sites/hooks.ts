@@ -36,6 +36,15 @@ export const useHierarchy = () =>
     staleTime: 5 * 60_000,
   });
 
+// an org setting, edited on the settings page: fresh enough for a session
+export const useBasemaps = (enabled = true) =>
+  useQuery({
+    queryKey: ['basemaps'],
+    queryFn: ({ signal }) => sitesApi.basemaps(signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+
 export const useSite = (id: string) =>
   useQuery({ queryKey: ['site', id], queryFn: ({ signal }) => sitesApi.get(id, signal) });
 

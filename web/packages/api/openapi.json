@@ -1102,6 +1102,104 @@
         }
       }
     },
+    "/api/map/basemaps": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.MapBasemapsEndpoints"
+        ],
+        "summary": "GET_api_map_basemaps",
+        "description": "GET_api_map_basemaps",
+        "operationId": "GET_api_map_basemaps",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasemapListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.MapBasemapsEndpoints"
+        ],
+        "summary": "PUT_api_map_basemaps",
+        "description": "PUT_api_map_basemaps",
+        "operationId": "PUT_api_map_basemaps",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutBasemapsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasemapSettingsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/map/basemaps/settings": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Organizations.MapBasemapsEndpoints"
+        ],
+        "summary": "GET_api_map_basemaps_settings",
+        "description": "GET_api_map_basemaps_settings",
+        "operationId": "GET_api_map_basemaps_settings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BasemapSettingsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/org/export": {
       "post": {
         "tags": [
@@ -6140,6 +6238,140 @@
           }
         }
       },
+      "Basemap": {
+        "required": [
+          "id",
+          "name",
+          "urlTemplate",
+          "attribution",
+          "maxZoom"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "urlTemplate": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "maxZoom": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BasemapInput": {
+        "required": [
+          "id",
+          "name",
+          "urlTemplate",
+          "attribution"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "urlTemplate": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "maxZoom": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BasemapListResponse": {
+        "required": [
+          "basemaps"
+        ],
+        "type": "object",
+        "properties": {
+          "basemaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Basemap"
+            }
+          }
+        }
+      },
+      "BasemapSetting": {
+        "required": [
+          "id",
+          "name",
+          "urlTemplate",
+          "attribution",
+          "maxZoom",
+          "hasKey"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "urlTemplate": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "maxZoom": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hasKey": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BasemapSettingsResponse": {
+        "required": [
+          "basemaps"
+        ],
+        "type": "object",
+        "properties": {
+          "basemaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BasemapSetting"
+            }
+          }
+        }
+      },
       "BillingLinkResponse": {
         "required": [
           "url"
@@ -8404,6 +8636,20 @@
           }
         }
       },
+      "PutBasemapsRequest": {
+        "required": [
+          "basemaps"
+        ],
+        "type": "object",
+        "properties": {
+          "basemaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BasemapInput"
+            }
+          }
+        }
+      },
       "PutSettingRequest": {
         "required": [
           "value"
@@ -9367,6 +9613,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Organizations.MapBasemapsEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.LifecycleEndpoints"

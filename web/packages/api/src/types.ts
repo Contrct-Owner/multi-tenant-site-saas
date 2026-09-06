@@ -384,6 +384,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map/basemaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_map_basemaps
+         * @description GET_api_map_basemaps
+         */
+        get: operations["GET_api_map_basemaps"];
+        /**
+         * PUT_api_map_basemaps
+         * @description PUT_api_map_basemaps
+         */
+        put: operations["PUT_api_map_basemaps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/map/basemaps/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_map_basemaps_settings
+         * @description GET_api_map_basemaps_settings
+         */
+        get: operations["GET_api_map_basemaps_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/org/export": {
         parameters: {
             query?: never;
@@ -2913,6 +2957,38 @@ export interface components {
             /** Format: int32 */
             statusCode?: null | number | string;
         };
+        Basemap: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom: number | string;
+        };
+        BasemapInput: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom?: null | number | string;
+            key?: null | string;
+        };
+        BasemapListResponse: {
+            basemaps: components["schemas"]["Basemap"][];
+        };
+        BasemapSetting: {
+            id: string;
+            name: string;
+            urlTemplate: string;
+            attribution: string;
+            /** Format: int32 */
+            maxZoom: number | string;
+            hasKey: boolean;
+        };
+        BasemapSettingsResponse: {
+            basemaps: components["schemas"]["BasemapSetting"][];
+        };
         BillingLinkResponse: {
             url: string;
         };
@@ -3492,6 +3568,9 @@ export interface components {
         PublicUrlResponse: {
             url: string;
             embedSnippet: string;
+        };
+        PutBasemapsRequest: {
+            basemaps: components["schemas"]["BasemapInput"][];
         };
         PutSettingRequest: {
             value: string;
@@ -4514,6 +4593,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_map_basemaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PUT_api_map_basemaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutBasemapsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapSettingsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_map_basemaps_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapSettingsResponse"];
                 };
             };
             /** @description Not Found */

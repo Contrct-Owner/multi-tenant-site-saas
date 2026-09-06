@@ -41,6 +41,16 @@ export type SiteMapViewport = {
 
 export type SiteMapBasemap = 'osm' | 'light' | 'dark';
 
+/** An org-configured raster basemap (ADR 50 §3, the `map.basemaps` setting), keyed by its id. */
+export type SiteMapRasterBasemap = {
+  id: string;
+  name: string;
+  /** Absolute URL template with {z}/{x}/{y}; any provider key is already in place. */
+  urlTemplate: string;
+  attribution: string;
+  maxZoom: number;
+};
+
 export type SiteMapTiles = {
   /** Absolute URL template with {z}/{x}/{y}; the API's tile endpoint. */
   url: string;
@@ -75,6 +85,29 @@ const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
   dark: 'https://tiles.openfreemap.org/styles/dark',
 };
 
+/** The style for a built-in basemap, or an org raster entry by id; unknown ids fall back to light. */
+function styleFor(
+  basemap: string,
+  rasters: readonly SiteMapRasterBasemap[],
+): string | MapLibre.StyleSpecification {
+  if (basemap in BASEMAPS) return BASEMAPS[basemap as SiteMapBasemap];
+  const raster = rasters.find((r) => r.id === basemap);
+  if (!raster) return BASEMAPS.light;
+  return {
+    version: 8,
+    sources: {
+      base: {
+        type: 'raster',
+        tiles: [raster.urlTemplate],
+        tileSize: 256,
+        maxzoom: raster.maxZoom,
+        attribution: raster.attribution,
+      },
+    },
+    layers: [{ id: 'base', type: 'raster', source: 'base' }],
+  };
+}
+
 const SOURCE = 'premise-sites';
 const LAYER_HALO = 'premise-sites-halo';
 const LAYER_DOT = 'premise-sites-dot';
@@ -97,7 +130,10 @@ type Props = {
   selectedIds?: readonly string[];
   /** Overlay layers to draw under the sites; an empty list draws none. */
   overlays?: readonly SiteMapOverlay[];
-  basemap?: SiteMapBasemap;
+  /** A built-in basemap, or the id of one of `basemaps`. */
+  basemap?: SiteMapBasemap | (string & {});
+  /** Org-configured raster basemaps the id may name. */
+  basemaps?: readonly SiteMapRasterBasemap[];
   /** Bump this to fit the view to the current points (Fit to scope). */
   fitKey?: number;
   /** After the user pans or zooms (debounced), and once after the first frame. */
@@ -260,6 +296,7 @@ export function SiteMap({
   selectedIds = [],
   overlays = [],
   basemap = 'light',
+  basemaps = [],
   fitKey = 0,
   onViewportChange,
   onPointClick,
@@ -271,6 +308,9 @@ export function SiteMap({
   const tilesRef = useRef(tiles);
   const selectionRef = useRef(selectedIds);
   const overlaysRef = useRef(overlays);
+  const basemapsRef = useRef(basemaps);
+  // the style in force, so a basemap list refetch does not reset the map
+  const styleKey = useRef('');
   // overlay sources on the map right now (source id -> key)
   const knownOverlays = useRef<Map<string, string>>(new Map());
   const viewportCb = useRef(onViewportChange);
@@ -284,6 +324,7 @@ export function SiteMap({
   tilesRef.current = tiles;
   selectionRef.current = selectedIds;
   overlaysRef.current = overlays;
+  basemapsRef.current = basemaps;
   viewportCb.current = onViewportChange;
   clickCb.current = onPointClick;
   const mode: Mode = tiles ? 'tiles' : 'points';
@@ -323,7 +364,7 @@ export function SiteMap({
       const initial = bounds(pointsRef.current);
       const map = new lib.Map({
         container: el,
-        style: BASEMAPS[basemap],
+        style: styleFor(basemap, basemapsRef.current),
         ...(initial
           ? { bounds: initial, fitBoundsOptions: { padding: 48, maxZoom: 13 } }
           : { center: [-98, 39], zoom: 3 }),
@@ -429,8 +470,14 @@ export function SiteMap({
   // basemap changed: swap the style, layers are re-added on style.load
   useEffect(() => {
     const map = mapRef.current;
-    if (map && map.isStyleLoaded()) map.setStyle(BASEMAPS[basemap]);
-  }, [basemap]);
+    const style = styleFor(basemap, basemaps);
+    const key = JSON.stringify(style);
+    if (!styleKey.current) styleKey.current = key; // the style the map was created with
+    if (map && map.isStyleLoaded() && key !== styleKey.current) {
+      styleKey.current = key;
+      map.setStyle(style);
+    }
+  }, [basemap, basemaps]);
 
   // fit requested
   useEffect(() => {

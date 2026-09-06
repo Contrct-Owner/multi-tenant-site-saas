@@ -186,6 +186,7 @@ export function SettingsPage() {
       </Card>
 
       {can(me, 'sites:manage') && <SiteAttributesCard />}
+      <MapBasemapsCard />
 
       <Card>
         <CardHeader><CardTitle>Public locator</CardTitle></CardHeader>
@@ -343,6 +344,123 @@ function SiteAttributesCard() {
             Add
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The org's own basemaps (ADR 50 §3, the `map.basemaps` setting): raster
+ * tile providers the map offers beside the open ones it ships with. A
+ * provider key is written once and never shown again; the map receives it
+ * in the tile URL, which is how providers key by referrer.
+ */
+function MapBasemapsCard() {
+  const [name, setName] = useState('');
+  const [id, setId] = useState('');
+  const [urlTemplate, setUrlTemplate] = useState('');
+  const [attribution, setAttribution] = useState('');
+  const [maxZoom, setMaxZoom] = useState('19');
+  const [key, setKey] = useState('');
+
+  const { data } = useQuery({
+    queryKey: ['basemaps', 'settings'],
+    queryFn: ({ signal }) => api.get('/api/map/basemaps/settings', { signal }),
+  });
+  const entries = data?.basemaps ?? [];
+  // the whole list is the setting: a save carries every entry, keys kept server-side by id
+  const keep = entries.map((e) => ({
+    id: e.id,
+    name: e.name,
+    urlTemplate: e.urlTemplate,
+    attribution: e.attribution,
+    maxZoom: Number(e.maxZoom),
+  }));
+  const save = useApiMutation({
+    mutationFn: (basemaps: typeof keep & { key?: string | null }[]) =>
+      api.put('/api/map/basemaps', { basemaps }),
+    invalidate: [['basemaps']],
+    success: 'Basemaps saved',
+    onSuccess: () => {
+      setName('');
+      setId('');
+      setUrlTemplate('');
+      setAttribution('');
+      setMaxZoom('19');
+      setKey('');
+    },
+  });
+  const needsKey = urlTemplate.includes('{key}');
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Map basemaps</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Raster tile providers the map offers beside OpenStreetMap and the themed default. Put{' '}
+          <code className="rounded bg-muted px-1">{'{key}'}</code> in the URL where the provider wants its
+          key; the key is stored encrypted and never shown again.
+        </p>
+        {entries.map((e) => (
+          <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+            <span className="min-w-0">
+              <span className="font-medium">{e.name}</span>
+              <span className="ml-2 text-muted-foreground">{e.id} · zoom {String(e.maxZoom)}{e.hasKey && ' · keyed'}</span>
+              <span className="block truncate text-xs text-muted-foreground">{e.urlTemplate}</span>
+            </span>
+            <ConfirmButton size="sm" variant="ghost" confirmLabel="Remove?" disabled={save.isPending}
+              onConfirm={() => save.mutate(keep.filter((k) => k.id !== e.id))}>
+              Remove
+            </ConfirmButton>
+          </div>
+        ))}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="basemap-name">Name</Label>
+            <Input id="basemap-name" value={name} placeholder="Aerial"
+              onChange={(e) => {
+                setName(e.target.value);
+                setId(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+              }} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="basemap-id">Id</Label>
+            <Input id="basemap-id" className="font-mono text-xs" value={id} onChange={(e) => setId(e.target.value)} />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="basemap-url">URL template</Label>
+            <Input id="basemap-url" className="font-mono text-xs" value={urlTemplate}
+              placeholder="https://tiles.example.com/{z}/{x}/{y}.png?key={key}"
+              onChange={(e) => setUrlTemplate(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="basemap-attribution">Attribution</Label>
+            <Input id="basemap-attribution" value={attribution} placeholder="© Example Maps"
+              onChange={(e) => setAttribution(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="basemap-zoom">Max zoom</Label>
+            <Input id="basemap-zoom" type="number" min={1} max={22} value={maxZoom}
+              onChange={(e) => setMaxZoom(e.target.value)} />
+          </div>
+          {needsKey && (
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="basemap-key">Provider key</Label>
+              <Input id="basemap-key" type="password" autoComplete="off" value={key}
+                onChange={(e) => setKey(e.target.value)} />
+            </div>
+          )}
+        </div>
+        <Button size="sm" disabled={!name.trim() || !id || !urlTemplate.trim() || (needsKey && !key) || save.isPending}
+          onClick={() =>
+            save.mutate([
+              ...keep,
+              { id, name: name.trim(), urlTemplate: urlTemplate.trim(), attribution: attribution.trim(),
+                maxZoom: Number(maxZoom) || 19, key: key || null },
+            ])
+          }>
+          Add basemap
+        </Button>
       </CardContent>
     </Card>
   );

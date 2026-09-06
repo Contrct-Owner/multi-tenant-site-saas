@@ -20,6 +20,8 @@ export const sitesApi = {
     signal?: AbortSignal,
   ) => api.get('/api/sites', { query: { limit, offset, q, under, bbox, zoom }, signal }),
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
+  /** The org's raster basemaps (ADR 50 §3), provider keys already in the URLs. */
+  basemaps: (signal?: AbortSignal) => api.get('/api/map/basemaps', { signal }),
   create: (body: CreateSite) => api.post('/api/sites', body),
   get: async (id: string, signal?: AbortSignal) =>
     parseSiteResponse(await api.get('/api/sites/{id}', { path: { id }, signal })),

@@ -42,7 +42,7 @@ import { StatusBadge } from '../../../shell';
 import { overlaysApi } from '../../overlays/api';
 import { useOverlays } from '../../overlays/hooks';
 import { sitesApi } from '../api';
-import { useHierarchy, useSites } from '../hooks';
+import { useBasemaps, useHierarchy, useSites } from '../hooks';
 
 type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
   ? D extends { pages: { items: (infer R)[] }[] }
@@ -53,6 +53,15 @@ type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
 type View = 'table' | 'map';
 const VIEW_KEY = 'premise.sites.view';
 const HIDDEN_OVERLAYS_KEY = 'premise.sites.overlays.hidden';
+const BASEMAP_KEY = 'premise.map.basemap';
+
+function readBasemapChoice(): string {
+  try {
+    return localStorage.getItem(BASEMAP_KEY) ?? 'auto';
+  } catch {
+    return 'auto';
+  }
+}
 
 function readHiddenOverlays(): Set<string> {
   try {
@@ -131,6 +140,33 @@ export function SitesPage() {
       return next;
     });
   }, []);
+  // the basemap: the theme's own by default, OpenStreetMap, or one the org configured
+  const basemapsQuery = useBasemaps(view === 'map');
+  const rasters = useMemo(
+    () => (basemapsQuery.data?.basemaps ?? []).map((r) => ({ ...r, maxZoom: Number(r.maxZoom) })),
+    [basemapsQuery.data],
+  );
+  const [basemapChoice, setBasemapChoice] = useState(readBasemapChoice);
+  const chooseBasemap = useCallback((id: string) => {
+    setBasemapChoice(id);
+    try {
+      localStorage.setItem(BASEMAP_KEY, id);
+    } catch {
+      // storage is a convenience
+    }
+  }, []);
+  const knownChoice =
+    basemapChoice === 'auto' ||
+    basemapChoice === 'osm' ||
+    !basemapsQuery.data ||
+    rasters.some((r) => r.id === basemapChoice);
+  const basemap =
+    basemapChoice === 'auto' || !knownChoice ? (theme === 'dark' ? 'dark' : 'light') : basemapChoice;
+  const basemapChoices = [
+    { id: 'auto', name: 'Match theme' },
+    { id: 'osm', name: 'OpenStreetMap' },
+    ...rasters.map((r) => ({ id: r.id, name: r.name })),
+  ];
   const overlayLayers = useMemo(
     () => (overlaysQuery.data?.layers ?? []).filter((l) => Number(l.featureCount) > 0),
     [overlaysQuery.data],
@@ -420,7 +456,25 @@ export function SitesPage() {
                     }
                   />
                   <PopoverContent align="end" className="w-64">
-                    <p className="px-1 text-xs font-medium text-muted-foreground">Overlays</p>
+                    <fieldset className="flex flex-col gap-0.5">
+                      <legend className="px-1 pb-1 text-xs font-medium text-muted-foreground">Basemap</legend>
+                      {basemapChoices.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
+                        >
+                          <input
+                            type="radio"
+                            name="basemap"
+                            className="size-3.5 accent-primary"
+                            checked={(knownChoice ? basemapChoice : 'auto') === c.id}
+                            onChange={() => chooseBasemap(c.id)}
+                          />
+                          <span className="truncate">{c.name}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                    <p className="px-1 pt-1 text-xs font-medium text-muted-foreground">Overlays</p>
                     {overlayLayers.length === 0 ? (
                       <p className="px-1 text-sm text-muted-foreground">
                         No overlay layers with shapes yet.
@@ -533,7 +587,8 @@ export function SitesPage() {
                   tiles={tiles}
                   selectedIds={selectedIds}
                   overlays={overlays}
-                  basemap={theme === 'dark' ? 'dark' : 'light'}
+                  basemap={basemap}
+                  basemaps={rasters}
                   fitKey={fitKey}
                   onViewportChange={setViewport}
                   onPointClick={toggleSelected}
