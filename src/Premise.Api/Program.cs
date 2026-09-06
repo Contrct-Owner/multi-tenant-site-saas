@@ -6,12 +6,12 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Premise.Api;
 using Premise.Modules.Audit;
-using Premise.Modules.Spatial;
 using Premise.Modules.Checklists;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
 using Premise.Modules.Identity.Auth;
 using Premise.Modules.Ingest;
+using Premise.Modules.Spatial;
 using Premise.Modules.Storage;
 using Premise.Modules.Tenancy;
 using Premise.Platform.Audit;
@@ -129,6 +129,7 @@ builder.Services.AddSingleton<IPrincipalAccessor, RequestPrincipalAccessor>();
 builder.Services.AddScoped<TenantContext>(); // envelope-tenant holder (ADR 24)
 builder.Services.AddScoped<ITenantContext, PrincipalTenantContext>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddMemoryCache(); // low-zoom tiles (ADR 51), keyed by org and scope
 
 // Gates 2+3: roles compile to grants; scope evaluated per request (ADR 6),
 // decorated with authz-decision audit (ADR 12: denials always).

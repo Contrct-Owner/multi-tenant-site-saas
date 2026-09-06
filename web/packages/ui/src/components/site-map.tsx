@@ -70,6 +70,10 @@ export type SiteMapOverlay = {
   style?: { fill?: string; stroke?: string; opacity?: number } | null;
 };
 
+// cluster counts are text, and text needs a glyph source: the raster styles
+// borrow OpenFreeMap's, the vector styles bring their own
+const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
+
 const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
   osm: {
     version: 8,
@@ -83,6 +87,7 @@ const BASEMAPS: Record<SiteMapBasemap, string | MapLibre.StyleSpecification> = {
       },
     },
     layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+    glyphs: GLYPHS,
   },
   light: 'https://tiles.openfreemap.org/styles/positron',
   dark: 'https://tiles.openfreemap.org/styles/dark',
@@ -108,6 +113,7 @@ function styleFor(
       },
     },
     layers: [{ id: 'base', type: 'raster', source: 'base' }],
+    glyphs: GLYPHS,
   };
 }
 
@@ -115,6 +121,7 @@ const SOURCE = 'premise-sites';
 const LAYER_HALO = 'premise-sites-halo';
 const LAYER_DOT = 'premise-sites-dot';
 const LAYER_CLUSTER = 'premise-sites-cluster';
+const LAYER_CLUSTER_COUNT = 'premise-sites-cluster-count';
 const OVERLAY_PREFIX = 'premise-overlay-';
 // MapLibre paints literal colors, not CSS tokens: the accent and neutral pin
 // from tokens.css, in hex, for both schemes
@@ -213,12 +220,35 @@ function addSitesLayers(
       ...layerSource,
       filter: isCluster,
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['get', 'count'], 2, 12, 20, 18, 100, 26],
+        // radius on a log scale, so ten, ten thousand and a million read as
+        // different sizes rather than all capping out
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['log10', ['get', 'count']],
+          0.3, 12,
+          2, 18,
+          4, 26,
+          6, 34,
+        ],
         'circle-color': NEUTRAL_DOT,
         'circle-opacity': 0.85,
         'circle-stroke-color': STROKE,
         'circle-stroke-width': 2,
       },
+    });
+    map.addLayer({
+      id: LAYER_CLUSTER_COUNT,
+      type: 'symbol',
+      ...layerSource,
+      filter: isCluster,
+      layout: {
+        'text-field': clusterLabel,
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 12,
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': STROKE },
     });
   }
   map.addLayer({
@@ -252,6 +282,16 @@ function addSitesLayers(
     },
   });
 }
+
+// 1,234 -> "1.2k", 1,234,567 -> "1.2M"; below a thousand the number itself
+const clusterLabel: MapLibre.ExpressionSpecification = [
+  'case',
+  ['>=', ['get', 'count'], 1000000],
+  ['concat', ['to-string', ['/', ['round', ['/', ['get', 'count'], 100000]], 10]], 'M'],
+  ['>=', ['get', 'count'], 1000],
+  ['concat', ['to-string', ['/', ['round', ['/', ['get', 'count'], 100]], 10]], 'k'],
+  ['to-string', ['get', 'count']],
+];
 
 const overlayKey = (o: SiteMapOverlay) => JSON.stringify([o.url, o.sourceLayer, o.style ?? null]);
 
@@ -445,7 +485,7 @@ export function SiteMap({
           map.easeTo({ center: geometry.coordinates as [number, number], zoom: map.getZoom() + 2 });
         }
       });
-      for (const layer of [LAYER_DOT, LAYER_CLUSTER]) {
+      for (const layer of [LAYER_DOT, LAYER_CLUSTER, LAYER_CLUSTER_COUNT]) {
         map.on('mouseenter', layer, () => {
           map.getCanvas().style.cursor = 'pointer';
         });
@@ -495,7 +535,7 @@ export function SiteMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || mode !== 'tiles' || !tiles || !map.getSource(SOURCE)) return;
-    for (const layer of [LAYER_CLUSTER, LAYER_HALO, LAYER_DOT]) if (map.getLayer(layer)) map.removeLayer(layer);
+    for (const layer of [LAYER_CLUSTER_COUNT, LAYER_CLUSTER, LAYER_HALO, LAYER_DOT]) if (map.getLayer(layer)) map.removeLayer(layer);
     map.removeSource(SOURCE);
     addSitesLayers(map, mode, toGeoJson(pointsRef.current), tiles, statuses);
     flagged.current = new Set();

@@ -13,6 +13,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { MapPin, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { sitesApi } from '../features/sites/api';
+import { useDebounced } from '../lib/debounce';
 import { StatusBadge } from '../shell';
 
 /**
@@ -38,10 +39,11 @@ export function CommandSearch() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const term = q.trim();
+  // a keystroke is not a query: the server sees the term once typing pauses
+  const term = useDebounced(q.trim(), 250);
   const results = useQuery({
     queryKey: ['sites', 'search', term],
-    queryFn: ({ signal }) => sitesApi.list(8, 0, term, undefined, undefined, undefined, signal),
+    queryFn: ({ signal }) => sitesApi.list(8, undefined, term, undefined, undefined, undefined, signal),
     enabled: open && term.length > 0,
   });
   const items = results.data?.items ?? [];
@@ -77,7 +79,7 @@ export function CommandSearch() {
       >
         <Command shouldFilter={false} className="**:data-[selected=true]:bg-muted">
           <CommandInput
-            placeholder="Search sites by name or city…"
+            placeholder="Search sites by a word of the name or city…"
             aria-label="Search sites"
             value={q}
             onValueChange={setQ}

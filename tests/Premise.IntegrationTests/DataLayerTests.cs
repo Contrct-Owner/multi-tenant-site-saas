@@ -66,6 +66,40 @@ public class DataLayerTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     }
 
     [Fact]
+    public async Task World_and_continent_tiles_carry_the_sites_as_clusters()
+    {
+        // ADR 51: a zoom-0 or zoom-1 envelope is 360 or 180 degrees wide, which
+        // as a geography polygon is empty or an antipodal error; as a cell
+        // range it is just the widest range there is
+        var owner = await fixture.LoginAsync(ApiFixture.UserA);
+        await ApiFixture.EnsureSiteAsync(
+            owner,
+            "Ushuaia",
+            "America/Argentina/Ushuaia",
+            -54.8,
+            -68.3
+        );
+
+        var world = await owner.GetAsync("/api/tiles/sites/0/0/0");
+        Assert.Equal(HttpStatusCode.OK, world.StatusCode);
+        Assert.Contains(
+            "count",
+            Encoding.UTF8.GetString(await world.Content.ReadAsByteArrayAsync())
+        );
+
+        // the south-west quarter of the planet at zoom 1 holds Ushuaia
+        var (x, y) = Tile(-68.3, -54.8, 1);
+        var quarter = await owner.GetAsync($"/api/tiles/sites/1/{x}/{y}");
+        Assert.Equal(HttpStatusCode.OK, quarter.StatusCode);
+        // and the opposite quarter answers, empty or not, never an error
+        var elsewhere = await owner.GetAsync($"/api/tiles/sites/1/{1 - x}/{1 - y}");
+        Assert.True(
+            elsewhere.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.OK,
+            elsewhere.StatusCode.ToString()
+        );
+    }
+
+    [Fact]
     public async Task Open_now_reads_the_occurrence_projection()
     {
         var owner = await fixture.LoginAsync(ApiFixture.UserA);

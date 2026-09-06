@@ -3432,6 +3432,7 @@ export interface components {
             generatedAt: string;
             organization: string;
             listings: components["schemas"]["ListingRecord"][];
+            next: null | string;
         };
         MemberListResponse: {
             items: components["schemas"]["MemberSummary"][];
@@ -3745,10 +3746,11 @@ export interface components {
             total: number | string;
             /** Format: int32 */
             openCount: number | string;
-            /** Format: int32 */
-            nextOffset: null | number | string;
+            next: null | string;
             /** Format: int32 */
             withoutCoordinates?: null | number | string;
+            /** @default false */
+            totalIsLowerBound: boolean;
         };
         SiteResponse: {
             /** Format: uuid */
@@ -4031,7 +4033,7 @@ export interface operations {
                 bbox?: string;
                 zoom?: number | string;
                 limit?: number | string;
-                offset?: number | string;
+                after?: string;
             };
             header?: never;
             path?: never;
@@ -4329,7 +4331,10 @@ export interface operations {
     };
     GET_api_listings_feed: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | string;
+                after?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

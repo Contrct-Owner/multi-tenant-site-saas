@@ -97,17 +97,25 @@ public class BoundingBoxTests
         }
     }
 
+    private sealed record Point(string Name, double? Latitude, double? Longitude) : ISpatialPoint
+    {
+        public long? Cell => SpatialCells.Key(Latitude, Longitude);
+    }
+
     [Fact]
-    public void IntersectsAny_is_a_null_guarded_or_chain_that_evaluates_in_memory()
+    public void InViewport_is_cell_ranges_made_exact_by_the_coordinates()
     {
         Assert.True(BoundingBox.TryParse("170,-20,-170,-10", out var box, out _));
-        var predicate = SpatialPredicates
-            .IntersectsAny<(string name, Point? at)>(s => s.at, box.Envelopes())
-            .Compile();
-        var factory = new GeometryFactory(new PrecisionModel(), 4326);
-        Assert.True(predicate(("Suva", factory.CreatePoint(new Coordinate(178.4, -18.1)))));
-        Assert.True(predicate(("Apia", factory.CreatePoint(new Coordinate(-171.8, -13.8)))));
-        Assert.False(predicate(("Hawthorne", factory.CreatePoint(new Coordinate(-122.6, 45.5)))));
-        Assert.False(predicate(("Nowhere", null)));
+        var predicate = SpatialPredicates.InViewport<Point>(box).Compile();
+        Assert.True(predicate(new Point("Suva", -18.1, 178.4)));
+        Assert.True(predicate(new Point("Apia", -13.8, -171.8)));
+        Assert.False(predicate(new Point("Hawthorne", 45.5, -122.6)));
+        Assert.False(predicate(new Point("Nowhere", null, null)));
+
+        Assert.True(BoundingBox.TryParse("-123,45,-122,46", out var portland, out _));
+        var inPortland = SpatialPredicates.InViewport<Point>(portland).Compile();
+        Assert.True(inPortland(new Point("Hawthorne", 45.5122, -122.6284)));
+        // inside the covering cells but outside the box: the coordinates decide
+        Assert.False(inPortland(new Point("Just north", 46.01, -122.6)));
     }
 }

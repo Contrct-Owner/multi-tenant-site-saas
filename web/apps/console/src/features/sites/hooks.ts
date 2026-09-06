@@ -22,9 +22,8 @@ export function useSites(
     queryKey: ['sites', 'list', filter, under, bbox ?? null, zoom ?? null, status ?? null],
     queryFn: ({ pageParam, signal }) =>
       sitesApi.list(50, pageParam, filter || undefined, under ?? undefined, bbox, zoom, signal, status || undefined),
-    initialPageParam: 0,
-    getNextPageParam: (last) =>
-      last.nextOffset == null ? undefined : Number(last.nextOffset),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.next == null ? undefined : String(last.next)),
   });
 }
 

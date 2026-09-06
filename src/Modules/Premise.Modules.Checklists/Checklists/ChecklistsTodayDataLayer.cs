@@ -28,33 +28,27 @@ public sealed class ChecklistsTodayDataLayer(ChecklistsDbContext db) : IDataLaye
         new("none", "No lists", "#71717a"),
     ];
 
+    // per-site LATERAL, not an aggregate over every site first: the tile's
+    // cell range is applied to `s`, so only the sites in the tile are costed
     private const string Facts = $"""
-        WITH sites AS ({DataLayerTiles.SitesSql}),
-        applying AS (
-            SELECT s.id AS site_id, t.id AS template_id, cardinality(t.items) AS items,
-                   (now() AT TIME ZONE s.time_zone)::date AS business_date
-            FROM sites s
-            JOIN checklists.templates t
-              ON t.org_id = @org AND (t.scope_path IS NULL OR s.path <@ t.scope_path::ltree)
-        ),
-        progress AS (
-            SELECT a.site_id, a.items,
-                   (SELECT count(*) FROM checklists.item_checks c
-                     WHERE c.template_id = a.template_id AND c.site_id = a.site_id
-                       AND c.business_date = a.business_date) AS done
-            FROM applying a
-        ),
-        per_site AS (SELECT site_id, sum(items) AS items, sum(done) AS done FROM progress GROUP BY site_id)
+        WITH sites AS ({DataLayerTiles.SitesSql})
         SELECT s.id, s.name,
                CASE
-                   WHEN p.site_id IS NULL OR p.items = 0 THEN 'none'
+                   WHEN p.items IS NULL OR p.items = 0 THEN 'none'
                    WHEN p.done = 0 THEN 'pending'
                    WHEN p.done >= p.items THEN 'complete'
                    ELSE 'partial'
                END AS status,
-               s.path, s.location
+               s.path_text, s.cell, s.location
         FROM sites s
-        LEFT JOIN per_site p ON p.site_id = s.id
+        LEFT JOIN LATERAL (
+            SELECT sum(cardinality(t.items)) AS items,
+                   sum((SELECT count(*) FROM checklists.item_checks c
+                         WHERE c.template_id = t.id AND c.site_id = s.id
+                           AND c.business_date = (now() AT TIME ZONE s.time_zone)::date)) AS done
+            FROM checklists.templates t
+            WHERE t.org_id = @org AND (t.scope_path IS NULL OR s.path <@ t.scope_path::ltree)
+        ) p ON true
         """;
 
     public Task<byte[]> RenderAsync(DataLayerTileRequest request, CancellationToken ct = default) =>

@@ -10,16 +10,17 @@ export const sitesApi = {
   // asks under; the server's own scope gate still applies on top (ADR 49)
   // bbox/zoom are the map view's viewport (ADR 49): one more predicate on
   // the same list, applied after scope; absent in the table view
+  // `after` is the keyset cursor the previous page returned as `next` (ADR 51)
   list: (
     limit: number,
-    offset: number,
+    after: string | undefined,
     q?: string,
     under?: string,
     bbox?: string,
     zoom?: number,
     signal?: AbortSignal,
     status?: string,
-  ) => api.get('/api/sites', { query: { limit, offset, q, under, bbox, zoom, status }, signal }),
+  ) => api.get('/api/sites', { query: { limit, after, q, under, bbox, zoom, status }, signal }),
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
   /** The org's raster basemaps (ADR 50 §3), provider keys already in the URLs. */
   basemaps: (signal?: AbortSignal) => api.get('/api/map/basemaps', { signal }),

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.Extensions.Caching.Memory;
 using Premise.Contracts;
 using Premise.Platform.Kernel;
 using Premise.Platform.Spatial;
@@ -29,6 +30,10 @@ public sealed record DataLayerListResponse(IReadOnlyList<DataLayerDescriptor> La
 public static class DataLayerEndpoints
 {
     private const string Mvt = "application/vnd.mapbox-vector-tile";
+    private static readonly TimeSpan ClusterTileTtl = TimeSpan.FromSeconds(60);
+
+    private static string ClusterTileKey(string layer, DataLayerTileRequest r) =>
+        $"tile:{layer}:{r.Org.Value}:{r.Z}/{r.X}/{r.Y}:{r.UnderPath}:{(r.ScopePaths is null ? "*" : string.Join("|", r.ScopePaths))}";
 
     public static void MapDataLayerEndpoints(this WebApplication app)
     {
@@ -82,6 +87,7 @@ public static class DataLayerEndpoints
                     IHierarchyDirectory hierarchy,
                     IPrincipalAccessor accessor,
                     IScopeResolver scopes,
+                    IMemoryCache cache,
                     CancellationToken ct
                 ) =>
                 {
@@ -113,10 +119,21 @@ public static class DataLayerEndpoints
                         underPath = node.Path;
                     }
 
-                    var bytes = await registered.RenderAsync(
-                        new DataLayerTileRequest(z, x, y, org, paths, underPath),
-                        ct
-                    );
+                    var request = new DataLayerTileRequest(z, x, y, org, paths, underPath);
+                    // a cluster tile aggregates every point in scope however far out the
+                    // map is: rendered once a minute per org, scope and node, shared by
+                    // everyone who sees the same rows - the org is in the key, never ambient
+                    var bytes =
+                        z < registered.MinPointZoom
+                            ? await cache.GetOrCreateAsync(
+                                ClusterTileKey(registered.Name, request),
+                                async entry =>
+                                {
+                                    entry.AbsoluteExpirationRelativeToNow = ClusterTileTtl;
+                                    return await registered.RenderAsync(request, ct);
+                                }
+                            ) ?? []
+                            : await registered.RenderAsync(request, ct);
                     if (bytes.Length == 0)
                         return Results.NoContent();
 

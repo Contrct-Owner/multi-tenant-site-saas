@@ -47,7 +47,10 @@ export function HierarchyTree({
   }, [nodes]);
 
   const tree = useTree<HierarchyTreeNode>({
-    initialState: { expandedItems: nodes.map((n) => n.id) },
+    // the top level open, everything below it closed: what is on screen is
+    // what was asked for, however many markets a region has (ADR 51's
+    // console half - the DOM is bounded by expansion, not by the org)
+    initialState: { expandedItems: nodes.filter((n) => n.depth === 0).map((n) => n.id) },
     indent: 20,
     rootItemId: VIRTUAL_ROOT,
     getItemName: (item) => item.getItemData()?.name ?? '',

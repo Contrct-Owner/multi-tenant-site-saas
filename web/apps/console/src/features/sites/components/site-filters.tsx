@@ -10,8 +10,9 @@ import {
   type FilterQuery,
 } from '@premise/ui';
 import { CircleDot, Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBadge } from '../../../shell';
+import { useDebounced } from '../../../lib/debounce';
 
 export type SiteFilterValues = {
   /** Free text over name and city (the server's `q`). */
@@ -70,6 +71,14 @@ export function SiteFilters({ onChange }: { onChange: (values: SiteFilterValues)
   const [q, setQ] = useState('');
   const [query, setQuery] = useState<FilterQuery>(() => createFilterQuery());
   const fields = useMemo(() => FIELDS, []);
+  // the search box reaches the server once typing pauses (ADR 51: a query
+  // per keystroke is a scan per keystroke at fleet scale); chips are immediate
+  const debouncedQ = useDebounced(q, 250);
+  const latest = useRef({ onChange, query });
+  latest.current = { onChange, query };
+  useEffect(() => {
+    latest.current.onChange({ q: debouncedQ.trim(), statuses: toStatuses(latest.current.query) });
+  }, [debouncedQ]);
   const emit = (nextQ: string, nextQuery: FilterQuery) => onChange({ q: nextQ.trim(), statuses: toStatuses(nextQuery) });
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -78,13 +87,10 @@ export function SiteFilters({ onChange }: { onChange: (values: SiteFilterValues)
           <Search aria-hidden />
         </InputGroupAddon>
         <InputGroupInput
-          placeholder="Search name or city…"
+          placeholder="Search a word of the name or city…"
           aria-label="Search sites"
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            emit(e.target.value, query);
-          }}
+          onChange={(e) => setQ(e.target.value)}
         />
         {q.length > 0 && (
           <InputGroupAddon align="inline-end">
@@ -92,10 +98,7 @@ export function SiteFilters({ onChange }: { onChange: (values: SiteFilterValues)
               type="button"
               aria-label="Clear search"
               size="icon-xs"
-              onClick={() => {
-                setQ('');
-                emit('', query);
-              }}
+              onClick={() => setQ('')}
             >
               <X aria-hidden />
             </InputGroupButton>

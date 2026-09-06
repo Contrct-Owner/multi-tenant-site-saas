@@ -309,7 +309,8 @@ public static class HierarchyEndpoints
         await db.Database.ExecuteSqlAsync(
             $"""
             UPDATE tenancy.sites
-            SET path = ({newPrefix}::ltree || subpath(path, nlevel({oldPrefix}::ltree)))
+            SET path = ({newPrefix}::ltree || subpath(path, nlevel({oldPrefix}::ltree))),
+                path_text = ({newPrefix}::ltree || subpath(path, nlevel({oldPrefix}::ltree)))::text
             WHERE path <@ {oldPrefix}::ltree
             """,
             ct

@@ -16,12 +16,13 @@ test('checklist picker reaches site 201 and recovers each read failure', async (
   await page.route('**/api/sites?*', async (route) => {
     if (failSites) return route.fulfill({ status: 503, json: { error: 'unavailable' } });
     const query = new URL(route.request().url()).searchParams;
-    const offset = Number(query.get('offset') ?? 0);
+    // keyset paging (ADR 51): the cursor is opaque to the client, here it is the offset
+    const offset = Number(query.get('after') ?? 0);
     const limit = Number(query.get('limit') ?? 50);
     expect(limit).toBeLessThanOrEqual(200);
     offsets.push(offset);
     await route.fulfill({ json: { items: sites.slice(offset, offset + limit), total: sites.length,
-      openCount: sites.length, nextOffset: offset + limit < sites.length ? offset + limit : null } });
+      openCount: sites.length, next: offset + limit < sites.length ? String(offset + limit) : null } });
   });
   await page.route('**/api/checklists/today?*', (route) => {
     const siteId = new URL(route.request().url()).searchParams.get('siteId');

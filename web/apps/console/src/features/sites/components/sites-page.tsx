@@ -189,6 +189,9 @@ export function SitesPage() {
   );
   const firstPage = sitesQuery.data?.pages[0];
   const total = firstPage === undefined ? undefined : Number(firstPage.total);
+  // a search stops counting past ten thousand hits and says so (ADR 51)
+  const totalLabel =
+    total === undefined ? '' : firstPage?.totalIsLowerBound ? `${total.toLocaleString()}+` : String(total);
   const withoutCoordinates = toNumber(firstPage?.withoutCoordinates);
   const { data: hierarchy } = useHierarchy();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -349,7 +352,7 @@ export function SitesPage() {
       disabled={sitesQuery.isFetchingNextPage}
       onClick={() => void sitesQuery.fetchNextPage()}
     >
-      Load more ({loaded} of {total})
+      Load more ({loaded} of {totalLabel})
     </Button>
   );
 
@@ -361,7 +364,7 @@ export function SitesPage() {
             Sites
             {view === 'table' && total !== undefined && (
               <span className="ml-2 text-base font-medium tabular-nums text-muted-foreground">
-                {total}
+                {totalLabel}
               </span>
             )}
           </h1>
@@ -539,7 +542,7 @@ export function SitesPage() {
                   <div className="flex items-center justify-between border-b px-3 py-2 text-xs text-muted-foreground">
                     <span>
                       <b className="font-medium text-foreground tabular-nums">{loaded} in view</b>
-                      {total !== undefined && loaded < total && ` of ${total}`}
+                      {total !== undefined && loaded < total && ` of ${totalLabel}`}
                     </span>
                     <span>List follows the map</span>
                   </div>
@@ -627,7 +630,7 @@ export function SitesPage() {
                         ? ''
                         : view === 'map'
                           ? `${loaded} in view`
-                          : `Showing ${Math.min(loaded, total)} of ${total}`}
+                          : `Showing ${Math.min(loaded, total)} of ${totalLabel}`}
                     </span>
                   )
                 )}

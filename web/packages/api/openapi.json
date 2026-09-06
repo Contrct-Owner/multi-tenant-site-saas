@@ -270,15 +270,10 @@
             }
           },
           {
-            "name": "offset",
+            "name": "after",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -642,6 +637,27 @@
         "summary": "GET_api_listings_feed",
         "description": "GET_api_listings_feed",
         "operationId": "GET_api_listings_feed",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -7836,7 +7852,8 @@
         "required": [
           "generatedAt",
           "organization",
-          "listings"
+          "listings",
+          "next"
         ],
         "type": "object",
         "properties": {
@@ -7852,6 +7869,12 @@
             "items": {
               "$ref": "#/components/schemas/ListingRecord"
             }
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -9036,7 +9059,7 @@
           "items",
           "total",
           "openCount",
-          "nextOffset"
+          "next"
         ],
         "type": "object",
         "properties": {
@@ -9062,14 +9085,11 @@
             ],
             "format": "int32"
           },
-          "nextOffset": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+          "next": {
             "type": [
               "null",
-              "integer",
               "string"
-            ],
-            "format": "int32"
+            ]
           },
           "withoutCoordinates": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -9079,6 +9099,10 @@
               "string"
             ],
             "format": "int32"
+          },
+          "totalIsLowerBound": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

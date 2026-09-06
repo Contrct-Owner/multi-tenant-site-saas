@@ -37,9 +37,9 @@ public sealed class OpenNowDataLayer(TenancyDbContext db) : IDataLayer
                    WHEN EXISTS (SELECT 1 FROM tenancy.site_schedules sc WHERE sc.site_id = s.id) THEN 'closed'
                    ELSE 'unscheduled'
                END AS status,
-               s.path, s.location
+               s.path_text, s.cell, s.location
         FROM tenancy.sites s
-        WHERE s.org_id = @org AND s.location IS NOT NULL
+        WHERE s.org_id = @org AND s.cell IS NOT NULL
         """;
 
     public Task<byte[]> RenderAsync(DataLayerTileRequest request, CancellationToken ct = default) =>

@@ -10,6 +10,8 @@
  */
 type Stored<T> = { data: T; at: number };
 
+const MAX_BYTES = 256 * 1024;
+
 export function persisted<T>(key: string) {
   const fullKey = `premise.cache.${key}`;
   return {
@@ -25,7 +27,14 @@ export function persisted<T>(key: string) {
     },
     write(data: T) {
       try {
-        sessionStorage.setItem(fullKey, JSON.stringify({ data, at: Date.now() }));
+        const json = JSON.stringify({ data, at: Date.now() });
+        // a large tree is cheaper to fetch than to parse from storage on every
+        // load, and sessionStorage quotas are small: past this it is not kept
+        if (json.length > MAX_BYTES) {
+          sessionStorage.removeItem(fullKey);
+          return;
+        }
+        sessionStorage.setItem(fullKey, json);
       } catch {
         // a full or blocked store only costs the next reload a request
       }

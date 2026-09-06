@@ -6,6 +6,7 @@ import {
   Building2,
   Check,
   ChevronDown,
+  ChevronRight,
   Code2,
   FolderOpen,
   Home,
@@ -25,7 +26,8 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { can, parseMe, useMe, type Me } from './session';
 import { persisted } from './app/persisted';
 import { CommandSearch } from './components/command-search';
@@ -226,7 +228,7 @@ function ScopePanel({ me, orgName }: { me: User; orgName: string }) {
         </div>
         <OrgSwitcher me={me} />
       </div>
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex min-h-0 flex-1 flex-col p-2">
         <ScopeTree me={me} />
       </div>
       <div className="space-y-2 border-t p-3">
@@ -392,7 +394,13 @@ function ScopeSheet({ me, scopeName }: { me: User; scopeName: string }) {
           <SheetTitle>Scope</SheetTitle>
         </SheetHeader>
         <div className="px-2">
-          <ScopeTree me={me} rowClass="h-11 text-[15px]" onPick={() => setOpen(false)} />
+          <ScopeTree
+            me={me}
+            rowClass="h-11 text-[15px]"
+            rowHeight={46}
+            className="max-h-[65vh]"
+            onPick={() => setOpen(false)}
+          />
         </div>
       </SheetContent>
     </Sheet>
@@ -432,60 +440,145 @@ function useHierarchyForScope(me: User) {
   return query;
 }
 
+type ScopeRow = {
+  id: string | null;
+  name: string;
+  depth: number;
+  icon: ComponentType<{ className?: string }>;
+  hasChildren: boolean;
+  expanded: boolean;
+};
+
+/**
+ * The scope picker: the org's tree with the top level open and everything
+ * below it closed until asked for, rendered through a virtualizer so the
+ * rows on screen, not the nodes in the org, decide the cost (ADR 51's
+ * console half). The chosen node's ancestors stay open so the choice is
+ * always visible.
+ */
 function ScopeTree({
   me,
   rowClass,
+  rowHeight = 32,
+  className,
   onPick,
 }: {
   me: User;
   rowClass?: string;
+  rowHeight?: number;
+  className?: string;
   onPick?: () => void;
 }) {
   const scope = useScope();
   const { data: hierarchy, isError, error } = useHierarchyForScope(me);
+  // nodes whose default (open at the top, closed below) has been flipped
+  const [toggled, setToggled] = useState<Set<string>>(() => new Set());
+  const nodes = hierarchy?.nodes ?? [];
+  const rows = useMemo<ScopeRow[]>(() => {
+    const children = new Map<string | null, typeof nodes>();
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    for (const n of nodes) children.set(n.parentId ?? null, [...(children.get(n.parentId ?? null) ?? []), n]);
+    const ancestors = new Set<string>();
+    for (let cursor = scope.nodeId ? byId.get(scope.nodeId) : undefined; cursor?.parentId; cursor = byId.get(cursor.parentId))
+      ancestors.add(cursor.parentId);
+    const isOpen = (n: (typeof nodes)[number]) =>
+      ancestors.has(n.id) || (Number(n.depth) === 0) !== toggled.has(n.id);
+    const out: ScopeRow[] = [{ id: null, name: 'All sites', depth: 0, icon: Building2, hasChildren: false, expanded: false }];
+    const visit = (parent: string | null) => {
+      for (const n of children.get(parent) ?? []) {
+        const depth = Number(n.depth);
+        const kids = children.get(n.id)?.length ?? 0;
+        const expanded = kids > 0 && isOpen(n);
+        out.push({
+          id: n.id,
+          name: n.name,
+          depth: depth + 1,
+          icon: depth === 0 ? Building2 : depth === 1 ? Network : MapPin,
+          hasChildren: kids > 0,
+          expanded,
+        });
+        if (expanded) visit(n.id);
+      }
+    };
+    visit(null);
+    return out;
+  }, [nodes, toggled, scope.nodeId]);
+  const scroller = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scroller.current,
+    estimateSize: () => rowHeight,
+    overscan: 12,
+  });
   if (!can(me, 'sites:read')) return null;
   const notProvisioned = error instanceof ApiError && error.status === 404;
-  const nodes = hierarchy?.nodes ?? [];
-  const rows: { id: string | null; name: string; depth: number; icon: ComponentType<{ className?: string }> }[] = [
-    { id: null, name: 'All sites', depth: 0, icon: Building2 },
-    ...nodes.map((n) => ({
-      id: n.id,
-      name: n.name,
-      depth: Number(n.depth) + 1,
-      icon: Number(n.depth) === 0 ? Building2 : Number(n.depth) === 1 ? Network : MapPin,
-    })),
-  ];
   return (
-    <div>
+    <div className="flex min-h-0 flex-col">
       <div className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         Scope
       </div>
-      <div role="group" aria-label="Scope" className="flex flex-col gap-0.5">
-        {rows.map((row) => {
-          const selected = scope.nodeId === row.id;
-          const Icon = row.icon;
-          return (
-            <button
-              key={row.id ?? 'all'}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => {
-                scope.setNodeId(row.id);
-                onPick?.();
-              }}
-              style={{ paddingLeft: `${8 + row.depth * 14}px` }}
-              className={cn(
-                'flex h-[30px] w-full items-center gap-2 rounded-md pr-2 text-left text-sm text-foreground/80 hover:bg-sidebar-accent',
-                selected && 'bg-sidebar-accent font-medium text-foreground shadow-xs',
-                rowClass,
-              )}
-            >
-              <Icon className="size-[14px] shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{row.name}</span>
-              {selected && <Check className="size-4 text-primary" aria-hidden />}
-            </button>
-          );
-        })}
+      <div ref={scroller} className={cn('min-h-0 flex-1 overflow-auto', className)}>
+        <div
+          role="group"
+          aria-label="Scope"
+          className="relative w-full"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
+          {virtualizer.getVirtualItems().map((item) => {
+            const row = rows[item.index]!;
+            const selected = scope.nodeId === row.id;
+            const Icon = row.icon;
+            return (
+              <div
+                key={row.id ?? 'all'}
+                className="absolute left-0 top-0 flex w-full items-center"
+                style={{ height: item.size, transform: `translateY(${item.start}px)` }}
+              >
+                {row.hasChildren ? (
+                  <button
+                    type="button"
+                    aria-label={`${row.expanded ? 'Collapse' : 'Expand'} ${row.name}`}
+                    aria-expanded={row.expanded}
+                    onClick={() =>
+                      setToggled((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(row.id!)) next.delete(row.id!);
+                        else next.add(row.id!);
+                        return next;
+                      })
+                    }
+                    style={{ marginLeft: `${row.depth * 14}px` }}
+                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent"
+                  >
+                    <ChevronRight
+                      className={cn('size-3.5 transition-transform', row.expanded && 'rotate-90')}
+                      aria-hidden
+                    />
+                  </button>
+                ) : (
+                  <span className="size-5 shrink-0" style={{ marginLeft: `${row.depth * 14}px` }} />
+                )}
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    scope.setNodeId(row.id);
+                    onPick?.();
+                  }}
+                  className={cn(
+                    'flex h-[30px] min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 text-left text-sm text-foreground/80 hover:bg-sidebar-accent',
+                    selected && 'bg-sidebar-accent font-medium text-foreground shadow-xs',
+                    rowClass,
+                  )}
+                >
+                  <Icon className="size-[14px] shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                  {selected && <Check className="size-4 text-primary" aria-hidden />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
       {isError && !notProvisioned && (
         <p className="px-2 pt-2 text-xs text-muted-foreground">Scope could not be loaded.</p>

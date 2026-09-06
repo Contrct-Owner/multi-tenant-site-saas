@@ -17,7 +17,7 @@ subtree it belongs to). Every request passes **three gates**, in order:
 
 ## Architectural decisions
 
-All 50 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
+All 51 settled decisions live in `docs/decisions/` (one ADR each, indexed in its
 README). **Consult them before proposing structural changes.** Decisions marked
 `pinned: true` are expensive to reverse once data exists — do not contradict them
 without the maintainer explicitly reopening the decision.
@@ -55,6 +55,11 @@ don't restate them here.
 - **Spatial columns are `geography` in SRID 4326** (ADR 50), NetTopologySuite
   types in code, geometry only inside tile generation. `sites.location` is
   derived from latitude/longitude on save - never set it by hand.
+- **Under RLS only leakproof operators reach an index** (ADR 51): PostGIS,
+  ltree and ILIKE predicates are sequential scans for `app_user`. Hot
+  predicates on tenant tables go through derived btree keys (`cell`,
+  `path_text`, search terms, keyset cursors); prove a new one with EXPLAIN as
+  `app_user`, never as the migrate role (`ScaleIndexTests` shows how).
 - **Never put tenant/site/actor on metric labels** — traces and logs only, as
   baggage (ADR 33).
 - **Frontend imports UI only from `@/ui`**, never `components/ui/*` directly
