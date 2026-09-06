@@ -28,7 +28,7 @@ export function FilesPage() {
       })),
     initialPageParam: 0,
     getNextPageParam: (last) =>
-      last.nextOffset == null ? undefined : Number(last.nextOffset),
+      last.nextOffset ?? undefined,
   });
   const files = filesQuery.data?.pages.flatMap((p) => p.items);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['files'] });

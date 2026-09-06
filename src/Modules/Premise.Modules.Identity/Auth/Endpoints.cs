@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Modules.Identity.Users;
 using Premise.Platform.Auth;
@@ -82,7 +83,7 @@ public static class AuthEndpoints
             {
                 var trimmed = email.Trim().ToLowerInvariant();
                 if (!trimmed.Contains('@') || trimmed.Length > 320)
-                    return Results.BadRequest(new { error = "a valid email is required" });
+                    return ApiErrors.BadRequest("a valid email is required");
                 // AuthKit's hosted screen registers users itself; providers
                 // that need the record first (the emulator, bare OIDC setups
                 // with admin-created users) get it via the capability.
@@ -125,14 +126,12 @@ public static class AuthEndpoints
                 {
                     var payload = dp.CreateProtector(StatePurpose).Unprotect(state).Split('|', 2);
                     if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() - long.Parse(payload[0]) > 600)
-                        return Results.BadRequest(
-                            new { error = "auth state expired, retry login" }
-                        );
+                        return ApiErrors.BadRequest("auth state expired, retry login");
                     returnUrl = payload[1];
                 }
                 catch (Exception)
                 {
-                    return Results.BadRequest(new { error = "invalid auth state" });
+                    return ApiErrors.BadRequest("invalid auth state");
                 }
 
                 var identity = await provider.ExchangeCodeAsync(code, CallbackUri(http), ct);

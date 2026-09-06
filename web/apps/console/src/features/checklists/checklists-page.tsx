@@ -8,19 +8,10 @@ import { useEffect, useState } from 'react';
 import { useScope } from '../../app/scope';
 import { Loading, PageHeader, Panel } from '../../components/page';
 import { fmtBusinessDate } from '../../lib/format';
+import { usePreference } from '../../lib/preference';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 
-// the site this device opened last: a manager's phone opens on their site
-const SITE_KEY = 'premise.checklists.site';
-const readRememberedSite = (): PickedSite | null => {
-  try {
-    const raw = localStorage.getItem(SITE_KEY);
-    return raw ? (JSON.parse(raw) as PickedSite) : null;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * The ops core loop (ADR 45): today's lists per site, on the site's clock.
@@ -30,16 +21,9 @@ const readRememberedSite = (): PickedSite | null => {
 export function ChecklistsPage() {
   const { data: me } = useMe();
   const manage = can(me, 'checklists:manage');
-  const [picked, setPickedState] = useState<PickedSite | null>(readRememberedSite);
-  const setPicked = (site: PickedSite | null) => {
-    setPickedState(site);
-    try {
-      if (site) localStorage.setItem(SITE_KEY, JSON.stringify(site));
-      else localStorage.removeItem(SITE_KEY);
-    } catch {
-      // a convenience; the first site in scope is the fallback
-    }
-  };
+  // the site this device opened last: a manager's phone opens on their site
+  const [remembered, setPicked] = usePreference<PickedSite | null>('checklists.site', null);
+  const [picked, setPickedState] = useState<PickedSite | null>(remembered);
 
   // the first site under the Scope node is the default; the picker searches
   // the rest of that subtree. Narrowing the scope drops a remembered site
@@ -65,7 +49,7 @@ export function ChecklistsPage() {
     invalidate: [['checklists', 'today', activeSite]],
   });
 
-  const today_ = (
+  const todayView = (
     <>
       {siteQuery.isPending && <Loading text="Loading sites…" />}
       {siteQuery.isError && <div role="alert">Could not load sites. <Button onClick={() => void siteQuery.refetch()}>Retry sites</Button></div>}
@@ -107,7 +91,7 @@ export function ChecklistsPage() {
                         onCheckedChange={(checked) =>
                           check.mutate({
                             templateId: list.id,
-                            itemIndex: Number(item.index),
+                            itemIndex: item.index,
                             done: checked === true,
                           })
                         }
@@ -127,7 +111,15 @@ export function ChecklistsPage() {
   const picker =
     sites && sites.length > 1 ? (
       <div className="w-full sm:w-72">
-        <SitePicker aria-label="Checklist site" value={current} onChange={setPicked} under={scope.nodeId} />
+        <SitePicker
+          aria-label="Checklist site"
+          value={current}
+          onChange={(site) => {
+            setPickedState(site);
+            setPicked(site);
+          }}
+          under={scope.nodeId}
+        />
       </div>
     ) : undefined;
 
@@ -135,7 +127,7 @@ export function ChecklistsPage() {
     return (
       <div className="max-w-3xl space-y-6">
         <PageHeader title="Checklists" description="Today's lists at a site, on that site's own clock." actions={picker} />
-        {today_}
+        {todayView}
       </div>
     );
   return (
@@ -150,7 +142,7 @@ export function ChecklistsPage() {
           {picker}
         </div>
         <TabsContent value="today" className="space-y-6">
-          {today_}
+          {todayView}
         </TabsContent>
         <TabsContent value="templates">
           <TemplatesCard />
@@ -254,7 +246,7 @@ type ChecklistItemDraft = { id: string; text: string };
  * grip per row, an input per row, add and remove. Order is the order people
  * work through the list, so it is worth a drag handle.
  */
-function ChecklistItemsEditor({
+export function ChecklistItemsEditor({
   items,
   onChange,
 }: {

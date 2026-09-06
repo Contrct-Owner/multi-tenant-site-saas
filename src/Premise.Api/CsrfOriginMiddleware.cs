@@ -1,3 +1,5 @@
+using Premise.Contracts;
+
 namespace Premise.Api;
 
 /// <summary>
@@ -30,7 +32,7 @@ public sealed class CsrfOriginMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(
-                new { error = "cross-origin state change refused", code = "csrf_origin" }
+                ApiErrors.Body("cross-origin state change refused", "csrf_origin")
             );
             return;
         }

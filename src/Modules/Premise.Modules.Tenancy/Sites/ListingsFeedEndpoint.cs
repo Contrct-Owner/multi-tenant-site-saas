@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Platform.Data;
 using Premise.Platform.Kernel;
@@ -77,7 +78,7 @@ public static class ListingsFeedEndpoint
         if (after is not null)
         {
             if (!SiteCursor.TryParse(after, out var parsed))
-                return Results.BadRequest(new { error = "after is not a cursor this feed issued" });
+                return ApiErrors.BadRequest("after is not a cursor this feed issued");
             cursor = parsed;
         }
         var take = Math.Clamp(limit ?? 500, 1, 2000);

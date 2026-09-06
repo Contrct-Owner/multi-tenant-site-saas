@@ -70,5 +70,5 @@ it('starts both locator reads before either completes and preserves unavailable 
   expect(fetchMock.mock.calls[0]?.[0]).toContain('/public/sites?near=1%2C2');
   pending[0]!(new Response(null, { status: 503 }));
   pending[1]!(Response.json({ tier: 'contact', email: 'visitor@example.test' }));
-  expect(await result).toEqual({ sites: undefined, me: { tier: 'contact', email: 'visitor@example.test' } });
+  expect(await result).toEqual({ sites: undefined, next: null, me: { tier: 'contact', email: 'visitor@example.test' } });
 });

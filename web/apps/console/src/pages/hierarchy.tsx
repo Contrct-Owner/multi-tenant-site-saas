@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../components/page';
 import { HierarchyTree } from '../features/hierarchy/hierarchy-tree';
+import { useHierarchy } from '../features/hierarchy/hooks';
 import { LevelsFields } from '../features/hierarchy/levels-fields';
 import { NodePicker } from '../features/hierarchy/node-picker';
 import { useApiMutation } from '../lib/mutation';
@@ -13,11 +14,7 @@ const trimmed = (levels: string[]) => levels.map((l) => l.trim()).filter(Boolean
 
 export function HierarchyPage() {
   const { data: me } = useMe();
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: ['hierarchy'],
-    queryFn: ({ signal }) => api.get('/api/hierarchy', { signal }),
-    retry: false,
-  });
+  const { data, isPending, isError, error } = useHierarchy();
   // the plan's depth bounds both forms
   const { data: entitlements } = useQuery({
     queryKey: ['entitlements'],
@@ -92,7 +89,7 @@ export function HierarchyPage() {
     );
   }
 
-  const deepestUsed = data.nodes.reduce((deep, n) => Math.max(deep, Number(n.depth)), 0);
+  const deepestUsed = data.nodes.reduce((deep, n) => Math.max(deep, n.depth), 0);
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader
@@ -152,7 +149,7 @@ export function HierarchyPage() {
           nodes={data.nodes.map((n) => ({
             id: n.id,
             name: n.name,
-            depth: Number(n.depth),
+            depth: n.depth,
             parentId: n.parentId ?? null,
           }))}
           busy={rename.isPending || removeNode.isPending}

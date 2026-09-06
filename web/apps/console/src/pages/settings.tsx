@@ -423,7 +423,7 @@ function MapBasemapsCard() {
     name: e.name,
     urlTemplate: e.urlTemplate,
     attribution: e.attribution,
-    maxZoom: Number(e.maxZoom),
+    maxZoom: e.maxZoom,
   }));
   const save = useApiMutation({
     mutationFn: (basemaps: typeof keep & { key?: string | null }[]) =>

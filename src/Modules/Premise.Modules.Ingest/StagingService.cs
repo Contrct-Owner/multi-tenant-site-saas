@@ -28,9 +28,15 @@ public sealed class StagingService(IngestDbContext db, ISiteLookup sites)
         CancellationToken ct
     )
     {
-        var liveSites = (await sites.ListSitesAsync(ct))
+        // the file's ids, not the org's sites: the diff reads what it needs (code review, 2026-09)
+        var externalIds = rows.Select(r => r.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToArray();
+        var liveSites = (await sites.ListSitesAsync(externalIds, ct))
             .Where(s => s.ExternalId is not null)
-            .ToDictionary(s => s.ExternalId!);
+            .GroupBy(s => s.ExternalId!)
+            .ToDictionary(g => g.Key, g => g.First());
         var nodes = await sites.ListNodesAsync(ct);
         var nodesByPath = nodes
             .GroupBy(n => n.NamePath)

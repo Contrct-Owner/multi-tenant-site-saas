@@ -75,10 +75,10 @@ public static class ClosureEndpoints
         if (error is not null)
             return error;
         if (request.Date < TodayAt(site!, time))
-            return Results.BadRequest(new { error = "closures are for today or the future" });
+            return ApiErrors.BadRequest("closures are for today or the future");
         var schedules = await db.SiteSchedules.Where(s => s.SiteId == site!.Id).ToListAsync(ct);
         if (schedules.Count == 0)
-            return Results.Conflict(new { error = "define hours before closing days" });
+            return ApiErrors.Conflict("define hours before closing days");
 
         foreach (var schedule in schedules)
             if (!schedule.ExDates.Contains(request.Date))
@@ -103,7 +103,7 @@ public static class ClosureEndpoints
     )
     {
         if (!DateOnly.TryParse(date, out var day))
-            return Results.BadRequest(new { error = "date must be yyyy-MM-dd" });
+            return ApiErrors.BadRequest("date must be yyyy-MM-dd");
         var (site, error) = await LoadCovered(
             id,
             db,

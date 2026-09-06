@@ -13,6 +13,10 @@ import { sitesApi } from '../api';
 
 export type PickedSite = { id: string; name: string; city?: string | null };
 
+/** What to search for: what was typed, unless it is only the chosen site's own name showing in the input. */
+export const searchTerm = (typed: string, selectedName: string | undefined): string =>
+  typed.trim() === selectedName ? '' : typed.trim();
+
 /**
  * One site out of however many the org has: the shadcn Combobox over the
  * server's word search (ADR 51), so the list is the twenty best matches for
@@ -36,8 +40,7 @@ export function SitePicker({
   'aria-label'?: string;
 }) {
   const [typed, setTyped] = useState('');
-  // the input shows the chosen site's name; that is not a query
-  const q = useDebounced(typed.trim() === value?.name ? '' : typed.trim(), 250);
+  const q = useDebounced(searchTerm(typed, value?.name), 250);
   const results = useQuery({
     queryKey: ['sites', 'pick', q, under ?? null],
     queryFn: ({ signal }) => sitesApi.list(20, undefined, q || undefined, under ?? undefined, undefined, undefined, signal),

@@ -137,9 +137,9 @@ public static class OverlayEndpoints
         var name = request.Name?.Trim() ?? "";
         var kind = request.Kind?.Trim().ToLowerInvariant() ?? "";
         if (name.Length is 0 or > 200 || kind.Length is 0 or > 40)
-            return Results.BadRequest(new { error = "a layer needs a name and a kind" });
+            return ApiErrors.BadRequest("a layer needs a name and a kind");
         if (StyleText(request.Style) is var (style, styleError) && styleError is not null)
-            return Results.BadRequest(new { error = styleError });
+            return ApiErrors.BadRequest(styleError);
 
         // the anchor: the given node, or the org's root; the grant must COVER it
         var node = request.NodeId is { } nodeId
@@ -210,14 +210,14 @@ public static class OverlayEndpoints
         {
             var name = newName.Trim();
             if (name.Length is 0 or > 200)
-                return Results.BadRequest(new { error = "a layer needs a name" });
+                return ApiErrors.BadRequest("a layer needs a name");
             layer.Name = name;
         }
         if (request.Style is { } newStyle)
         {
             var (style, styleError) = StyleText(newStyle);
             if (styleError is not null)
-                return Results.BadRequest(new { error = styleError });
+                return ApiErrors.BadRequest(styleError);
             layer.Style = style;
         }
         layer.UpdatedAt = DateTimeOffset.UtcNow;

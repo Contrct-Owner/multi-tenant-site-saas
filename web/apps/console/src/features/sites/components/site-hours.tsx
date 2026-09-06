@@ -16,13 +16,13 @@ const DAYS = [
 ] as const;
 
 /** "09:00" (a site-local wall-clock time) as the viewer's clock style: "9:00 AM". */
-function fmtClock(time: string): string {
+export function fmtClock(time: string): string {
   const [h, m] = time.split(':').map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return time;
   return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function describeRule(rrule: string): string {
+export function describeRule(rrule: string): string {
   const byday = /BYDAY=([A-Z,]+)/.exec(rrule)?.[1];
   if (rrule.includes('FREQ=DAILY')) return 'Every day';
   if (byday) {

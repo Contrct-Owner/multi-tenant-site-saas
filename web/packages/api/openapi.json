@@ -169,103 +169,21 @@
         }
       }
     },
-    "/api/sites": {
-      "post": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
-        ],
-        "summary": "POST_api_sites",
-        "description": "POST_api_sites",
-        "operationId": "POST_api_sites",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSiteRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SiteResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      },
+    "/api/listings/feed": {
       "get": {
         "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+          "Premise.Modules.Tenancy.Sites.ListingsFeedEndpoint"
         ],
-        "summary": "GET_api_sites",
-        "description": "GET_api_sites",
-        "operationId": "GET_api_sites",
+        "summary": "GET_api_listings_feed",
+        "description": "GET_api_listings_feed",
+        "operationId": "GET_api_listings_feed",
         "parameters": [
-          {
-            "name": "under",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "bbox",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "zoom",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
           {
             "name": "limit",
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -283,7 +201,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SiteListResponse"
+                  "$ref": "#/components/schemas/ListingsFeedResponse"
                 }
               }
             }
@@ -299,24 +217,21 @@
         }
       }
     },
-    "/api/sites/open-now": {
+    "/public/org": {
       "get": {
         "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
         ],
-        "summary": "GET_api_sites_open_now",
-        "description": "GET_api_sites_open_now",
-        "operationId": "GET_api_sites_open_now",
+        "summary": "GET_public_org",
+        "description": "GET_public_org",
+        "operationId": "GET_public_org",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SiteResponse"
-                  }
+                  "$ref": "#/components/schemas/PublicOrgResponse"
                 }
               }
             }
@@ -332,14 +247,69 @@
         }
       }
     },
-    "/api/sites/{id}": {
+    "/public/sites": {
       "get": {
         "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
         ],
-        "summary": "GET_api_sites_id",
-        "description": "GET_api_sites_id",
-        "operationId": "GET_api_sites_id",
+        "summary": "GET_public_sites",
+        "description": "GET_public_sites",
+        "operationId": "GET_public_sites",
+        "parameters": [
+          {
+            "name": "near",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSiteListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/sites/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
+        ],
+        "summary": "GET_public_sites_id",
+        "description": "GET_public_sites_id",
+        "operationId": "GET_public_sites_id",
         "parameters": [
           {
             "name": "id",
@@ -357,96 +327,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SiteResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
-        ],
-        "summary": "POST_api_sites_id",
-        "description": "POST_api_sites_id",
-        "operationId": "POST_api_sites_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSiteRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SiteResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sites/bulk-status": {
-      "post": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
-        ],
-        "summary": "POST_api_sites_bulk_status",
-        "description": "POST_api_sites_bulk_status",
-        "operationId": "POST_api_sites_bulk_status",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BulkSiteStatusRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BulkSiteStatusResponse"
+                  "$ref": "#/components/schemas/PublicSiteDetailResponse"
                 }
               }
             }
@@ -465,7 +346,7 @@
     "/api/sites/{id}/schedules": {
       "post": {
         "tags": [
-          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+          "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
         ],
         "summary": "POST_api_sites_id_schedules",
         "description": "POST_api_sites_id_schedules",
@@ -636,10 +517,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -654,170 +532,6 @@
                   "items": {
                     "$ref": "#/components/schemas/SiteWindowResponse"
                   }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/listings/feed": {
-      "get": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.ListingsFeedEndpoint"
-        ],
-        "summary": "GET_api_listings_feed",
-        "description": "GET_api_listings_feed",
-        "operationId": "GET_api_listings_feed",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListingsFeedResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/public/org": {
-      "get": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
-        ],
-        "summary": "GET_public_org",
-        "description": "GET_public_org",
-        "operationId": "GET_public_org",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicOrgResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/public/sites": {
-      "get": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
-        ],
-        "summary": "GET_public_sites",
-        "description": "GET_public_sites",
-        "operationId": "GET_public_sites",
-        "parameters": [
-          {
-            "name": "near",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PublicSiteSummary"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/public/sites/{id}": {
-      "get": {
-        "tags": [
-          "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
-        ],
-        "summary": "GET_public_sites_id",
-        "description": "GET_public_sites_id",
-        "operationId": "GET_public_sites_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicSiteDetailResponse"
                 }
               }
             }
@@ -938,6 +652,293 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites",
+        "description": "POST_api_sites",
+        "operationId": "POST_api_sites",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteListEndpoints"
+        ],
+        "summary": "GET_api_sites",
+        "description": "GET_api_sites",
+        "operationId": "GET_api_sites",
+        "parameters": [
+          {
+            "name": "under",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bbox",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "zoom",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "GET_api_sites_id",
+        "description": "GET_api_sites_id",
+        "operationId": "GET_api_sites_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites_id",
+        "description": "POST_api_sites_id",
+        "operationId": "POST_api_sites_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/bulk-status": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+        ],
+        "summary": "POST_api_sites_bulk_status",
+        "description": "POST_api_sites_bulk_status",
+        "operationId": "POST_api_sites_bulk_status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkSiteStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkSiteStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/open-now": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Tenancy.Sites.SiteListEndpoints"
+        ],
+        "summary": "GET_api_sites_open_now",
+        "description": "GET_api_sites_open_now",
+        "operationId": "GET_api_sites_open_now",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SiteResponse"
+                  }
                 }
               }
             }
@@ -2256,10 +2257,7 @@
             "required": true,
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -2269,10 +2267,7 @@
             "required": true,
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -2282,10 +2277,7 @@
             "required": true,
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -2466,10 +2458,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -2478,10 +2467,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -4006,10 +3992,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -4468,10 +4451,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -4480,10 +4460,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -5796,10 +5773,7 @@
             "in": "query",
             "schema": {
               "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -6334,8 +6308,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -6365,10 +6338,7 @@
           },
           "maxZoom": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -6398,8 +6368,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -6450,10 +6419,7 @@
           },
           "maxZoom": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "hasKey": {
@@ -6580,18 +6546,12 @@
         "properties": {
           "updated": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "skipped": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -6615,10 +6575,7 @@
           },
           "itemIndex": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "done": {
@@ -6637,10 +6594,7 @@
         "properties": {
           "index": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "text": {
@@ -6797,10 +6751,7 @@
         "properties": {
           "applied": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -6857,8 +6808,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -6913,8 +6863,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -6964,8 +6913,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -6987,10 +6935,7 @@
           },
           "sizeBytes": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int64"
           }
         }
@@ -7187,8 +7132,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -7196,8 +7140,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           }
@@ -7272,10 +7215,7 @@
           },
           "minPointZoom": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "statuses": {
@@ -7328,10 +7268,7 @@
         "properties": {
           "total": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "items": {
@@ -7394,10 +7331,7 @@
           },
           "expiresInSeconds": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -7440,8 +7374,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int64"
           }
@@ -7463,18 +7396,14 @@
           },
           "total": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "nextOffset": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -7717,42 +7646,27 @@
         "properties": {
           "create": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "update": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "close": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "unchanged": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "invalid": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -7956,8 +7870,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -7965,8 +7878,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -8030,18 +7942,14 @@
           },
           "total": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "nextOffset": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -8196,10 +8104,7 @@
           },
           "depth": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "path": {
@@ -8277,10 +8182,7 @@
           },
           "latencyMs": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int64"
           },
           "error": {
@@ -8322,26 +8224,17 @@
           },
           "closuresPending": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "users": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "deadLetters": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -8455,10 +8348,7 @@
           },
           "count": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -8477,18 +8367,12 @@
           },
           "count": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -8532,10 +8416,7 @@
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "deletedAt": {
@@ -8587,18 +8468,12 @@
           },
           "featureCount": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "updatedAt": {
@@ -8631,10 +8506,7 @@
           },
           "monthlyPriceUsd": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "entitlements": {
@@ -8796,6 +8668,27 @@
           }
         }
       },
+      "PublicSiteListResponse": {
+        "required": [
+          "items",
+          "next"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicSiteSummary"
+            }
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PublicSiteSummary": {
         "required": [
           "id",
@@ -8830,8 +8723,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -8839,8 +8731,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -8854,8 +8745,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           }
@@ -8959,10 +8849,7 @@
           },
           "assignedCount": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -8974,8 +8861,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -9207,18 +9093,12 @@
           },
           "total": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "openCount": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "next": {
@@ -9231,8 +9111,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -9283,10 +9162,7 @@
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "uint32"
           },
           "addressLine1": {
@@ -9317,8 +9193,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -9326,8 +9201,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -9536,8 +9410,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -9656,8 +9529,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -9665,8 +9537,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -9680,8 +9551,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "uint32"
           }
@@ -9729,18 +9599,14 @@
           },
           "attempt": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "statusCode": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -9772,8 +9638,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -9849,19 +9714,22 @@
       "name": "Premise.Modules.Tenancy.Sites.ClosureEndpoints"
     },
     {
-      "name": "Premise.Modules.Tenancy.Sites.SiteEndpoints"
-    },
-    {
-      "name": "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
-    },
-    {
       "name": "Premise.Modules.Tenancy.Sites.ListingsFeedEndpoint"
     },
     {
       "name": "Premise.Modules.Tenancy.Sites.PublicSiteEndpoints"
     },
     {
+      "name": "Premise.Modules.Tenancy.Sites.ScheduleEndpoints"
+    },
+    {
       "name": "Premise.Modules.Tenancy.Sites.SiteAttributeEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.SiteEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Tenancy.Sites.SiteListEndpoints"
     },
     {
       "name": "Premise.Modules.Tenancy.Organizations.SettingsEndpoints"

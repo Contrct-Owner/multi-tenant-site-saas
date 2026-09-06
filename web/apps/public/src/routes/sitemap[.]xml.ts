@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getRequestHeader } from '@tanstack/react-start/server';
-import { publicApi, type PublicSite } from '../api';
+import { publicSitesAll } from '../api';
 
 /** The one surface where SEO is table stakes: the org's locator + site pages. */
 export const Route = createFileRoute('/sitemap.xml')({
@@ -8,7 +8,7 @@ export const Route = createFileRoute('/sitemap.xml')({
     handlers: {
       GET: async () => {
         const host = getRequestHeader('host') ?? 'localhost';
-        const sites = await publicApi<PublicSite[]>('/public/sites', []);
+        const sites = await publicSitesAll();
         const urls = [
           `https://${host}/`,
           ...sites.map((s) => `https://${host}/sites/${s.id}`),

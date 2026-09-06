@@ -150,7 +150,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         );
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(1, body.GetProperty("over").GetInt64());
+        Assert.Equal(1, body.GetProperty("detail").GetProperty("over").GetInt64());
     }
 
     [Fact]

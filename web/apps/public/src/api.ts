@@ -80,13 +80,40 @@ export async function publicApiMaybe<T>(path: string): Promise<T | undefined> {
 
 export type PublicMe = { tier: string; email?: string };
 
+/** A page of the locator: the sites and the cursor for the next page (null on a nearest-first page and at the end). */
+export type PublicSiteList = { items: PublicSite[]; next: string | null };
+
+const locatorPath = (near?: string, after?: string) => {
+  const query = new URLSearchParams();
+  if (near) query.set('near', near);
+  if (after) query.set('after', after);
+  const text = query.toString();
+  return text ? `/public/sites?${text}` : '/public/sites';
+};
+
 /** Independent locator reads share a 30-second concurrent upstream budget. */
 export async function publicLocator(near?: string) {
-  const [sites, me] = await Promise.all([
-    publicApiMaybe<PublicSite[]>(near ? `/public/sites?near=${encodeURIComponent(near)}` : '/public/sites'),
+  const [page, me] = await Promise.all([
+    publicApiMaybe<PublicSiteList>(locatorPath(near)),
     publicApi<PublicMe>('/me', { tier: 'guest' }),
   ]);
-  return { sites, me };
+  return { sites: page?.items, next: page?.next ?? null, me };
+}
+
+/** The next page of the alphabetical list; empty when the API is away. */
+export const publicLocatorPage = (after: string) =>
+  publicApi<PublicSiteList>(locatorPath(undefined, after), { items: [], next: null });
+
+/** Every public site, page by page, for the sitemap; capped at the 50,000 URLs a sitemap may hold. */
+export async function publicSitesAll(): Promise<PublicSite[]> {
+  const all: PublicSite[] = [];
+  let after: string | undefined;
+  do {
+    const page = await publicApi<PublicSiteList>(`${locatorPath(undefined, after)}${after ? '&' : '?'}limit=200`, { items: [], next: null });
+    all.push(...page.items);
+    after = page.next ?? undefined;
+  } while (after && all.length < 50_000);
+  return all;
 }
 
 export type PublicOrg = { name: string; slug: string; brandColor?: string | null };

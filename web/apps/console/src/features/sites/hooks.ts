@@ -27,14 +27,8 @@ export function useSites(
   });
 }
 
-// a picker, not the management page: the shell has usually just read this
-// tree (same key), and a hierarchy edit invalidates it - no refetch per mount
-export const useHierarchy = () =>
-  useQuery({
-    queryKey: ['hierarchy'],
-    queryFn: ({ signal }) => sitesApi.hierarchy(signal),
-    staleTime: 5 * 60_000,
-  });
+// the one hierarchy query (features/hierarchy): re-exported for the pickers
+export { useHierarchy } from '../hierarchy/hooks';
 
 // an org setting, edited on the settings page: fresh enough for a session
 export const useBasemaps = (enabled = true) =>

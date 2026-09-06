@@ -146,7 +146,9 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await ApiFixture.WaitUntilAsync(
             async () =>
                 (
-                    publicSites = await guest.GetFromJsonAsync<JsonElement>("/public/sites")
+                    publicSites = (
+                        await guest.GetFromJsonAsync<JsonElement>("/public/sites")
+                    ).GetProperty("items")
                 ).GetArrayLength() > 0,
             "the site to become publicly visible"
         );
@@ -196,6 +198,6 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // and the guest surface answers empty - the host resolves to nothing now
         var publicAfter = await guest.GetFromJsonAsync<JsonElement>("/public/sites");
-        Assert.Equal(0, publicAfter.GetArrayLength());
+        Assert.Equal(0, publicAfter.GetProperty("items").GetArrayLength());
     }
 }

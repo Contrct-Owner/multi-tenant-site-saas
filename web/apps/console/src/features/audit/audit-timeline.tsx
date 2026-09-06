@@ -50,7 +50,7 @@ function auditTone(kind: AuditKind, row: AuditRow): { label: string; variant: 's
       ? { label: 'allowed', variant: 'success-light' }
       : { label: String(row.outcome ?? 'denied').toLowerCase(), variant: 'destructive-light' };
   if (kind === 'access') {
-    const code = Number(row.statusCode);
+    const code = row.statusCode ?? 0;
     if (code >= 500) return { label: String(code), variant: 'destructive-light' };
     if (code >= 400) return { label: String(code), variant: 'warning-light' };
     return { label: String(code), variant: 'success-light' };

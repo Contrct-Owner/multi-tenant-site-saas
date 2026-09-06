@@ -130,9 +130,9 @@ export function IngestPage() {
 
   const step = preview === undefined ? 1 : preview.status === 'Committed' ? 3 : 2;
   const changes = preview
-    ? Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)
+    ? preview.counts.create + preview.counts.update + preview.counts.close
     : 0;
-  const invalid = Number(preview?.counts.invalid ?? 0);
+  const invalid = preview?.counts.invalid ?? 0;
   const invalidRows = preview?.rows.filter((r) => r.errors.length > 0) ?? [];
   return (
     <div className="max-w-4xl space-y-6">

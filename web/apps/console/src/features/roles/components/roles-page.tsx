@@ -106,7 +106,7 @@ export function RolesPage() {
           <AssignDialog roles={roles ?? []} members={members ?? []}
             nodes={(hierarchy?.nodes ?? []).map((node) => ({
               ...node,
-              depth: Number(node.depth),
+              depth: node.depth,
             }))} />
           <FormDialog
             open={editorOpen}
@@ -133,7 +133,7 @@ export function RolesPage() {
 
       <ExceptionsCard members={members ?? []} nodes={(hierarchy?.nodes ?? []).map((node) => ({
         ...node,
-        depth: Number(node.depth),
+        depth: node.depth,
       }))} />
     </div>
   );

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Ingest.Data;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Premise.Platform.Secrets;
@@ -99,9 +100,7 @@ public static class IngestEndpoints
         if (file is null)
             return Results.NotFound();
         if (file.Status != "Clean")
-            return Results.Conflict(
-                new { error = $"file is {file.Status}; only Clean files can be staged" }
-            );
+            return ApiErrors.Conflict($"file is {file.Status}; only Clean files can be staged");
 
         string text;
         await using (var stream = await store.OpenReadAsync(file.Key, ct))
@@ -110,7 +109,7 @@ public static class IngestEndpoints
 
         var rows = CsvParser.Parse(text).Select(CsvParser.ToSourceRow).ToList();
         if (rows.Count == 0)
-            return Results.BadRequest(new { error = "no data rows found" });
+            return ApiErrors.BadRequest("no data rows found");
 
         var batch = await staging.StageAsync(org, userId, "upload", rows, ct);
         return Results.Ok(new StagedUploadResponse(batch.Id, Counts(batch.Counts)));
@@ -220,7 +219,7 @@ public static class IngestEndpoints
         if (batch is null)
             return Results.NotFound();
         if (batch.Status != BatchStatus.Staged)
-            return Results.Conflict(new { error = $"batch is {batch.Status}" });
+            return ApiErrors.Conflict($"batch is {batch.Status}");
 
         batch.Status = BatchStatus.Discarded;
         await db.StagedSites.Where(s => s.BatchId == id).ExecuteDeleteAsync(ct);
@@ -248,6 +247,8 @@ public static class IngestEndpoints
         IMessageBus bus,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        ISiteLookup sites,
+        IEntitlements entitlements,
         CancellationToken ct
     )
     {
@@ -259,7 +260,7 @@ public static class IngestEndpoints
         if (batch is null)
             return Results.NotFound();
         if (batch.Status != BatchStatus.Staged)
-            return Results.Conflict(new { error = $"batch is {batch.Status}" });
+            return ApiErrors.Conflict($"batch is {batch.Status}");
 
         var actionable = await db
             .StagedSites.Where(s =>
@@ -267,6 +268,21 @@ public static class IngestEndpoints
                 && (s.Action == "create" || s.Action == "update" || s.Action == "close")
             )
             .ToListAsync(ct);
+        // gate 1 once for the whole batch: the creates it holds against the
+        // plan's ceiling (a limit failure is 402-and-upsell, never an error)
+        var creates = actionable.Count(r => r.Action == "create");
+        if (creates > 0)
+        {
+            var decision = await entitlements.CheckLimitAsync(
+                org,
+                EntitlementCatalog.MaxSites,
+                await sites.CountSitesAsync(ct),
+                creates,
+                ct
+            );
+            if (!decision.IsAllowed)
+                return GateResults.LimitReached(decision);
+        }
         foreach (var row in actionable)
             await bus.PublishAsync(
                 new SiteChangeRequested(
@@ -387,7 +403,7 @@ public static class IngestEndpoints
         if (connector is null)
             return Results.NotFound();
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Url))
-            return Results.BadRequest(new { error = "name and url are required" });
+            return ApiErrors.BadRequest("name and url are required");
 
         connector.Name = request.Name.Trim();
         connector.Url = request.Url.Trim();

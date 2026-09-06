@@ -1,7 +1,7 @@
 import { Button, buttonVariants, ConfirmButton, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Select, Textarea, toast, ToggleGroup, ToggleGroupItem } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useScope } from '../../app/scope';
 import { EmptyState } from '../../components/page';
 import { FileDropzone } from '../../components/file-dropzone';
@@ -32,12 +32,13 @@ export function OverlaysPage() {
   // anchored to the whole org covers every scope, so it always shows
   const scope = useScope();
   const { data: hierarchy } = useHierarchy();
-  const scopePath = hierarchy?.nodes.find((n) => n.id === scope.nodeId)?.path;
+  const pathOf = useMemo(() => new Map((hierarchy?.nodes ?? []).map((n) => [n.id, n.path])), [hierarchy]);
+  const scopePath = scope.nodeId ? pathOf.get(scope.nodeId) : undefined;
   const underScope = (layer: OverlayLayer) => {
     if (!scopePath) return true;
-    const anchor = layer.nodeId ? hierarchy?.nodes.find((n) => n.id === layer.nodeId) : undefined;
-    if (!anchor) return !layer.nodeId;
-    return anchor.path === scopePath || anchor.path.startsWith(`${scopePath}.`);
+    if (!layer.nodeId) return true;
+    const anchor = pathOf.get(layer.nodeId);
+    return anchor !== undefined && (anchor === scopePath || anchor.startsWith(`${scopePath}.`));
   };
   const layers = (query.data?.layers ?? []).filter(underScope);
 
@@ -118,7 +119,7 @@ export function OverlaysPage() {
           {layers.length > 0 && (
             <ul className="divide-y">
               {layers.map((layer) => {
-                const count = Number(layer.featureCount);
+                const count = layer.featureCount;
                 return (
                   <li key={layer.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <span
@@ -202,7 +203,7 @@ function NewLayerDialog() {
     },
     invalidate: [['overlays']],
     onSuccess: (result) => {
-      const n = Number(result.count);
+      const n = result.count;
       toast.success(shapes ? `Layer created with ${n} shape${n === 1 ? '' : 's'}` : 'Layer created - upload its shapes next');
       setName('');
       setShapes(null);
@@ -273,7 +274,7 @@ function NewLayerDialog() {
             <option value="">Whole organization</option>
             {hierarchy?.nodes.map((n) => (
               <option key={n.id} value={n.id}>
-                {' '.repeat(Number(n.depth) * 2)}
+                {' '.repeat(n.depth * 2)}
                 {n.name}
               </option>
             ))}
@@ -289,7 +290,7 @@ function NewLayerDialog() {
 
 function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
   // the honest verb: a layer with nothing in it is uploaded to, not replaced
-  const verb = Number(layer.featureCount) === 0 ? 'Upload shapes' : 'Replace shapes';
+  const verb = layer.featureCount === 0 ? 'Upload shapes' : 'Replace shapes';
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -302,7 +303,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       setText('');
       setFileName(null);
       setOpen(false);
-      const n = Number(result.count);
+      const n = result.count;
       // the success line carries the count, which the generic option cannot
       toast.success(`${n} shape${n === 1 ? '' : 's'} uploaded`);
     },
@@ -341,7 +342,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       }
       title={`Shapes for ${layer.name}`}
       description={
-        Number(layer.featureCount) === 0
+        layer.featureCount === 0
           ? 'A GeoJSON FeatureCollection of polygons; feature properties ride along to the map.'
           : 'A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map.'
       }

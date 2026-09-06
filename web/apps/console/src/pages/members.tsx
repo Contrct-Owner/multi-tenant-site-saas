@@ -28,7 +28,7 @@ export function MembersPage() {
       api.get('/api/members', { query: { limit: 50, offset: pageParam }, signal }),
     initialPageParam: 0,
     getNextPageParam: (last) =>
-      last.nextOffset == null ? undefined : Number(last.nextOffset),
+      last.nextOffset ?? undefined,
   });
   const members = membersQuery.data?.pages.flatMap((p) => p.items);
   const { data: roles } = useQuery({

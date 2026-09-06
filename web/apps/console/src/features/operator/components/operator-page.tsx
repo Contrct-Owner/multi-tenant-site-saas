@@ -153,14 +153,14 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
 function PlatformOverview() {
   const { data } = useOperatorOverview();
   if (!data) return null;
-  const active = Number(data.orgsByStatus.find((s) => s.status === 'Active')?.count ?? 0);
-  const suspended = Number(data.orgsByStatus.find((s) => s.status === 'Suspended')?.count ?? 0);
+  const active = data.orgsByStatus.find((s) => s.status === 'Active')?.count ?? 0;
+  const suspended = data.orgsByStatus.find((s) => s.status === 'Suspended')?.count ?? 0;
   const stats: [string, number, boolean][] = [
     ['Active orgs', active, false],
     ['Suspended', suspended, suspended > 0],
-    ['Closures pending', Number(data.closuresPending), Number(data.closuresPending) > 0],
-    ['People', Number(data.users), false],
-    ['Dead letters', Number(data.deadLetters), Number(data.deadLetters) > 0],
+    ['Closures pending', data.closuresPending, data.closuresPending > 0],
+    ['People', data.users, false],
+    ['Dead letters', data.deadLetters, data.deadLetters > 0],
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -189,7 +189,7 @@ function DeadLetters() {
     success: 'Discarded',
   });
   return (
-    <Panel title={<>Dead letters{data && Number(data.total) > 0 ? ` (${data.total})` : ''}</>} bodyClassName="space-y-2">
+    <Panel title={<>Dead letters{data && data.total > 0 ? ` (${data.total})` : ''}</>} bodyClassName="space-y-2">
         {data?.total === 0 && (
           <p className="text-sm text-muted-foreground">
             No failed messages. Background work that fails after retries lands here for

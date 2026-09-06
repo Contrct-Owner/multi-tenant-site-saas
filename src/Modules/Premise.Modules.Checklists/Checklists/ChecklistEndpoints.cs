@@ -93,9 +93,7 @@ public static class ChecklistEndpoints
         var userId = principal.UserId;
         var items = request.Items.Select(i => i.Trim()).Where(i => i.Length > 0).ToArray();
         if (string.IsNullOrWhiteSpace(request.Name) || items.Length == 0)
-            return Results.BadRequest(
-                new { error = "a checklist needs a name and at least one item" }
-            );
+            return ApiErrors.BadRequest("a checklist needs a name and at least one item");
 
         var template = new ChecklistTemplate
         {

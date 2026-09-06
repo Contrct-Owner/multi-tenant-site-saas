@@ -205,7 +205,10 @@ switch (builder.Configuration["Billing:Provider"] ?? "local")
 }
 
 builder.Services.AddWolverineHttp();
-builder.Services.AddOpenApi(); // ADR 16: the spec is the contract; TS client + keys generate from it
+
+// ADR 16: the spec is the contract; TS client + keys generate from it - and
+// numbers are numbers in it, not "number or string" (OpenApiNumberTransformer)
+builder.Services.AddOpenApi(options => options.AddSchemaTransformer<OpenApiNumberTransformer>());
 
 // Notifications (ADR 32): email is on the auth critical path (magic links),
 // so Production must configure a real transport - the built-in SMTP adapter

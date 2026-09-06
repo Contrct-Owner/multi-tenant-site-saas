@@ -53,7 +53,7 @@ public static class FileEndpoints
             return gate.ToResult();
         var userId = principal.UserId;
         if (request.SizeBytes is <= 0 or > MaxUploadBytes)
-            return Results.BadRequest(new { error = $"size must be 1..{MaxUploadBytes} bytes" });
+            return ApiErrors.BadRequest($"size must be 1..{MaxUploadBytes} bytes");
 
         var id = Guid.CreateVersion7();
         // tenant- and region-scoped key layout (ADR 19/35)
@@ -100,14 +100,14 @@ public static class FileEndpoints
         if (file is null)
             return Results.NotFound();
         if (file.Status != FileStatus.PendingUpload)
-            return Results.Conflict(new { error = $"file is {file.Status}" });
+            return ApiErrors.Conflict($"file is {file.Status}");
         var length = await store.GetLengthAsync(file.Key, ct);
         if (length is null or 0)
-            return Results.BadRequest(new { error = "no bytes were uploaded for this ticket" });
+            return ApiErrors.BadRequest("no bytes were uploaded for this ticket");
         if (length > file.MaxBytes)
-            return Results.Json(
-                new { error = $"uploaded object exceeds the declared {file.MaxBytes} bytes" },
-                statusCode: StatusCodes.Status413PayloadTooLarge
+            return ApiErrors.Status(
+                $"uploaded object exceeds the declared {file.MaxBytes} bytes",
+                StatusCodes.Status413PayloadTooLarge
             );
 
         file.Status = FileStatus.Uploaded;
@@ -246,7 +246,7 @@ public static class FileEndpoints
         if (file is null || file.Status is FileStatus.Erased or FileStatus.Deleted)
             return Results.NotFound();
         if (file.LegalHold)
-            return Results.Conflict(new { error = "file is under legal hold" });
+            return ApiErrors.Conflict("file is under legal hold");
 
         // only CLEAN content earns the restore window; anything else
         // (quarantined, never-scanned) erases immediately - a trash

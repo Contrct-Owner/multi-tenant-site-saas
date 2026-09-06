@@ -17,16 +17,7 @@ const DEFAULT_LEVELS = ['Region', 'Market'];
  * what to do next instead of showing zeros. Each row is a fact the org's
  * data answers; once every row is done the list is gone for good.
  */
-function SetupList({
-  levels,
-  nodeCount,
-  siteCount,
-  memberCount,
-  pendingInvites,
-  manageHierarchy,
-  manageSites,
-  manageMembers,
-}: {
+export type SetupFacts = {
   levels: string[];
   nodeCount: number;
   siteCount: number;
@@ -35,8 +26,20 @@ function SetupList({
   manageHierarchy: boolean;
   manageSites: boolean;
   manageMembers: boolean;
-}) {
-  const steps = [
+};
+
+/** The steps as facts decide them: what is done, what is next, and where each leads. */
+export function setupSteps({
+  levels,
+  nodeCount,
+  siteCount,
+  memberCount,
+  pendingInvites,
+  manageHierarchy,
+  manageSites,
+  manageMembers,
+}: SetupFacts) {
+  return [
     manageHierarchy && {
       key: 'levels',
       title: 'Name your levels',
@@ -70,6 +73,10 @@ function SetupList({
       action: 'Invite someone',
     },
   ].filter((step): step is Exclude<typeof step, false> => step !== false);
+}
+
+function SetupList(facts: SetupFacts) {
+  const steps = setupSteps(facts);
   if (steps.every((s) => s.done)) return null;
   const remaining = steps.filter((s) => !s.done).length;
   return (
@@ -164,8 +171,8 @@ export function DashboardPage() {
         <SetupList
           levels={hierarchy.levels}
           nodeCount={hierarchy.nodes.length}
-          siteCount={Number(sites?.total ?? 0)}
-          memberCount={members === undefined ? undefined : Number(members.total)}
+          siteCount={sites?.total ?? 0}
+          memberCount={members?.total}
           pendingInvites={pending}
           manageHierarchy={manageHierarchy}
           manageSites={manageSites}
@@ -179,8 +186,8 @@ export function DashboardPage() {
             to="/sites"
             icon={MapPin}
             label="Sites"
-            value={sites === undefined ? '—' : Number(sites.total).toLocaleString()}
-            hint={sites === undefined ? undefined : `${Number(sites.openCount ?? 0).toLocaleString()} open right now`}
+            value={sites === undefined ? '—' : sites.total.toLocaleString()}
+            hint={sites === undefined ? undefined : `${(sites.openCount ?? 0).toLocaleString()} open right now`}
           />
         )}
         {seesMembers && (

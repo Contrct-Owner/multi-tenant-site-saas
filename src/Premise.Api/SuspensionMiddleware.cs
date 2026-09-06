@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Modules.Identity.Data;
 using Premise.Platform.Kernel;
 
@@ -35,8 +36,8 @@ public sealed class SuspensionMiddleware(RequestDelegate next)
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(
                     status == "Suspended"
-                        ? new { error = "organization suspended", code = "org_suspended" }
-                        : new { error = "organization offboarded", code = "org_offboarded" }
+                        ? ApiErrors.Body("organization suspended", "org_suspended")
+                        : ApiErrors.Body("organization offboarded", "org_offboarded")
                 );
                 return;
             }
