@@ -1,13 +1,16 @@
-import { api } from '@premise/api';
-import { Button, ConfirmButton, FormDialog,
-  Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
-  TableRow } from '@premise/ui';
+import { api, type components } from '@premise/api';
+import { Button, ConfirmButton, FormDialog, Input, Label, Select, type ColumnDef,
+  type DataGridFeatures } from '@premise/ui';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { PageHeader, Panel } from '../components/page';
+import { useMemo, useState } from 'react';
+import { Grid, PageHeader } from '../components/page';
 import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
+
+type MemberRow = components['schemas']['MemberSummary'];
+type InvitationRow = components['schemas']['InvitationResponse'];
+type ContactRow = components['schemas']['ContactResponse'];
 
 export function MembersPage() {
   const { data: me } = useMe();
@@ -88,6 +91,128 @@ export function MembersPage() {
 
   const self = me?.tier === 'user' ? me.userId : undefined;
 
+  const memberColumns = useMemo<ColumnDef<DataGridFeatures, MemberRow>[]>(
+    () => [
+      {
+        id: 'member',
+        accessorKey: 'email',
+        header: 'Member',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div className="font-medium">{row.original.name ?? row.original.email}</div>
+            <div className="text-xs text-muted-foreground">{row.original.email}</div>
+          </div>
+        ),
+      },
+      {
+        id: 'roles',
+        header: 'Roles',
+        cell: ({ row }) =>
+          row.original.roles.length === 0
+            ? '—'
+            : row.original.roles.map((roleName) => (
+                <span key={roleName}
+                  className="mr-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs">
+                  {roleName}
+                  <ConfirmButton
+                    size="sm"
+                    variant="ghost"
+                    className="h-4 px-1 text-xs"
+                    confirmLabel="Unassign?"
+                    disabled={unassign.isPending}
+                    onConfirm={() => unassign.mutate({ roleName, userId: row.original.userId })}
+                  >
+                    ×
+                  </ConfirmButton>
+                </span>
+              )),
+      },
+      {
+        id: 'joined',
+        accessorKey: 'joinedAt',
+        header: 'Joined',
+        cell: ({ row }) => <span className="text-muted-foreground">{fmtDate(row.original.joinedAt)}</span>,
+        meta: { headerClassName: 'w-36' },
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) =>
+          row.original.userId !== self ? (
+            <div className="text-right">
+              <ConfirmButton size="sm" disabled={remove.isPending} onConfirm={() => remove.mutate(row.original.userId)}>
+                Remove
+              </ConfirmButton>
+            </div>
+          ) : null,
+        meta: { headerClassName: 'w-28' },
+      },
+    ],
+    // the mutations are stable hooks; only `self` decides a cell
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [self],
+  );
+  const invitationColumns = useMemo<ColumnDef<DataGridFeatures, InvitationRow>[]>(
+    () => [
+      { id: 'email', accessorKey: 'email', header: 'Pending' },
+      { id: 'role', header: 'Role', cell: ({ row }) => row.original.role ?? '—' },
+      {
+        id: 'state',
+        accessorKey: 'state',
+        header: 'State',
+        cell: ({ row }) => <span className="text-muted-foreground">{row.original.state}</span>,
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) =>
+          row.original.state === 'pending' ? (
+            <div className="text-right">
+              <ConfirmButton size="sm" disabled={revoke.isPending} onConfirm={() => revoke.mutate(row.original.id)}>
+                Revoke
+              </ConfirmButton>
+            </div>
+          ) : null,
+        meta: { headerClassName: 'w-28' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const contactColumns = useMemo<ColumnDef<DataGridFeatures, ContactRow>[]>(
+    () => [
+      { id: 'email', accessorKey: 'email', header: 'Email' },
+      {
+        id: 'since',
+        accessorKey: 'createdAt',
+        header: 'Since',
+        cell: ({ row }) => <span className="text-muted-foreground">{fmtDate(row.original.createdAt)}</span>,
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.revoked ? 'Revoked' : 'Active'}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) =>
+          !row.original.revoked ? (
+            <div className="text-right">
+              <ConfirmButton size="sm" disabled={revokeContact.isPending} onConfirm={() => revokeContact.mutate(row.original.id)}>
+                Revoke
+              </ConfirmButton>
+            </div>
+          ) : null,
+        meta: { headerClassName: 'w-28' },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -147,8 +272,13 @@ export function MembersPage() {
         </>}
       />
 
-      <Panel
-        flush
+      <Grid
+        columns={memberColumns}
+        rows={members ?? []}
+        getRowId={(m) => m.userId}
+        isLoading={members === undefined}
+        loadingMessage="Loading…"
+        emptyMessage="No members yet."
         footer={
           membersQuery.hasNextPage ? (
             <Button variant="outline" size="sm"
@@ -158,145 +288,26 @@ export function MembersPage() {
             </Button>
           ) : undefined
         }
-      >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members === undefined && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
-              {members?.map((m) => (
-                <TableRow key={m.userId}>
-                  <TableCell>
-                    <div className="font-medium">{m.name ?? m.email}</div>
-                    <div className="text-xs text-muted-foreground">{m.email}</div>
-                  </TableCell>
-                  <TableCell>
-                    {m.roles.length === 0
-                      ? '—'
-                      : m.roles.map((roleName) => (
-                          <span key={roleName}
-                            className="mr-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs">
-                            {roleName}
-                            <ConfirmButton
-                              size="sm"
-                              variant="ghost"
-                              className="h-4 px-1 text-xs"
-                              confirmLabel="Unassign?"
-                              disabled={unassign.isPending}
-                              onConfirm={() => unassign.mutate({ roleName, userId: m.userId })}
-                            >
-                              ×
-                            </ConfirmButton>
-                          </span>
-                        ))}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDate(m.joinedAt)}</TableCell>
-                  <TableCell className="text-right">
-                    {m.userId !== self && (
-                      <ConfirmButton
-                        size="sm"
-                        disabled={remove.isPending}
-                        onConfirm={() => remove.mutate(m.userId)}
-                      >
-                        Remove
-                      </ConfirmButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-      </Panel>
+      />
 
       {invitations && invitations.length > 0 && (
-        <Panel title="Pending invitations" flush>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pending</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead><span className="sr-only">Actions</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invitations.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell>{inv.email}</TableCell>
-                    <TableCell>{inv.role ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{inv.state}</TableCell>
-                    <TableCell className="text-right">
-                      {inv.state === 'pending' && (
-                        <ConfirmButton
-                          size="sm"
-                          disabled={revoke.isPending}
-                          onConfirm={() => revoke.mutate(inv.id)}
-                        >
-                          Revoke
-                        </ConfirmButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-        </Panel>
+        <Grid
+          title="Pending invitations"
+          columns={invitationColumns}
+          rows={invitations}
+          getRowId={(inv) => inv.id}
+        />
       )}
 
-      <Panel
+      <Grid
         title="Contacts"
         description="People given identified access to your public pages via contact links. Revoking cuts off live sessions and unexpired links at once."
-        flush
-      >
-          {contacts && contacts.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Since</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead><span className="sr-only">Actions</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contacts.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>{c.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.revoked ? 'Revoked' : 'Active'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {!c.revoked && (
-                        <ConfirmButton
-                          size="sm"
-                          disabled={revokeContact.isPending}
-                          onConfirm={() => revokeContact.mutate(c.id)}
-                        >
-                          Revoke
-                        </ConfirmButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="px-4 py-4 text-sm text-muted-foreground">No contacts yet.</p>
-          )}
-      </Panel>
+        columns={contactColumns}
+        rows={contacts ?? []}
+        getRowId={(c) => c.id}
+        isLoading={contacts === undefined}
+        emptyMessage="No contacts yet."
+      />
     </div>
   );
 }

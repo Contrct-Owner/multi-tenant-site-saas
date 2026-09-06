@@ -1,14 +1,15 @@
-import { api } from '@premise/api';
-import { Button, ConfirmButton, Table, TableBody, TableCell,
-  TableHead, TableHeader, TableRow } from '@premise/ui';
+import { api, type components } from '@premise/api';
+import { Button, ConfirmButton, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
-import { PageHeader, Panel } from '../components/page';
+import { useMemo, useRef, useState } from 'react';
+import { Grid, PageHeader } from '../components/page';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
 import { can, useMe } from '../session';
 import { StatusBadge } from '../shell';
+
+type FileRow = components['schemas']['FileSummary'];
 
 export function FilesPage() {
   const { data: me } = useMe();
@@ -63,6 +64,75 @@ export function FilesPage() {
     window.open(url, '_blank');
   };
 
+  const columns = useMemo<ColumnDef<DataGridFeatures, FileRow>[]>(
+    () => [
+      {
+        id: 'name',
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div className="font-medium">{row.original.name}</div>
+            <div className="text-xs text-muted-foreground">{row.original.contentType}</div>
+          </div>
+        ),
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <>
+            <StatusBadge status={row.original.status} />
+            {row.original.legalHold && <span className="ml-2 text-xs text-muted-foreground">⚖ hold</span>}
+          </>
+        ),
+      },
+      {
+        id: 'uploaded',
+        accessorKey: 'createdAt',
+        header: 'Uploaded',
+        cell: ({ row }) => <span className="text-muted-foreground">{fmtDateTime(row.original.createdAt)}</span>,
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => {
+          const f = row.original;
+          return (
+            <div className="space-x-1 text-right">
+              {f.status === 'Clean' && (
+                <Button variant="ghost" size="sm" onClick={() => void download(f.id)}>
+                  Download
+                </Button>
+              )}
+              {manage && f.status === 'Deleted' && (
+                <Button variant="outline" size="sm" disabled={restore.isPending} onClick={() => restore.mutate(f.id)}>
+                  Restore
+                </Button>
+              )}
+              {manage && f.status !== 'Erased' && f.status !== 'Deleted' && (
+                <>
+                  <Button variant="ghost" size="sm" disabled={hold.isPending}
+                    onClick={() => hold.mutate({ id: f.id, hold: !f.legalHold })}>
+                    {f.legalHold ? 'Release hold' : 'Hold'}
+                  </Button>
+                  <ConfirmButton size="sm" disabled={erase.isPending} onConfirm={() => erase.mutate(f.id)}>
+                    Delete
+                  </ConfirmButton>
+                </>
+              )}
+            </div>
+          );
+        },
+        meta: { headerClassName: 'w-64' },
+      },
+    ],
+    // the mutations are stable hooks; only `manage` decides a cell
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [manage],
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -96,8 +166,13 @@ export function FilesPage() {
           )}
         </>}
       />
-      <Panel
-        flush
+      <Grid
+        columns={columns}
+        rows={files ?? []}
+        getRowId={(f) => f.id}
+        isLoading={files === undefined}
+        loadingMessage="Loading…"
+        emptyMessage={`No files yet.${manage ? ' Upload one to get started.' : ''}`}
         footer={
           filesQuery.hasNextPage ? (
             <Button variant="outline" size="sm"
@@ -107,74 +182,7 @@ export function FilesPage() {
             </Button>
           ) : undefined
         }
-      >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {files?.map((f) => (
-                <TableRow key={f.id}>
-                  <TableCell>
-                    <div className="font-medium">{f.name}</div>
-                    <div className="text-xs text-muted-foreground">{f.contentType}</div>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={f.status} />
-                    {f.legalHold && (
-                      <span className="ml-2 text-xs text-muted-foreground">⚖ hold</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDateTime(f.createdAt)}</TableCell>
-                  <TableCell className="space-x-1 text-right">
-                    {f.status === 'Clean' && (
-                      <Button variant="ghost" size="sm" onClick={() => void download(f.id)}>
-                        Download
-                      </Button>
-                    )}
-                    {manage && f.status === 'Deleted' && (
-                      <Button variant="outline" size="sm" disabled={restore.isPending}
-                        onClick={() => restore.mutate(f.id)}>
-                        Restore
-                      </Button>
-                    )}
-                    {manage && f.status !== 'Erased' && f.status !== 'Deleted' && (
-                      <>
-                        <Button variant="ghost" size="sm" disabled={hold.isPending}
-                          onClick={() => hold.mutate({ id: f.id, hold: !f.legalHold })}>
-                          {f.legalHold ? 'Release hold' : 'Hold'}
-                        </Button>
-                        <ConfirmButton size="sm" disabled={erase.isPending}
-                          onConfirm={() => erase.mutate(f.id)}>
-                          Delete
-                        </ConfirmButton>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {files === undefined && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
-              {files?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No files yet.{manage && ' Upload one to get started.'}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-      </Panel>
+      />
     </div>
   );
 }

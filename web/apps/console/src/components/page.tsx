@@ -1,4 +1,20 @@
-import { Frame, FrameDescription, FrameFooter, FrameHeader, FramePanel, FrameTitle, cn } from '@premise/ui';
+import {
+  DataGrid,
+  DataGridContainer,
+  DataGridScrollArea,
+  DataGridTable,
+  dataGridFeatures,
+  Frame,
+  FrameDescription,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+  cn,
+  useTable,
+  type ColumnDef,
+  type DataGridFeatures,
+} from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
@@ -102,5 +118,83 @@ export function Notice({ kind = 'status', children }: { kind?: 'status' | 'alert
     <p role={kind} className={cn('text-sm', kind === 'alert' ? 'text-destructive' : 'text-muted-foreground')}>
       {children}
     </p>
+  );
+}
+
+/**
+ * A Data Grid inside a Panel for the console's plain lists (members, files,
+ * audit): server-driven rows, the Sites grid's layout, a footer for paging.
+ * Columns come from the caller (memoized); everything else is decided here.
+ */
+export function Grid<TRow extends object>({
+  columns,
+  rows,
+  getRowId,
+  isLoading = false,
+  loadingMessage,
+  emptyMessage,
+  onRowClick,
+  title,
+  description,
+  actions,
+  footer,
+  children,
+}: {
+  columns: ColumnDef<DataGridFeatures, TRow>[];
+  rows: TRow[];
+  getRowId: (row: TRow) => string;
+  isLoading?: boolean;
+  loadingMessage?: ReactNode;
+  emptyMessage?: ReactNode;
+  onRowClick?: (row: TRow) => void;
+  title?: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  footer?: ReactNode;
+  /** Rendered under the table, inside the panel (a detail pane, a note). */
+  children?: ReactNode;
+}) {
+  const table = useTable({
+    features: dataGridFeatures,
+    columns,
+    data: rows,
+    getRowId,
+    manualPagination: true,
+    manualSorting: true,
+    manualFiltering: true,
+    pageCount: -1,
+  });
+  return (
+    <Frame>
+      <FramePanel>
+        <DataGrid
+          table={table}
+          recordCount={rows.length}
+          isLoading={isLoading}
+          loadingMode="skeleton"
+          loadingMessage={loadingMessage}
+          emptyMessage={emptyMessage}
+          onRowClick={onRowClick}
+          tableLayout={{ headerBackground: false, headerBorder: true, rowBorder: true }}
+        >
+          {(title || actions) && (
+            <FrameHeader className="flex-row flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                {title && <FrameTitle>{title}</FrameTitle>}
+                {description && <FrameDescription>{description}</FrameDescription>}
+              </div>
+              {actions && <div className="flex items-center gap-2">{actions}</div>}
+            </FrameHeader>
+          )}
+          <DataGridContainer>
+            <DataGridScrollArea>
+              <DataGridTable />
+            </DataGridScrollArea>
+          </DataGridContainer>
+          {children}
+          {footer && <FrameFooter className="flex-row flex-wrap items-center gap-3">{footer}</FrameFooter>}
+        </DataGrid>
+      </FramePanel>
+    </Frame>
   );
 }

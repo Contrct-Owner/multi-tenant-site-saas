@@ -1,9 +1,8 @@
 import { api, type components } from '@premise/api';
-import { Button, Table, TableBody, TableCell, TableHead,
-  TableHeader, TableRow } from '@premise/ui';
+import { Button, type ColumnDef, type DataGridFeatures } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Fragment, useState } from 'react';
-import { PageHeader, Panel } from '../components/page';
+import { useMemo, useState } from 'react';
+import { Grid, PageHeader } from '../components/page';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 
@@ -43,6 +42,43 @@ export function AuditPage() {
     }
   };
 
+  const expandedRow = rows?.find((row) => row.id === expanded);
+  const columns = useMemo<ColumnDef<DataGridFeatures, Row>[]>(
+    () => [
+      {
+        id: 'when',
+        accessorKey: 'occurredAt',
+        header: 'When',
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">{fmtDateTime(row.original.occurredAt)}</span>
+        ),
+        meta: { headerClassName: 'w-40' },
+      },
+      {
+        id: 'actor',
+        header: 'Actor',
+        cell: ({ row }) => (
+          <span className="block max-w-44 truncate text-xs" title={row.original.actorLabel ?? row.original.actorTier}>
+            {row.original.actorLabel ?? row.original.actorTier}
+          </span>
+        ),
+        meta: { headerClassName: 'w-44' },
+      },
+      {
+        id: 'detail',
+        header: 'Detail',
+        cell: ({ row }) => (
+          <span className={`block font-mono text-xs ${expanded === row.original.id ? 'whitespace-pre-wrap break-all' : 'max-w-xl truncate'}`}>
+            {detail(row.original)}
+          </span>
+        ),
+      },
+    ],
+    // `detail` reads `kind`; the expanded row widens its own cell
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [kind, expanded],
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -66,8 +102,14 @@ export function AuditPage() {
           </Button>
         ))}
       </div>
-      <Panel
-        flush
+      <Grid
+        columns={columns}
+        rows={rows ?? []}
+        getRowId={(row) => row.id}
+        isLoading={rows === undefined}
+        loadingMessage="Loading…"
+        emptyMessage="Nothing recorded yet."
+        onRowClick={(row) => setExpanded(expanded === row.id ? null : row.id)}
         footer={
           rows && rows.length >= limit && limit < 500 ? (
             <Button variant="outline" size="sm" onClick={() => setLimit(limit + 100)}>
@@ -76,59 +118,14 @@ export function AuditPage() {
           ) : undefined
         }
       >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-40">When</TableHead>
-                <TableHead className="w-44">Actor</TableHead>
-                <TableHead>Detail</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows === undefined && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
-              {rows?.map((row) => (
-                <Fragment key={row.id}>
-                  <TableRow
-                    className="cursor-pointer"
-                    onClick={() => setExpanded(expanded === row.id ? null : row.id)}
-                  >
-                    <TableCell className="text-xs text-muted-foreground">
-                      {fmtDateTime(row.occurredAt)}
-                    </TableCell>
-                    <TableCell className="max-w-44 truncate text-xs" title={row.actorLabel ?? row.actorTier}>
-                      {row.actorLabel ?? row.actorTier}
-                    </TableCell>
-                    <TableCell className="max-w-xl truncate font-mono text-xs">
-                      {detail(row)}
-                    </TableCell>
-                  </TableRow>
-                  {expanded === row.id && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="bg-muted/40">
-                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all p-1 font-mono text-xs">
-                          {JSON.stringify(row, null, 2)}
-                        </pre>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              ))}
-              {rows?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    Nothing recorded yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-      </Panel>
+        {expandedRow && (
+          <div className="border-t bg-muted/40 px-4 py-3">
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">
+              {JSON.stringify(expandedRow, null, 2)}
+            </pre>
+          </div>
+        )}
+      </Grid>
     </div>
   );
 }
