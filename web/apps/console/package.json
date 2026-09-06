@@ -13,6 +13,7 @@
     "@premise/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.32",
+    "lucide-react": "^0.545.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

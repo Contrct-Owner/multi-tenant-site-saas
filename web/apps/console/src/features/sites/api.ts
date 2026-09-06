@@ -6,8 +6,10 @@ type UpdateSite = components['schemas']['UpdateSiteRequest'];
 type CreateSchedule = components['schemas']['CreateScheduleRequest'];
 
 export const sitesApi = {
-  list: (limit: number, offset: number, q?: string, signal?: AbortSignal) =>
-    api.get('/api/sites', { query: { limit, offset, q }, signal }),
+  // `under` is the console's global scope (direction B): the node the list
+  // asks under; the server's own scope gate still applies on top (ADR 49)
+  list: (limit: number, offset: number, q?: string, under?: string, signal?: AbortSignal) =>
+    api.get('/api/sites', { query: { limit, offset, q, under }, signal }),
   hierarchy: (signal?: AbortSignal) => api.get('/api/hierarchy', { signal }),
   create: (body: CreateSite) => api.post('/api/sites', body),
   get: async (id: string, signal?: AbortSignal) =>

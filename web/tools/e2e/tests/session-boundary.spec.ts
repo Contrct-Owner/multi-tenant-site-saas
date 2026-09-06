@@ -68,8 +68,9 @@ test('tenant switch clears cached data and form drafts before a delayed new read
     await expect(page.getByRole('link', { name: org === a ? 'A-only site' : 'B-only site' })).toBeVisible();
     await expect(page.getByRole('link', { name: org === a ? 'B-only site' : 'A-only site' })).toHaveCount(0);
   }
+  // on a phone the rail collapses to a tab bar; the org switcher lives under More
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open navigation' }).click();
+  await page.getByRole('button', { name: 'More', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Active organization' })).toBeVisible();
 });
 
@@ -91,10 +92,12 @@ test('a late previous-tenant response cannot repopulate the new cache', async ({
   await nav(page).getByRole('link', { name: 'Hierarchy', exact: true }).click();
   await started;
   await switchTo(page, b);
-  await expect(page.getByText('B-only site root', { exact: true })).toBeVisible();
+  // the shell's Scope panel also names hierarchy nodes: assert on the page body
+  await expect(page.getByRole('main').getByText('B-only site root', { exact: true })).toBeVisible();
   release();
   await finished;
-  await expect(page.getByText('B-only site root', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText('B-only site root', { exact: true })).toBeVisible();
+  // ...but a stale tenant's name must appear NOWHERE, scope panel included
   await expect(page.getByText('A-only site root', { exact: true })).toHaveCount(0);
   await nav(page).getByRole('link', { name: 'Sites', exact: true }).click();
   await expect(page.getByRole('link', { name: 'B-only site' })).toBeVisible();
@@ -240,7 +243,13 @@ test('session changes abort the previous tenant network read', async ({ page }) 
 });
 
 test('missing session headers block the console and allow recovery after repair', async ({ page }) => {
-  await signIn(page, ALICE);
+  // Its own identity and org: by this point in the run the seeded owner's
+  // per-minute budget is spent, and this test is about headers, not budgets.
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  await page.goto(`/auth/login?hint=headers-${stamp}@example.test`);
+  await page.getByLabel('Organization name').fill(`Headers ${stamp}`);
+  await page.getByRole('button', { name: 'Create organization' }).click();
+  await expect(nav(page).getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await page.route('**/me', async (route) => {
     const response = await route.fetch();
     const headers = response.headers();

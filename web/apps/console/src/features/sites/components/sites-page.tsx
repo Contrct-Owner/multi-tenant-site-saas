@@ -2,6 +2,7 @@ import { Button, Card, CardContent, FormDialog, Input, Label, Select,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TimeZoneSelect } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useScope } from '../../../app/scope';
 import { useApiMutation } from '../../../lib/mutation';
 import { can, useMe } from '../../../session';
 import { StatusBadge } from '../../../shell';
@@ -11,7 +12,8 @@ import { useHierarchy, useSites } from '../hooks';
 export function SitesPage() {
   const { data: me } = useMe();
   const [filter, setFilter] = useState('');
-  const sitesQuery = useSites(filter);
+  const scope = useScope();
+  const sitesQuery = useSites(filter, scope.nodeId);
   const sites = sitesQuery.data?.pages.flatMap((p) => p.items);
   const total = sitesQuery.data?.pages[0]?.total;
   const { data: hierarchy } = useHierarchy();

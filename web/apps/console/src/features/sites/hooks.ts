@@ -11,18 +11,25 @@ export function useRefreshSite(siteId: string) {
   };
 }
 
-export function useSites(filter: string) {
+export function useSites(filter: string, under: string | null = null) {
   return useInfiniteQuery({
-    queryKey: ['sites', 'list', filter],
-    queryFn: ({ pageParam, signal }) => sitesApi.list(50, pageParam, filter || undefined, signal),
+    queryKey: ['sites', 'list', filter, under],
+    queryFn: ({ pageParam, signal }) =>
+      sitesApi.list(50, pageParam, filter || undefined, under ?? undefined, signal),
     initialPageParam: 0,
     getNextPageParam: (last) =>
       last.nextOffset == null ? undefined : Number(last.nextOffset),
   });
 }
 
+// a picker, not the management page: the shell has usually just read this
+// tree (same key), and a hierarchy edit invalidates it - no refetch per mount
 export const useHierarchy = () =>
-  useQuery({ queryKey: ['hierarchy'], queryFn: ({ signal }) => sitesApi.hierarchy(signal) });
+  useQuery({
+    queryKey: ['hierarchy'],
+    queryFn: ({ signal }) => sitesApi.hierarchy(signal),
+    staleTime: 5 * 60_000,
+  });
 
 export const useSite = (id: string) =>
   useQuery({ queryKey: ['site', id], queryFn: ({ signal }) => sitesApi.get(id, signal) });
