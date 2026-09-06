@@ -1,8 +1,9 @@
 import { api, ApiError } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+import { Button, ConfirmButton, FormDialog,
   Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 
 export function HierarchyPage() {
@@ -58,10 +59,8 @@ export function HierarchyPage() {
   if (!data) {
     return (
       <div className="max-w-lg space-y-6">
-        <h1 className="text-2xl font-semibold">Hierarchy</h1>
-        <Card>
-          <CardHeader><CardTitle>Provision the org hierarchy</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
+        <PageHeader title="Hierarchy" description="The rollup structure every site sits in." />
+        <Panel title="Provision the org hierarchy" bodyClassName="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="levels">Level names (root-first, comma-separated)</Label>
               <Input id="levels" value={levels} onChange={(e) => setLevels(e.target.value)} />
@@ -74,16 +73,17 @@ export function HierarchyPage() {
                 {String((provision.error as { body?: { error?: string } }).body?.error ?? 'failed')}
               </p>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Hierarchy</h1>
+      <PageHeader
+        title="Hierarchy"
+        description={<>Levels: {data.levels.join(' → ')}</>}
+        actions={
         <FormDialog
           open={adding}
           onOpenChange={setAdding}
@@ -115,10 +115,9 @@ export function HierarchyPage() {
             </Button>
           </div>
         </FormDialog>
-      </div>
-      <p className="text-sm text-muted-foreground">Levels: {data.levels.join(' → ')}</p>
-      <Card>
-        <CardContent className="pt-4">
+        }
+      />
+      <Panel>
           <ul className="space-y-1 text-sm">
             {data.nodes.map((n) => {
               const isLeaf =
@@ -185,8 +184,7 @@ export function HierarchyPage() {
               );
             })}
           </ul>
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

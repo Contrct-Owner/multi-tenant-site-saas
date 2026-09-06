@@ -1,8 +1,9 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, ConfirmButton, Table, TableBody, TableCell,
+import { Button, ConfirmButton, Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { PageHeader, Panel } from '../components/page';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
@@ -63,39 +64,50 @@ export function FilesPage() {
   };
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Files</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="Files"
+        description="Uploads scanned before anyone can download them; the trash keeps deletions for 30 days."
+        actions={<>
           <Button variant={trash ? 'default' : 'ghost'} size="sm"
             onClick={() => setTrash(!trash)}>
             Trash
           </Button>
-        </div>
-        {manage && (
-          <div className="flex items-center gap-3">
-            {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
-            {upload.isError && (
-              <span className="text-sm text-destructive">{String(upload.error)}</span>
-            )}
-            <input
-              ref={fileInput}
-              type="file"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) upload.mutate(file);
-                e.target.value = '';
-              }}
-            />
-            <Button disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
-              Upload file
+          {manage && (
+            <>
+              {phase && <span className="text-sm text-muted-foreground">{phase}</span>}
+              {upload.isError && (
+                <span className="text-sm text-destructive">{String(upload.error)}</span>
+              )}
+              <input
+                ref={fileInput}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) upload.mutate(file);
+                  e.target.value = '';
+                }}
+              />
+              <Button disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
+                Upload file
+              </Button>
+            </>
+          )}
+        </>}
+      />
+      <Panel
+        flush
+        footer={
+          filesQuery.hasNextPage ? (
+            <Button variant="outline" size="sm"
+              disabled={filesQuery.isFetchingNextPage}
+              onClick={() => void filesQuery.fetchNextPage()}>
+              Load more
             </Button>
-          </div>
-        )}
-      </div>
-      <Card>
-        <CardContent className="pt-4">
+          ) : undefined
+        }
+      >
           <Table>
             <TableHeader>
               <TableRow>
@@ -162,17 +174,7 @@ export function FilesPage() {
               )}
             </TableBody>
           </Table>
-          {filesQuery.hasNextPage && (
-            <div className="pt-3 text-center">
-              <Button variant="outline" size="sm"
-                disabled={filesQuery.isFetchingNextPage}
-                onClick={() => void filesQuery.fetchNextPage()}>
-                Load more
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

@@ -1,17 +1,18 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+import { Button, ConfirmButton, FormDialog,
   Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
   TableRow } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDateTime } from '../lib/format';
+import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 
 /** The integration surface (ADR 40): server-to-server keys and outbound webhooks. */
 export function DevelopersPage() {
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-semibold">Developers</h1>
+      <PageHeader title="Developers" description="Server-to-server keys and outbound webhooks (ADR 40)." />
       <ApiKeysCard />
       <WebhooksCard />
     </div>
@@ -63,10 +64,7 @@ function ApiKeysCard() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          API keys
+    <Panel title="API keys" actions={<>
           <FormDialog
             open={open}
             onOpenChange={(next) => {
@@ -109,9 +107,7 @@ function ApiKeysCard() {
               </div>
             )}
           </FormDialog>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+</>}>
         <p className="mb-3 text-sm text-muted-foreground">
           Authenticate with <code className="rounded bg-muted px-1">Authorization: Bearer premise_…</code>{' '}
           against this console's origin. The full contract:{' '}
@@ -178,8 +174,7 @@ function ApiKeysCard() {
             No API keys yet. Create one for server-to-server access.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }
 
@@ -225,10 +220,7 @@ function WebhooksCard() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Webhooks
+    <Panel title="Webhooks" actions={<>
           <FormDialog
             open={open}
             onOpenChange={(next) => {
@@ -271,9 +263,7 @@ function WebhooksCard() {
               </div>
             )}
           </FormDialog>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+</>}>
         {hooks && hooks.length > 0 ? (
           <Table>
             <TableHeader>
@@ -325,7 +315,6 @@ function WebhooksCard() {
             No webhooks yet. Add one to push org events to your systems.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }

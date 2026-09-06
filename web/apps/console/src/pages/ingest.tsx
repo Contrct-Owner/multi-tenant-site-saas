@@ -1,10 +1,10 @@
 import { api, type components } from '@premise/api';
-import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHeader,
-  CardTitle, ConfirmButton, FormDialog, Input, Label,
+import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, FormDialog, Input, Label,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
+import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 import { uploadFile } from '../lib/uploads';
 
@@ -63,12 +63,8 @@ export function IngestPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-semibold">Site ingest</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload CSV</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <PageHeader title="Site ingest" description="Bulk-load sites from a CSV or a connector; nothing applies until you review the diff and commit." />
+      <Panel title="Upload CSV" bodyClassName="space-y-3">
           <p className="text-sm text-muted-foreground">
             Columns: external_id, name, time_zone, node, status (open|closed). Nothing is applied
             until you review the diff and commit.
@@ -94,19 +90,12 @@ export function IngestPage() {
               <AlertDescription>{String(stage.error)}</AlertDescription>
             </Alert>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
       {preview && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Diff preview — {preview.counts.create} new, {preview.counts.update} updated,{' '}
+        <Panel title={<>Diff preview — {preview.counts.create} new, {preview.counts.update} updated,{' '}
               {preview.counts.close} closing, {preview.counts.unchanged} unchanged,{' '}
-              {preview.counts.invalid} invalid
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+              {preview.counts.invalid} invalid</>} bodyClassName="space-y-4">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -138,13 +127,10 @@ export function IngestPage() {
             ) : (
               <p className="text-sm text-muted-foreground">Batch is {preview.status}.</p>
             )}
-          </CardContent>
-        </Card>
+          </Panel>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>Batches</CardTitle></CardHeader>
-        <CardContent>
+      <Panel title="Batches">
           {batches && batches.length > 0 ? (
             <Table>
               <TableHeader>
@@ -189,8 +175,7 @@ export function IngestPage() {
           ) : (
             <p className="text-sm text-muted-foreground">No batches yet.</p>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
       <ConnectorsCard />
     </div>
@@ -251,10 +236,7 @@ function ConnectorsCard() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Connectors
+    <Panel title="Connectors" actions={<>
           <FormDialog
             open={open}
             onOpenChange={setOpen}
@@ -299,9 +281,7 @@ function ConnectorsCard() {
               </Button>
             </div>
           </FormDialog>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+</>}>
         {connectors && connectors.length > 0 ? (
           <Table>
             <TableHeader>
@@ -347,7 +327,6 @@ function ConnectorsCard() {
             No connectors yet. Add one to pull sites from an external source.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }

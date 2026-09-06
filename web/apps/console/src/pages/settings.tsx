@@ -1,8 +1,9 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label, Select } from '@premise/ui';
+import { Button, ConfirmButton, Input, Label, Select } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fmtDate } from '../lib/format';
+import { PageHeader, Panel } from '../components/page';
 import { useApiMutation } from '../lib/mutation';
 import { can, useMe } from '../session';
 
@@ -73,11 +74,9 @@ export function SettingsPage() {
   if (!activeOrg) return null;
   const draft = name ?? activeOrg.name;
   return (
-    <div className="max-w-lg space-y-6">
-      <h1 className="text-2xl font-semibold">Organization settings</h1>
-      <Card>
-        <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+    <div className="max-w-2xl space-y-6">
+      <PageHeader title="Organization settings" description="Profile, billing, sign-on, the map, the public locator, and your data." />
+      <Panel title="Profile" bodyClassName="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="org-rename">Name</Label>
             <Input id="org-rename" value={draft} onChange={(e) => setName(e.target.value)} />
@@ -92,11 +91,8 @@ export function SettingsPage() {
           >
             Save
           </Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Billing</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        </Panel>
+      <Panel title="Billing" bodyClassName="space-y-3">
           {billing?.status === 'PastDue' && (
             <div className="rounded-md bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
               <span className="font-semibold">Payment failed.</span> Your features continue
@@ -147,12 +143,9 @@ export function SettingsPage() {
               </p>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Single sign-on</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Panel title="Single sign-on" bodyClassName="space-y-2">
           {!sso ? null : !sso.available ? (
             <p className="text-sm text-muted-foreground">
               Enterprise SSO and directory sync are not supported by this
@@ -182,15 +175,12 @@ export function SettingsPage() {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
       {can(me, 'sites:manage') && <SiteAttributesCard />}
       <MapBasemapsCard />
 
-      <Card>
-        <CardHeader><CardTitle>Public locator</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Panel title="Public locator" bodyClassName="space-y-2">
           {publicUrl && (
             <>
               <p className="text-sm text-muted-foreground">
@@ -206,12 +196,9 @@ export function SettingsPage() {
               </code>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Your data</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Panel title="Your data" bodyClassName="space-y-2">
           <p className="text-sm text-muted-foreground">
             Take a full archive of this organization&apos;s data - sites, people, roles,
             entitlements, and audit history. The archive is delivered to Files.
@@ -223,12 +210,9 @@ export function SettingsPage() {
           >
             {exportData.isSuccess ? 'Queued - check Files shortly' : 'Export org data'}
           </Button>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Close this organization</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Panel title="Close this organization" bodyClassName="space-y-2">
           {closure?.requestedAt ? (
             <>
               <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -255,8 +239,7 @@ export function SettingsPage() {
               </ConfirmButton>
             </>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
     </div>
   );
 }
@@ -289,9 +272,7 @@ function SiteAttributesCard() {
   });
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Site attributes</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+    <Panel title="Site attributes" bodyClassName="space-y-3">
         <p className="text-sm text-muted-foreground">
           Your own fields on every site - a drive-thru flag, a cost center, a manager name.
           Public attributes appear on the site&apos;s public page; the rest stay internal.
@@ -344,8 +325,7 @@ function SiteAttributesCard() {
             Add
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }
 
@@ -393,9 +373,7 @@ function MapBasemapsCard() {
   const needsKey = urlTemplate.includes('{key}');
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Map basemaps</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+    <Panel title="Map basemaps" bodyClassName="space-y-3">
         <p className="text-sm text-muted-foreground">
           Raster tile providers the map offers beside OpenStreetMap and the themed default. Put{' '}
           <code className="rounded bg-muted px-1">{'{key}'}</code> in the URL where the provider wants its
@@ -461,7 +439,6 @@ function MapBasemapsCard() {
           }>
           Add basemap
         </Button>
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }

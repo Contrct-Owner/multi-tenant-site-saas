@@ -1,9 +1,10 @@
 import { api } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+import { Button, ConfirmButton, FormDialog,
   Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
   TableRow } from '@premise/ui';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { PageHeader, Panel } from '../components/page';
 import { fmtDate } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 import { useMe } from '../session';
@@ -88,10 +89,11 @@ export function MembersPage() {
   const self = me?.tier === 'user' ? me.userId : undefined;
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Members</h1>
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      <PageHeader
+        title="Members"
+        description="Who works in this organization, and the contacts with a link to its public pages."
+        actions={<>
           <FormDialog
             open={invitingContact}
             onOpenChange={setInvitingContact}
@@ -142,11 +144,21 @@ export function MembersPage() {
               </Button>
             </div>
           </FormDialog>
-        </div>
-      </div>
+        </>}
+      />
 
-      <Card>
-        <CardContent className="pt-4">
+      <Panel
+        flush
+        footer={
+          membersQuery.hasNextPage ? (
+            <Button variant="outline" size="sm"
+              disabled={membersQuery.isFetchingNextPage}
+              onClick={() => void membersQuery.fetchNextPage()}>
+              Load more
+            </Button>
+          ) : undefined
+        }
+      >
           <Table>
             <TableHeader>
               <TableRow>
@@ -206,23 +218,10 @@ export function MembersPage() {
               ))}
             </TableBody>
           </Table>
-          {membersQuery.hasNextPage && (
-            <div className="pt-3 text-center">
-              <Button variant="outline" size="sm"
-                disabled={membersQuery.isFetchingNextPage}
-                onClick={() => void membersQuery.fetchNextPage()}>
-                Load more
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      </Panel>
 
       {invitations && invitations.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Pending invitations</CardTitle></CardHeader>
-          <CardContent>
-
+        <Panel title="Pending invitations" flush>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -253,17 +252,14 @@ export function MembersPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>Contacts</CardTitle></CardHeader>
-        <CardContent>
-          <p className="mb-3 text-sm text-muted-foreground">
-            People given identified access to your public pages via contact links.
-            Revoking cuts off live sessions and unexpired links at once.
-          </p>
+      <Panel
+        title="Contacts"
+        description="People given identified access to your public pages via contact links. Revoking cuts off live sessions and unexpired links at once."
+        flush
+      >
           {contacts && contacts.length > 0 ? (
             <Table>
               <TableHeader>
@@ -298,10 +294,9 @@ export function MembersPage() {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-sm text-muted-foreground">No contacts yet.</p>
+            <p className="px-4 py-4 text-sm text-muted-foreground">No contacts yet.</p>
           )}
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

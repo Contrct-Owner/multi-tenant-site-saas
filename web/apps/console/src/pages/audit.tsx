@@ -1,8 +1,9 @@
 import { api, type components } from '@premise/api';
-import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead,
+import { Button, Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
+import { PageHeader, Panel } from '../components/page';
 import { fmtDateTime } from '../lib/format';
 import { useApiMutation } from '../lib/mutation';
 
@@ -43,14 +44,16 @@ export function AuditPage() {
   };
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Audit</h1>
-        <Button variant="outline" size="sm" disabled={exportTrail.isPending}
-          onClick={() => exportTrail.mutate()}>
-          Export trail
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Audit"
+        description="Events, changes, access decisions and the request log."
+        actions={
+          <Button variant="outline" size="sm" disabled={exportTrail.isPending} onClick={() => exportTrail.mutate()}>
+            Export trail
+          </Button>
+        }
+      />
       <div className="flex gap-2">
         {KINDS.map((k) => (
           <Button key={k} size="sm" variant={k === kind ? 'default' : 'outline'}
@@ -63,8 +66,16 @@ export function AuditPage() {
           </Button>
         ))}
       </div>
-      <Card>
-        <CardContent className="pt-4">
+      <Panel
+        flush
+        footer={
+          rows && rows.length >= limit && limit < 500 ? (
+            <Button variant="outline" size="sm" onClick={() => setLimit(limit + 100)}>
+              Load more
+            </Button>
+          ) : undefined
+        }
+      >
           <Table>
             <TableHeader>
               <TableRow>
@@ -117,15 +128,7 @@ export function AuditPage() {
               )}
             </TableBody>
           </Table>
-          {rows && rows.length >= limit && limit < 500 && (
-            <div className="pt-3 text-center">
-              <Button variant="outline" size="sm" onClick={() => setLimit(limit + 100)}>
-                Load more
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

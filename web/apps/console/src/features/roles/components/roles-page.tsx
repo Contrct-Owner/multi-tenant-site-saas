@@ -1,9 +1,10 @@
 import { type components } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, FormDialog,
+import { Button, ConfirmButton, FormDialog,
   Input, Label, Select, Table, TableBody, TableCell, TableHead, TableHeader,
   TableRow } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDate } from '../../../lib/format';
+import { PageHeader, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { rolesApi } from '../api';
 import { useGrantExceptions, useRoleHierarchy, useRoleMembers, useRoles } from '../hooks';
@@ -49,9 +50,10 @@ export function RolesPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Roles</h1>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Roles"
+        description="What a role grants, who holds it and where, and the exceptions."
+        actions={<>
           <AssignDialog roles={roles ?? []} members={members ?? []}
             nodes={(hierarchy?.nodes ?? []).map((node) => ({
               ...node,
@@ -70,11 +72,10 @@ export function RolesPage() {
               onSaved={() => setEditorOpen(false)}
             />
           </FormDialog>
-        </div>
-      </div>
+        </>}
+      />
 
-      <Card>
-        <CardContent className="pt-4">
+      <Panel>
           {roles && roles.length > 0 ? (
             <Table>
               <TableHeader>
@@ -118,8 +119,7 @@ export function RolesPage() {
               No roles yet. Create one with &quot;New role&quot;.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
       <ExceptionsCard members={members ?? []} nodes={(hierarchy?.nodes ?? []).map((node) => ({
         ...node,
@@ -234,10 +234,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Grant exceptions
+    <Panel title="Grant exceptions" actions={<>
           <FormDialog
             open={open}
             onOpenChange={setOpen}
@@ -297,9 +294,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
               </Button>
             </div>
           </FormDialog>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+</>}>
         {exceptions && exceptions.length > 0 ? (
           <Table>
             <TableHeader>
@@ -336,7 +331,6 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
         ) : (
           <p className="text-sm text-muted-foreground">No active exceptions.</p>
         )}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }

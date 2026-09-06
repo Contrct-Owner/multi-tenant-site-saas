@@ -1,7 +1,7 @@
 import { api, ENTITLEMENTS, type EntitlementCode } from '@premise/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { PageHeader, Panel, Stat } from '../components/page';
 import {entitlementLabel, fmtDateTime, eventLabel } from '../lib/format';
 import { can, useMe } from '../session';
 
@@ -38,49 +38,31 @@ export function DashboardPage() {
   const pending = invitations?.filter((i) => i.state === 'pending').length ?? 0;
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="max-w-4xl space-y-6">
+      <PageHeader title="Dashboard" description="What needs attention, then the plan." />
 
       <div className="grid grid-cols-2 gap-4">
         {seesSites && (
-          <Card>
-            <CardContent className="pt-5">
-              <Link to="/sites" className="block">
-                <div className="text-3xl font-semibold tabular-nums">
-                  {sites === undefined ? '—' : sites.total}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  sites · {sites?.openCount ?? 0} open
-                </div>
-              </Link>
-            </CardContent>
-          </Card>
+          <Stat
+            to="/sites"
+            value={sites === undefined ? '—' : sites.total}
+            label={<>sites · {sites?.openCount ?? 0} open</>}
+          />
         )}
         {seesMembers && (
-          <Card>
-            <CardContent className="pt-5">
-              <Link to="/members" className="block">
-                <div className="text-3xl font-semibold tabular-nums">
-                  {invitations === undefined ? '—' : pending}
-                </div>
-                <div className="text-sm text-muted-foreground">pending invitations</div>
-              </Link>
-            </CardContent>
-          </Card>
+          <Stat to="/members" value={invitations === undefined ? '—' : pending} label="pending invitations" />
         )}
       </div>
 
       {seesAudit && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Recent activity
-              <Link to="/audit" className="text-sm font-normal text-muted-foreground hover:underline">
-                All activity →
-              </Link>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel
+          title="Recent activity"
+          actions={
+            <Link to="/audit" className="text-sm text-muted-foreground hover:underline">
+              All activity →
+            </Link>
+          }
+        >
             {events === undefined ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : events.length === 0 ? (
@@ -102,13 +84,10 @@ export function DashboardPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>Plan</CardTitle></CardHeader>
-        <CardContent>
+      <Panel title="Plan">
           <div className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             {entitlements &&
               (Object.keys(ENTITLEMENTS) as EntitlementCode[]).map((code) => {
@@ -141,8 +120,7 @@ export function DashboardPage() {
                 );
               })}
           </div>
-        </CardContent>
-      </Card>
+      </Panel>
     </div>
   );
 }

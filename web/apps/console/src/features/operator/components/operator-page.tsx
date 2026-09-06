@@ -1,6 +1,7 @@
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input } from '@premise/ui';
+import { Button, ConfirmButton, Input } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDateTime } from '../../../lib/format';
+import { PageHeader, Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { StatusBadge } from '../../../shell';
 import { operatorApi } from '../api';
@@ -22,13 +23,11 @@ export function OperatorPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-2xl font-semibold">Operator</h1>
+      <PageHeader title="Operator" description="Platform custody: organizations and their lifecycle, dead letters, dependencies, suppressions." />
       <PlatformOverview />
       <CustomerSearch onPickOrg={setSelectedId} />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
-        <Card>
-          <CardHeader><CardTitle>Organizations</CardTitle></CardHeader>
-          <CardContent className="space-y-1">
+        <Panel title="Organizations" bodyClassName="space-y-1">
             {orgs?.map((org) => (
               <button
                 key={org.id}
@@ -45,8 +44,7 @@ export function OperatorPage() {
                 <StatusBadge status={org.status} />
               </button>
             ))}
-          </CardContent>
-        </Card>
+          </Panel>
         {selected && !selected.isPlatform && (
           <OrganizationControls
             key={selected.id}
@@ -66,9 +64,7 @@ function Dependencies() {
   const { data } = useOperatorHealth();
   if (!data) return null;
   return (
-    <Card>
-      <CardHeader><CardTitle>Dependencies</CardTitle></CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
+    <Panel title="Dependencies" bodyClassName="flex flex-wrap gap-2">
         {data.checks.map((c) => (
           <span key={c.name}
             title={c.error ?? `${c.latencyMs}ms`}
@@ -79,8 +75,7 @@ function Dependencies() {
             </span>
           </span>
         ))}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }
 
@@ -93,9 +88,7 @@ function Suppressions() {
     success: 'Unsuppressed - sending to this address resumes',
   });
   return (
-    <Card>
-      <CardHeader><CardTitle>Email suppressions</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title="Email suppressions" bodyClassName="space-y-2">
         <p className="text-sm text-muted-foreground">
           Addresses that bounced. Verify the address is real before unsuppressing -
           repeated bounces hurt the platform&apos;s sender reputation.
@@ -118,8 +111,7 @@ function Suppressions() {
             </ConfirmButton>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }
 
@@ -127,9 +119,7 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
   const [q, setQ] = useState('');
   const { data: hits } = useOperatorUsers(q);
   return (
-    <Card>
-      <CardHeader><CardTitle>Find a customer</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title="Find a customer" bodyClassName="space-y-2">
         <Input placeholder="Email or name from the ticket…" value={q}
           onChange={(e) => setQ(e.target.value)} />
         {q.trim().length >= 2 && hits?.length === 0 && (
@@ -154,8 +144,7 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
             </span>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }
 
@@ -174,14 +163,12 @@ function PlatformOverview() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {stats.map(([label, value, attention]) => (
-        <Card key={label}>
-          <CardContent className="pt-4">
+        <Panel key={label}>
             <div className={`text-2xl font-semibold ${attention ? 'text-warning-foreground' : ''}`}>
               {value}
             </div>
             <div className="text-xs text-muted-foreground">{label}</div>
-          </CardContent>
-        </Card>
+          </Panel>
       ))}
     </div>
   );
@@ -200,13 +187,7 @@ function DeadLetters() {
     success: 'Discarded',
   });
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          Dead letters{data && Number(data.total) > 0 ? ` (${data.total})` : ''}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title={<>Dead letters{data && Number(data.total) > 0 ? ` (${data.total})` : ''}</>} bodyClassName="space-y-2">
         {data?.total === 0 && (
           <p className="text-sm text-muted-foreground">
             No failed messages. Background work that fails after retries lands here for
@@ -237,7 +218,6 @@ function DeadLetters() {
             </div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </Panel>
   );
 }

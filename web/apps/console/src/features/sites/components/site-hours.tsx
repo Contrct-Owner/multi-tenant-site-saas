@@ -1,8 +1,9 @@
 import type { components } from '@premise/api';
-import { Button, Card, CardContent, CardHeader, CardTitle, ConfirmButton, Input, Label,
+import { Button, ConfirmButton, Input, Label,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDayInZone, fmtTimeInZone } from '../../../lib/format';
+import { Panel } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { weeklySchedule, type DayCode } from '../../../lib/schedule';
 import { sitesApi } from '../api';
@@ -73,9 +74,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
 
   return (
     <>
-      <Card>
-        <CardHeader><CardTitle>Operating hours</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+      <Panel title="Operating hours" bodyClassName="space-y-4">
           <Table>
             <TableHeader>
               <TableRow>
@@ -165,12 +164,9 @@ export function SiteHours({ siteId, timeZone, manage }: {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Holiday closures</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <Panel title="Holiday closures" bodyClassName="space-y-3">
           {closures && closures.length > 0 ? (
             <ul className="space-y-1 text-sm">
               {closures.map((date) => (
@@ -211,12 +207,9 @@ export function SiteHours({ siteId, timeZone, manage }: {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Open this week</CardTitle></CardHeader>
-        <CardContent>
+      <Panel title="Open this week">
           {windows?.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No open windows in the next 7 days.
@@ -238,8 +231,7 @@ export function SiteHours({ siteId, timeZone, manage }: {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
     </>
   );

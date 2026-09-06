@@ -71,7 +71,7 @@ export function SiteDetailPage() {
       </Link>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{site.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{site.name}</h1>
           <StatusBadge status={site.status} />
         </div>
         {manage && (
