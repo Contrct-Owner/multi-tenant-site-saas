@@ -199,7 +199,8 @@ export function Shell({ children }: { children: ReactNode }) {
               />
             )}
             <Topbar me={me} />
-            <main className="min-w-0 flex-1 p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+            {/* SidebarInset IS the page's <main>; this is only its padding */}
+            <div className="min-w-0 flex-1 p-4 pb-24 md:p-8 md:pb-8">{children}</div>
           </SidebarInset>
           <TabBar me={me} />
           <Toaster theme={theme} />
