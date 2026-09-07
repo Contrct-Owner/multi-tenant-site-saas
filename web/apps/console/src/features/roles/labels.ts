@@ -12,6 +12,7 @@ export const CAPABILITY_LABELS: Record<Capability, { label: string; group: strin
   'sites:manage': { label: 'Manage sites', group: 'Sites' },
   'hierarchy:manage': { label: 'Manage the hierarchy', group: 'Sites' },
   'ingest:manage': { label: 'Bulk-load sites', group: 'Sites' },
+  'reports:generate': { label: 'Generate reports', group: 'Reports' },
   'overlays:read': { label: 'See map overlays', group: 'Map' },
   'overlays:manage': { label: 'Manage map overlays', group: 'Map' },
   'checklists:complete': { label: 'Complete checklists', group: 'Checklists' },
@@ -27,7 +28,7 @@ export const CAPABILITY_LABELS: Record<Capability, { label: string; group: strin
 };
 
 /** The order groups appear in the editor: the everyday ones first. */
-export const CAPABILITY_GROUPS = ['Sites', 'Checklists', 'Files', 'Map', 'Audit', 'Organization'] as const;
+export const CAPABILITY_GROUPS = ['Sites', 'Checklists', 'Files', 'Reports', 'Map', 'Audit', 'Organization'] as const;
 
 export const capabilityLabel = (key: string): string =>
   key === '*:*' ? 'Everything' : (CAPABILITY_LABELS as Record<string, { label: string }>)[key]?.label ?? key;

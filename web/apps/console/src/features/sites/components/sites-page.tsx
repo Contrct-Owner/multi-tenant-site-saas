@@ -8,6 +8,7 @@ import { bboxParam, snapToTileGrid, type Viewport } from '../../../lib/map';
 import { useApiMutation } from '../../../lib/mutation';
 import { usePreference } from '../../../lib/preference';
 import { can, useMe } from '../../../session';
+import { ReportGenerationDialog } from '../../reports';
 import { StatusBadge } from '../../../shell';
 import { sitesApi } from '../api';
 import { useHierarchy, useSites } from '../hooks';
@@ -64,6 +65,7 @@ export function SitesPage() {
   const withoutCoordinates = toNumber(firstPage?.withoutCoordinates);
   const { data: hierarchy } = useHierarchy();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [reportSites, setReportSites] = useState<Record<string, string>>();
   const selectedCount = Object.values(rowSelection).filter(Boolean).length;
   const selectedIds = useMemo(
     () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
@@ -82,7 +84,7 @@ export function SitesPage() {
 
   const nodeName = (id: string) => hierarchy?.nodes.find((n) => n.id === id)?.name ?? '—';
 
-  // the selection's one action: a status for every chosen site, in one call
+  // Update the status of every chosen site in one call.
   const bulkStatus = useApiMutation({
     mutationFn: (status: string) =>
       sitesApi.bulkStatus(selectedIds, status as Parameters<typeof sitesApi.bulkStatus>[1]),
@@ -224,6 +226,9 @@ export function SitesPage() {
     selectedCount > 0 ? (
       <>
         <span className="font-medium tabular-nums">{selectedCount} selected</span>
+        {can(me, 'reports:generate') && <Button onClick={() => setReportSites(
+          Object.fromEntries(selectedIds.map(id => [id, sites.find(site => site.id === id)?.name ?? id])),
+        )}>Generate report</Button>}
         {manage && (
           <Select
             aria-label="Set status for the selected sites"
@@ -261,6 +266,7 @@ export function SitesPage() {
 
   return (
     <div className="space-y-6">
+      <ReportGenerationDialog sites={reportSites} onClose={() => setReportSites(undefined)} />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
@@ -443,6 +449,5 @@ const SITE_STATUSES = [
   { key: 'TemporarilyClosed', label: 'Temporarily closed' },
   { key: 'Closed', label: 'Closed' },
 ] as const;
-
 
 

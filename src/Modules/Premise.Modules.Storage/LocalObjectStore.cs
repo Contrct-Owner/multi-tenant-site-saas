@@ -140,7 +140,11 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
 
     public ValueTask DeleteAsync(string key, CancellationToken ct = default)
     {
-        File.Delete(PathFor(key));
+        try
+        {
+            File.Delete(PathFor(key));
+        }
+        catch (DirectoryNotFoundException) { } // Already absent, including an intent whose upload never started.
         return ValueTask.CompletedTask;
     }
 

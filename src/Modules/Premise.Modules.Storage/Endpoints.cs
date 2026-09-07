@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Storage.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Premise.Platform.Storage;
 using Wolverine;
@@ -19,10 +20,17 @@ public sealed record FileSummary(
     DateTimeOffset? DeletedAt,
     bool LegalHold,
     bool HasPreview,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    Guid[] SiteIds,
+    string? Origin,
+    Guid? OriginId
 );
 
-public sealed record FileListResponse(IReadOnlyList<FileSummary> Items, int Total, int? NextOffset);
+public sealed record FileListResponse(
+    IReadOnlyList<FileSummary> Items,
+    int? Total,
+    int? NextOffset
+);
 
 public sealed record CreateFileRequest(string Name, string ContentType, long SizeBytes);
 
@@ -87,6 +95,7 @@ public static class FileEndpoints
     public static async Task<IResult> Complete(
         Guid id,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IObjectStore store,
         IMessageBus bus,
         IPrincipalAccessor accessor,
@@ -96,8 +105,11 @@ public static class FileEndpoints
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return new GateOutcome.Forbidden(Capabilities.FilesManage).ToResult();
+        await db.TakeAsync(id, ct);
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null)
+            return Results.NotFound();
+        if (!await access.AllowsAsync(file, accessor.Current, Capabilities.FilesManage, ct))
             return Results.NotFound();
         if (file.Status != FileStatus.PendingUpload)
             return ApiErrors.Conflict($"file is {file.Status}");
@@ -127,12 +139,14 @@ public static class FileEndpoints
     [ProducesResponseType(typeof(FileListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         string? q,
         int? limit,
         int? offset,
         bool? trash,
+        Guid? siteId,
         CancellationToken ct
     )
     {
@@ -143,31 +157,25 @@ public static class FileEndpoints
             : db.Files.Where(f => f.Status != FileStatus.Erased && f.Status != FileStatus.Deleted);
         if (!string.IsNullOrWhiteSpace(q))
             query = query.Where(f => EF.Functions.ILike(f.Name, $"%{q.Trim()}%"));
-        var total = await query.CountAsync(ct);
+        if (siteId is { } selectedSite)
+            query = query.Where(f => f.SiteIds.Contains(selectedSite));
         var take = Math.Clamp(limit ?? 50, 1, 200);
         var skip = Math.Max(offset ?? 0, 0);
-        var files = await query
+        // Bound permission checks to one candidate page; a global visible count would
+        // require scanning every producer's dependency policy. Total is intentionally unknown.
+        var candidates = await query
+            .AsNoTracking()
             .OrderByDescending(f => f.CreatedAt)
             .ThenByDescending(f => f.Id)
             .Skip(skip)
-            .Take(take)
-            .Select(f => new FileSummary(
-                f.Id,
-                f.Name,
-                f.ContentType,
-                f.Status.ToString(),
-                f.DeletedAt,
-                f.LegalHold,
-                f.PreviewKey != null,
-                f.CreatedAt
-            ))
+            .Take(take + 1)
             .ToListAsync(ct);
+        var files = new List<FileSummary>();
+        foreach (var file in candidates.Take(take))
+            if (await access.AllowsAsync(file, accessor.Current, Capabilities.FilesRead, ct))
+                files.Add(View(file));
         return Results.Ok(
-            new FileListResponse(
-                files,
-                total,
-                skip + files.Count < total ? skip + files.Count : null
-            )
+            new FileListResponse(files, null, candidates.Count > take ? skip + take : null)
         );
     }
 
@@ -181,6 +189,7 @@ public static class FileEndpoints
     public static async Task<IResult> Download(
         Guid id,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IObjectStore store,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -193,6 +202,8 @@ public static class FileEndpoints
         // quarantined/pending/erased are all 404: never confirm undownloadable bytes
         if (file is null || file.Status != FileStatus.Clean)
             return Results.NotFound();
+        if (!await access.AllowsAsync(file, accessor.Current, Capabilities.FilesRead, ct))
+            return Results.NotFound();
         var url = await store.GetDownloadUrlAsync(file.Key, TimeSpan.FromMinutes(5), ct);
         return Results.Ok(new DownloadFileResponse(url.ToString(), 300));
     }
@@ -204,6 +215,7 @@ public static class FileEndpoints
         Guid id,
         SetHoldRequest request,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         IMessageBus bus,
@@ -212,8 +224,11 @@ public static class FileEndpoints
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return new GateOutcome.Forbidden(Capabilities.FilesManage).ToResult();
+        await db.TakeAsync(id, ct);
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null)
+            return Results.NotFound();
+        if (!await access.AllowsAsync(file, accessor.Current, Capabilities.FilesManage, ct))
             return Results.NotFound();
         file.LegalHold = request.Hold;
         await db.SaveChangesAsync(ct);
@@ -239,6 +254,7 @@ public static class FileEndpoints
     public static async Task<IResult> Delete(
         Guid id,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IObjectStore store,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -248,8 +264,11 @@ public static class FileEndpoints
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return new GateOutcome.Forbidden(Capabilities.FilesManage).ToResult();
+        await db.TakeAsync(id, ct);
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null || file.Status is FileStatus.Erased or FileStatus.Deleted)
+            return Results.NotFound();
+        if (!await access.AllowsAsync(file, accessor.Current, Capabilities.FilesManage, ct))
             return Results.NotFound();
         if (file.LegalHold)
             return ApiErrors.Conflict("file is under legal hold");
@@ -288,6 +307,7 @@ public static class FileEndpoints
     public static async Task<IResult> Restore(
         Guid id,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         IMessageBus bus,
@@ -296,10 +316,13 @@ public static class FileEndpoints
     {
         if (!await scopes.CanAsync(accessor.Current, Capabilities.FilesManage, ct))
             return new GateOutcome.Forbidden(Capabilities.FilesManage).ToResult();
+        await db.TakeAsync(id, ct);
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null || file.Status != FileStatus.Deleted)
             return Results.NotFound();
 
+        if (!await access.AllowsAsync(file, accessor.Current, Capabilities.FilesManage, ct))
+            return Results.NotFound();
         file.Status = FileStatus.Clean; // only Clean files can enter the trash
         file.DeletedAt = null;
         await db.SaveChangesAsync(ct);
@@ -313,4 +336,19 @@ public static class FileEndpoints
         );
         return Results.NoContent();
     }
+
+    internal static FileSummary View(FileObject file) =>
+        new(
+            file.Id,
+            file.Name,
+            file.ContentType,
+            file.Status.ToString(),
+            file.DeletedAt,
+            file.LegalHold,
+            file.PreviewKey != null,
+            file.CreatedAt,
+            file.SiteIds,
+            file.Origin,
+            file.OriginId
+        );
 }

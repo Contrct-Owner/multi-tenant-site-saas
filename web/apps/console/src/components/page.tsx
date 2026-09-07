@@ -38,22 +38,25 @@ export function PageHeader({
   count,
   description,
   actions,
+  headingLevel = 1,
 }: {
   title: ReactNode;
+  headingLevel?: 1 | 2;
   /** A total beside the title, muted and tabular (the Sites count). */
   count?: number | string | null;
   description?: ReactNode;
   actions?: ReactNode;
 }) {
+  const Heading = headingLevel === 2 ? 'h2' : 'h1';
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight">
+        <Heading className="text-xl font-semibold tracking-tight">
           {title}
           {count !== undefined && count !== null && (
             <span className="ml-2 text-base font-medium tabular-nums text-muted-foreground">{count}</span>
           )}
-        </h1>
+        </Heading>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}

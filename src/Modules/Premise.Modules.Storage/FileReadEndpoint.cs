@@ -20,6 +20,7 @@ public static class FileReadEndpoint
     public static async Task<IResult> Get(
         Guid id,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         CancellationToken ct
@@ -34,17 +35,11 @@ public static class FileReadEndpoint
             .Files.Where(f =>
                 f.Id == id && f.Status != FileStatus.Deleted && f.Status != FileStatus.Erased
             )
-            .Select(f => new FileSummary(
-                f.Id,
-                f.Name,
-                f.ContentType,
-                f.Status.ToString(),
-                f.DeletedAt,
-                f.LegalHold,
-                f.PreviewKey != null,
-                f.CreatedAt
-            ))
             .SingleOrDefaultAsync(ct);
-        return file is null ? Results.NotFound() : Results.Ok(file);
+        return
+            file is null
+            || !await access.AllowsAsync(file, accessor.Current, Capabilities.FilesRead, ct)
+            ? Results.NotFound()
+            : Results.Ok(FileEndpoints.View(file));
     }
 }

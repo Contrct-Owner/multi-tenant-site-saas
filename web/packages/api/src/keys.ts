@@ -9,6 +9,7 @@ export const CAPABILITIES = [
   'files:read',
   'files:manage',
   'ingest:manage',
+  'reports:generate',
   'checklists:manage',
   'checklists:complete',
   'overlays:read',
@@ -29,6 +30,8 @@ export const ENTITLEMENTS = {
   'contact_links.enabled': { shape: 'Boolean', policy: 'Block', defaultValue: 'true' },
   'contact_links.monthly': { shape: 'Metered', policy: 'Grace', defaultValue: '1000' },
   'hierarchy.depth': { shape: 'Limit', policy: 'Block', defaultValue: '4' },
+  'reports.enabled': { shape: 'Boolean', policy: 'Block', defaultValue: 'true' },
+  'reports.monthly': { shape: 'Limit', policy: 'Block', defaultValue: '1000' },
   'sites.max': { shape: 'Limit', policy: 'Block', defaultValue: '100' },
   'sso.enabled': { shape: 'Boolean', policy: 'Block', defaultValue: 'false' },
 } as const;

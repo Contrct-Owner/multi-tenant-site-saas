@@ -15,6 +15,7 @@ public static class SpatialModule
         // schema is the only fact a module supplies
         services.AddModuleDbContext<SpatialDbContext>("spatial");
         services.AddScoped<Premise.Contracts.IOrgDataExporter, SpatialExporter>();
+        services.AddScoped<Premise.Contracts.IReportOverlaySource, Overlays.ReportOverlaySource>();
         return services;
     }
 }

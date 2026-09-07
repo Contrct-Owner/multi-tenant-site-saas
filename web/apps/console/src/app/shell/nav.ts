@@ -22,6 +22,7 @@ export const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
       { to: '/hierarchy', label: 'Hierarchy', capability: 'hierarchy:manage', icon: Network },
       { to: '/checklists', label: 'Checklists', capability: 'checklists:complete', icon: ListChecks },
       { to: '/files', label: 'Files', capability: 'files:read', icon: FolderOpen },
+      { to: '/reports', label: 'Reports', capability: 'files:read', icon: ScrollText },
       { to: '/ingest', label: 'Ingest', capability: 'ingest:manage', icon: Upload },
     ],
   },

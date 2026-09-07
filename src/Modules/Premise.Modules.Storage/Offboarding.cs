@@ -24,8 +24,12 @@ public sealed class StorageExporter(StorageDbContext db) : IOrgDataExporter
             .Where(f => f.OrgId == org)
             .Select(f => new
             {
+                f.Id,
                 f.Name,
                 f.ContentType,
+                f.SiteIds,
+                f.Origin,
+                f.OriginId,
                 status = f.Status.ToString(),
                 f.LegalHold,
                 f.CreatedAt,
@@ -110,7 +114,7 @@ public static class ExportOrgDataHandler
 /// </summary>
 public static class PurgeOrgFilesHandler
 {
-    [Transactional]
+    [Transactional(typeof(StorageDbContext))]
     public static async Task Handle(
         PurgeOrgFiles _,
         StorageDbContext db,
@@ -122,6 +126,10 @@ public static class PurgeOrgFilesHandler
         var org =
             tenant.OrgId
             ?? throw new InvalidOperationException("purge arrived with no tenant on the envelope");
+        await Premise.Platform.Data.AggregateLock.TakeAsync(db, org.Value, ct);
+        if (!await db.PurgedOrganizations.AnyAsync(x => x.OrgId == org, ct))
+            db.PurgedOrganizations.Add(new PurgedFileOrganization { OrgId = org });
+        await db.SaveChangesAsync(ct);
         var files = await db
             .Files.IgnoreQueryFilters()
             .Where(f => f.OrgId == org)

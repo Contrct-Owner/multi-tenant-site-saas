@@ -41,5 +41,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Modules\Premise.Modules.Spatial\Premise.Modules.Spatial.csproj" />
+    <ProjectReference Include="..\Modules\Premise.Modules.Reporting\Premise.Modules.Reporting.csproj" />
   </ItemGroup>
 </Project>

@@ -15,6 +15,7 @@ public static class IdentityModule
         services.AddScoped<IOperatorContext, Premise.Modules.Identity.Access.OperatorContext>();
         services.AddScoped<Premise.Contracts.IOrgDataExporter, Users.IdentityExporter>();
         services.AddScoped<Premise.Contracts.IActorDirectory, Users.ActorDirectory>();
+        services.AddScoped<Premise.Contracts.IReportRequester, Users.ReportRequester>();
         return services;
     }
 }

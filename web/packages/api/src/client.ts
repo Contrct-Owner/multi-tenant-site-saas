@@ -152,7 +152,7 @@ type Init<O> = ([PathParams<O>] extends [undefined]
     ? { query?: undefined }
     : HasRequiredKeys<QueryParams<O>> extends true
       ? { query: QueryParams<O> }
-      : { query?: QueryParams<O> }) & { signal?: AbortSignal };
+      : { query?: QueryParams<O> }) & { signal?: AbortSignal; idempotencyKey?: string };
 type InitArgs<O> = HasRequiredInit<O> extends true ? [init: Init<O>] : [init?: Init<O>];
 type WriteArgs<O> = O extends { requestBody: { content: { 'application/json': unknown } } }
   ? [body: RequestBody<O>, ...init: InitArgs<O>]
@@ -180,7 +180,7 @@ function url(template: string, init?: { path?: unknown; query?: unknown }): stri
 async function request<T>(
   method: string,
   template: string,
-  init?: { path?: unknown; query?: unknown; signal?: AbortSignal },
+  init?: { path?: unknown; query?: unknown; signal?: AbortSignal; idempotencyKey?: string },
   body?: unknown,
 ): Promise<T> {
   const generation = sessionGeneration;
@@ -197,6 +197,7 @@ async function request<T>(
       signal,
       credentials: 'include',
       headers: {
+        ...(init?.idempotencyKey ? { 'Idempotency-Key': init.idempotencyKey } : {}),
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(sessionContext && template !== '/me' ? { [sessionHeader]: sessionContext } : {}),
       },

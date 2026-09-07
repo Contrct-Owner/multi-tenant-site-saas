@@ -11,6 +11,10 @@ const rootRoute = createRootRoute({
 });
 
 const routes = [
+  createRoute({ getParentRoute: () => rootRoute, path: '/reports/$runId',
+    component: lazyRouteComponent(() => import('./features/reports'), 'ReportRunPage') }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/reports',
+    component: lazyRouteComponent(() => import('./features/reports'), 'ReportsPage') }),
   createRoute({ getParentRoute: () => rootRoute, path: '/',
     component: lazyRouteComponent(() => import('./pages/dashboard'), 'DashboardPage') }),
   createRoute({ getParentRoute: () => rootRoute, path: '/sites',

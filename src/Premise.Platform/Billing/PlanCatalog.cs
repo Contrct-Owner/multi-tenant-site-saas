@@ -28,6 +28,7 @@ public static class PlanCatalog
             new Dictionary<string, string>
             {
                 [EntitlementCatalog.MaxSites] = "500",
+                [EntitlementCatalog.ReportsMonthly] = "5000",
                 [EntitlementCatalog.HierarchyDepth] = "6",
                 [EntitlementCatalog.ContactLinksMonthly] = "10000",
                 [EntitlementCatalog.AuditRetentionDays] = "365",
@@ -40,6 +41,7 @@ public static class PlanCatalog
             new Dictionary<string, string>
             {
                 [EntitlementCatalog.MaxSites] = "5000",
+                [EntitlementCatalog.ReportsMonthly] = "50000",
                 [EntitlementCatalog.HierarchyDepth] = "8",
                 [EntitlementCatalog.ContactLinksMonthly] = "100000",
                 [EntitlementCatalog.AuditRetentionDays] = "730",
