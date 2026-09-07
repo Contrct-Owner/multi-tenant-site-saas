@@ -56,7 +56,10 @@ public sealed record WebhookDeliveryResponse(
 /// </summary>
 public static class WebhookManagementEndpoints
 {
-    [Transactional(typeof(AuditDbContext))]
+    [Transactional(
+        typeof(AuditDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/webhooks")]
     [ProducesResponseType(typeof(List<WebhookResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -232,7 +235,10 @@ public static class WebhookManagementEndpoints
         return Results.NoContent();
     }
 
-    [Transactional(typeof(AuditDbContext))]
+    [Transactional(
+        typeof(AuditDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/webhooks/{id}/deliveries")]
     [ProducesResponseType(typeof(List<WebhookDeliveryResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> Deliveries(

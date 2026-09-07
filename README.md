@@ -83,7 +83,19 @@ guards that refuse to boot until dev-only adapters are replaced.
 Current engineering maturity and the prioritized path to production readiness:
 [software maturity review and forward roadmap](docs/software-maturity-review-details.md)
 (hosted CI verified; unreproduced reliability risks provisionally accepted for staging, not resolved;
-deployment strategy and acceptance remain open; maintained by the project maintainers; last updated 2026-09-05).
+current local architecture hardening covers strict site-capacity reservations and transaction conventions;
+deployment acceptance remains open; maintained by the project maintainers; last updated 2026-09-07).
+
+Performance, scalability evidence, and the plan to validate 1,000 requests/sec:
+[performance and scalability assessment](docs/performance-and-scalability-assessment.md)
+(theoretical limits, measured results, open risks, and deployment acceptance criteria; 2026-09-07).
+Implementation and new experiments: [capacity validation](docs/capacity-validation.md).
+Request-rate policy replacement: [gateway operational fairness](docs/gateway-fairness.md)
+(accepted direction and verification ledger; implementation in progress).
+
+Disposable cloud testing and provisional production target:
+[DigitalOcean deployment plan](docs/digitalocean-test-environment.md)
+(proposed topology, failure gates, campaign cost and teardown; 2026-09-07).
 
 Public authentication failure behavior and verification:
 [public session recovery](docs/public-session-recovery.md).

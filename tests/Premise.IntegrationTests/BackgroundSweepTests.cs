@@ -47,18 +47,6 @@ public class BackgroundSweepTests(ApiFixture fixture, ITestOutputHelper output)
     [Trait("Category", "Scale")]
     public async Task Scale_baseline()
     {
-        using var op = await fixture.OperatorClient();
-        (
-            await op.PutAsJsonAsync(
-                $"/api/operator/orgs/{fixture.OrgA.Value}/entitlements/api.requests_per_minute",
-                new { value = "1000000" }
-            )
-        ).EnsureSuccessStatusCode();
-        var quota = fixture.Factory.Services.GetRequiredService<Premise.Api.OrgRateLimitCache>();
-        await ApiFixture.WaitUntilAsync(
-            () => Task.FromResult(quota.LimitFor(fixture.OrgA) == 1_000_000),
-            "benchmark org quota to resolve before its first tenant request"
-        );
         var owner = await fixture.LoginAsync(ApiFixture.UserA);
         var root = await ApiFixture.EnsureRootAsync(owner);
         await SeedAsync(root);

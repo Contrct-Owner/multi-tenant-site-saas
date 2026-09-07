@@ -132,6 +132,9 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         );
         commit1.EnsureSuccessStatusCode();
         Assert.NotNull(await PollSite(client, "Downtown"));
+        // Acceptance queues each row independently; one completed row does not
+        // establish that the second has finished (including contention retries).
+        Assert.NotNull(await PollSite(client, "Uptown"));
 
         // round 2: same file re-run = all unchanged (idempotent by external id)
         var batch2 = await Stage(client, await UploadCsv(client, csv1));

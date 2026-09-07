@@ -4,8 +4,8 @@ namespace Premise.Api;
 
 /// <summary>
 /// Guests are principals (ADR 7), so they get a session too: an opaque random
-/// cookie that is the rate-limit subject (ADR 30) and, later, the CSRF anchor.
-/// Not an auth cookie - it identifies a browser, not a person.
+/// browser identifier. It is not an authentication cookie. Gateway fairness
+/// uses the trusted client IP for guests (ADR 54), never this caller-held value.
 /// </summary>
 public sealed class GuestSessionMiddleware(RequestDelegate next, IHostEnvironment environment)
 {

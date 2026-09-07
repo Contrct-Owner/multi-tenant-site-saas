@@ -60,11 +60,11 @@ don't restate them here.
   predicates on tenant tables go through derived btree keys (`cell`,
   `path_text`, search terms, keyset cursors); prove a new one with EXPLAIN as
   `app_user`, never as the migrate role (`ScaleIndexTests` shows how).
-- **Per-process state is a fleet bug unless it says so** (ADR 52): a
-  counter, cache or lease that must be one number across api or worker
-  replicas lives in Postgres (rate windows, idempotency keys, sweep leases);
-  one that may differ per replica is listed as such in `docs/production.md`.
-  `tools/replica-stack.sh` proves it with two and four.
+- **Per-process state must declare its scope** (ADR 52/54): idempotency
+  keys and sweep leases remain shared through Postgres; request fairness
+  belongs to the gateway, independent of billing. Local concurrency limits
+  protect each process. Document intentionally local caches in
+  `docs/production.md`; prove shared behavior with the fleet/gateway suites.
 - **No session state on a database connection** (ADR 53): the tenant
   variable is `SET LOCAL` per transaction, never `set_config(..., false)`;
   a transaction-mode pooler hands connections between tenants between

@@ -32,7 +32,10 @@ public sealed record AttributeDefinitionResponse(
 /// </summary>
 public static class SiteAttributeEndpoints
 {
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/attributes")]
     [ProducesResponseType(typeof(List<AttributeDefinitionResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(

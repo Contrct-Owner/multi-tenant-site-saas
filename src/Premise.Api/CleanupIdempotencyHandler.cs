@@ -26,8 +26,5 @@ public static class CleanupIdempotencyHandler
         await db.Database.ExecuteSqlRawAsync("DELETE FROM platform.idempotency_keys", ct);
         var stale = DateTimeOffset.UtcNow.AddDays(-30);
         await db.SweepRuns.Where(r => r.Period < stale).ExecuteDeleteAsync(ct);
-        // a rate window is spent a minute after it starts; keep ten for the runbook
-        var spent = DateTimeOffset.UtcNow.AddMinutes(-10);
-        await db.RateWindows.Where(w => w.WindowStart < spent).ExecuteDeleteAsync(ct);
     }
 }

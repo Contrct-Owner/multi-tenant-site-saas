@@ -13,7 +13,7 @@ One image, three roles, selected by the `ROLE` environment variable (ADR 34):
 | Role | What it does | Runs |
 |---|---|---|
 | `migrate` | Applies all eight modules' EF migrations with **owner** credentials, provisions the unprivileged `app_user` role, reassigns schema ownership, exits | Once per deploy, before the others |
-| `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas — sessions, idempotency keys and the org/user/key rate counters live in Postgres (ADR 52), so any replica answers any request; the guest/IP limiter and two sixty-second caches (plan-limit site count, cluster tiles) are per replica by design |
+| `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas — sessions, idempotency and business capacity reservations live in Postgres; gateway request fairness is operational policy (ADR 54). Local concurrency, the brief fairness-identity cache and cluster-tile caches are per replica by design |
 | `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas — every recurring sweep is leased per period in `platform.sweep_runs` (first replica to claim `(sweep, period)` runs it, the rest skip), so replicas never duplicate a sweep |
 
 A connection pooler in front of Postgres runs in **transaction mode**
@@ -35,13 +35,26 @@ Two and four replicas of each role are proven by the fleet suite:
 `tools/replica-stack.sh 2` boots the topology above on one host (a
 round-robin proxy in front) and runs `tests/Premise.FleetTests` - one
 session answered by every replica, an idempotency key honoured across
-replicas, an org quota that is one number across the fleet, one sweep claim
+replicas, one sweep claim
 per period across workers, and a replica killed while its local queue
 still holds a committed batch, whose messages the survivors finish.
 `tools/replica-stack.sh 4 --bench` runs the load baseline through the proxy;
 `docs/scaling.md` holds the table. Every piece of per-process state is
 either shared through Postgres or listed in the table above as per replica
-on purpose; add a new one to one of those two places.
+on purpose; add a new one to one of those two places. Request fairness now has
+its own [gateway reference and acceptance suite](gateway-fairness.md), including
+two gateway replicas sharing one tenant allowance. The standalone fleet proxy
+does not implement gateway fairness.
+
+Deploy traffic admission before cutting over from the SQL limiter. The native
+gateway reference uses Envoy plus its standard limiter service and ephemeral
+Redis; forks may substitute a gateway that passes the documented identity,
+fairness and failure contract. API/identity listeners stay private, clients
+cannot supply trusted classification headers, and the application still validates
+credentials and gates each business request. The provided Compose file uses local
+development adapters and HTTP; supply production TLS, adapters and protected
+secrets before deploying it. Read the migration section before dropping the
+retired counter table, since old binaries still reference it.
 
 Ordering matters: `api`/`worker` should start (or restart) after `migrate`
 exits successfully — the Aspire graph does this with `WaitForCompletion`;
@@ -127,6 +140,31 @@ Applied migrations are immutable — new migration, never an edit (a repo hook
 enforces this; your CI should too via the round-trip tests).
 
 ## Configuration reference
+
+### Handler and transaction conventions
+
+- A query endpoint with an explicit Wolverine transaction uses
+  `[Transactional(typeof(OwnerDbContext), Mode = TransactionMiddlewareMode.Lightweight)]`.
+  This avoids holding an eager transaction/connection across calls to other
+  modules. `TransactionalAttributeTests` checks every annotated Wolverine GET.
+  Lightweight is not a read-only guarantee; review side effects separately.
+- A write endpoint or durable handler names its owning DbContext and uses the
+  normal eager transaction when read/lock/write must be atomic. Its state changes
+  and outgoing durable messages belong to that same transaction. Calling another
+  module's interface does not enlist that module's DbContext automatically.
+- Acquire admission locks before reading mutable quantities. Use the existing
+  platform capacity helper for accepted site imports; never add a separate
+  process-local business counter. See [ADR 55](decisions/0055-business-capacity-reservations.md).
+- Keep organization identity explicit: HTTP work obtains it from the validated
+  principal; queued work obtains it from the message envelope. Queries still
+  apply scope, and database operations still use the unprivileged runtime role.
+- Build from current generated handlers using the sequence below. After changing
+  handler signatures, clear stale disposable `Internal/Generated` sources before
+  rebuilding/regenerating; never treat them as hand-maintained application code.
+
+The migration role retries transient Npgsql failures such as startup
+unavailability. Syntax, credential and privilege failures stop immediately.
+The deployment operator fixes the cause before intentionally rerunning migration.
 
 Everything the image reads. Section syntax (`A:B`) maps to env vars as
 `A__B` (double underscore).
@@ -219,12 +257,28 @@ contact links land in spam and that reads as "login is broken."
 | `Storage:Provider` | `s3` (`Storage:S3:BucketName`, optional `ServiceUrl`/`AccessKey`/`SecretKey`/`ForcePathStyle` for MinIO/R2) or `azure` (`Storage:Azure:ConnectionString`, `ContainerName`); both smoke-tested against MinIO/Azurite. `local` (`Storage:LocalRoot`) is **dev/test only — refuses to boot in Production**: tickets live in process memory and bytes on local disk |
 | `Scanner:Provider` | `clamav` (`Scanner:ClamAv:Host`, `Port` default 3310, `TimeoutSeconds` default 60; clamd with TCPSocket enabled) or a fork adapter behind `IVirusScanner`. `eicar` is **dev/test only — refuses to boot in Production**: it reads 128 KiB and knows one signature. A scanner that cannot answer keeps the object quarantined; it never reads as clean |
 | `Secrets:Provider` | `kms` (`Secrets:Kms:KeyId`, optional `ServiceUrl`/`AccessKey`/`SecretKey`; ADR 31, LocalStack-tested) or a fork adapter. `local` (`Secrets:LocalMasterKey`, the default when that key is set) is **dev/test only — refuses to boot in Production** |
-| `RateLimits:GuestPerMinute` / `RateLimits:UserPerMinute` | Defaults 60 / 300; per-org API quota comes from the entitlement |
+| `Traffic:MaxConcurrentRequests` | Per-process admission, standalone default 32; Docker gateway reference 128, configurable with `TRAFFIC_MAX_CONCURRENT_REQUESTS`. Valid 1–4096; no queue; overload returns 503 with `Retry-After: 1`. Includes private identity checks; excludes probes. Size against measured latency and resource budgets |
+| `Gateway:IdentityKey` | Enables the private fairness-identity lookup; at least 32 bytes. Reference deployment generates a random key shared with the gateway; protect it like other service credentials |
+| `Gateway:Required` | Default false for standalone use; the reference sets true and rejects non-probe requests without the gateway key. Network isolation is still required |
+| `Gateway:IdentityCacheSeconds` / `Gateway:IdentityCacheEntries` | Defaults 15 seconds / 10,000 entries per API; bounded fairness classification only, never cached authorization |
 | `Impersonation:TtlSeconds` | Support-session length (default 3600) |
 | `Notifications:Sms` | `off` (default, and the only value allowed in Production without a fork adapter) or `local` (dev catcher). SMS is a SEAM: the template ships the port and an off transport, never a routing or consent policy |
 | `Api:ExposeOpenApi` | Serve `/openapi/v1.json` (default true; the console developer page links it). Set false to hide the API surface |
 | `Webhooks:RetryBaseSeconds` | Outbound webhook backoff base (default suits production; tests shrink it) |
 | `Audit:PolicyCacheTtlSeconds` | Per-org audit-policy cache |
+
+### Protect shared authentication keys
+
+`DataProtection:CertificatePath` optionally loads a PFX certificate with its private
+key and encrypts persisted Data Protection XML using the framework's certificate
+protector. `DataProtection:CertificatePassword` supplies its password. Mount the
+same protected certificate and shared `DataProtection:KeyPath` for every replica.
+The DigitalOcean compatibility manifests require this configuration. Linux uses
+an ephemeral imported private key; macOS uses its supported default key storage.
+A local integration test verifies encrypted XML, fresh-host decryption and failure
+without the certificate. This is separate from business-secret KMS wrapping.
+Certificate rotation retaining old decryptors still needs implementation before
+rotating an existing deployment; never discard a certificate needed by live keys.
 
 ### Boot guards
 
@@ -351,8 +405,12 @@ integration test asserts coverage), the three-gate authz model, HttpOnly
 `Secure` cookies (Production floor), same-site-only redirects,
 constant-time secret comparison, CSPRNG tokens, envelope-encrypted webhook
 secrets, an SSRF floor that rejects private/reserved resolved addresses,
-per-tenant + per-key rate limits, security headers, and correlation IDs
+local overload admission, security headers, and correlation IDs
 that never leak exception detail to clients.
+
+The gateway reference enforces operational tenant/IP fairness; a standalone API
+does not provide fleet-wide request-rate limits. Adopt the reference or verify
+your replacement against its acceptance contract.
 
 Your responsibility: TLS termination and HSTS at the proxy; the frontends'
 CSPs; a KMS for `Secrets:*` and the data-protection keyring; DNS-rebinding

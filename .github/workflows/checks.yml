@@ -250,10 +250,39 @@ jobs:
           name: coverage-report
           path: coverage/
 
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Portable gateway fairness and failure controls
+        run: |
+          tools/gateway-stack.sh up 2 2
+          address=$(tools/gateway-stack.sh compose port --index 1 gateway 8080)
+          FLEET_BENCH_FIXTURE="$PWD/coverage/gateway/fixture.local.json" \
+            node tools/fleet-bench.mjs "http://$address" 15 32 2
+          node tools/gateway.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gateway-controls
+          # Never upload runtime keys, cookies, or API-key fixtures.
+          path: coverage/gateway/fairness-results.json
+          if-no-files-found: warn
+      - name: Stop local reference
+        if: always()
+        run: tools/gateway-stack.sh down
+
   checks:
     # the one status branch protection requires
     if: ${{ always() }}
-    needs: [architecture, unit, integration, contract, frontend, image, browser, coverage]
+    needs: [architecture, unit, integration, contract, frontend, image, browser, coverage, gateway]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

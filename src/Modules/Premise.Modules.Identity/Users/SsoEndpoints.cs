@@ -24,7 +24,10 @@ public sealed record SsoPortalLinkResponse(string Url);
 /// </summary>
 public static class SsoEndpoints
 {
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/org/sso")]
     [ProducesResponseType(typeof(SsoStatusResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Status(

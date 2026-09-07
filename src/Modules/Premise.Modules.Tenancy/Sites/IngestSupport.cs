@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Tenancy.Data;
 using Premise.Modules.Tenancy.Hierarchy;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Wolverine;
@@ -73,7 +74,7 @@ public static class SiteChangeRequestedHandler
         ITenantContext tenant,
         TenancyDbContext db,
         IMessageBus bus,
-        Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
+        IEntitlements entitlements,
         CancellationToken ct
     )
     {
@@ -82,7 +83,42 @@ public static class SiteChangeRequestedHandler
                 $"SiteChangeRequested arrived with no tenant on the envelope (TenantId='{envelope.TenantId}')"
             );
 
+        if (!await CapacityReservations.TryLockAsync(db, org, EntitlementCatalog.MaxSites, ct))
+            throw new CapacityBusyException();
         var site = await db.Sites.FirstOrDefaultAsync(s => s.ExternalId == message.ExternalId, ct);
+        if (message.CapacityReservationId is { } reservation)
+        {
+            var consumed = await CapacityReservations.ConsumeAsync(
+                db,
+                org,
+                EntitlementCatalog.MaxSites,
+                reservation,
+                ct
+            );
+            if (consumed == 0 && site is null)
+                throw new InvalidOperationException(
+                    "Site create has no capacity reservation; retry or reconcile its durable intent."
+                );
+        }
+        else if (message.Action == "create" && site is null)
+        {
+            // Compatibility for pre-upgrade messages. New imports always reserve
+            // before acceptance; legacy intent cannot bypass the strict ceiling.
+            var occupied =
+                await db.Sites.LongCountAsync(ct)
+                + await CapacityReservations.PendingAsync(db, org, EntitlementCatalog.MaxSites, ct);
+            var decision = await entitlements.CheckLimitAsync(
+                org,
+                EntitlementCatalog.MaxSites,
+                occupied,
+                1,
+                ct
+            );
+            if (!decision.IsAllowed)
+                throw new InvalidOperationException(
+                    "Legacy site import exceeds capacity; reconcile it before retrying."
+                );
+        }
         switch (message.Action)
         {
             case "create" when site is null && message.NodeId is { } nodeId:
@@ -104,7 +140,6 @@ public static class SiteChangeRequestedHandler
                     }
                 );
                 await db.SaveChangesAsync(ct);
-                SiteCount.Created(cache, org);
                 break;
             }
             case "update" when site is not null:

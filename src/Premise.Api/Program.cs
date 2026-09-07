@@ -23,6 +23,7 @@ using Premise.Platform.Messaging;
 using Premise.Platform.Notifications;
 using Premise.Platform.Storage;
 using Wolverine;
+using Wolverine.ErrorHandling;
 using Wolverine.Http;
 using Wolverine.Postgresql;
 using static Premise.Api.ProviderOptionsValidation;
@@ -101,20 +102,28 @@ if (builder.Configuration.GetConnectionString("premise") is { } databaseConnecti
 builder
     .Services.AddOpenTelemetry()
     .ConfigureResource(r =>
-        r.AddService(serviceName: $"premise-{role}", serviceInstanceId: Environment.MachineName)
+        r.AddService(
+            serviceName: $"premise-{role}",
+            serviceInstanceId: $"{Environment.MachineName}:{Environment.ProcessId}"
+        )
     )
     .WithTracing(tracing =>
         tracing
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
-            .AddSource("Wolverine")
+            .AddSource("Wolverine", "Npgsql")
             .AddOtlpExporter()
     )
     .WithMetrics(metrics =>
         metrics
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
-            .AddMeter("Wolverine:*")
+            .AddMeter(
+                "Wolverine:*",
+                "Npgsql",
+                "System.Runtime",
+                "Microsoft.AspNetCore.RateLimiting"
+            )
             .AddOtlpExporter()
     );
 builder.Logging.AddOpenTelemetry(logging =>
@@ -307,6 +316,14 @@ builder.UseWolverine(opts =>
     if (builder.Environment.IsProduction())
         opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
+    opts.OnException<Premise.Platform.Entitlements.CapacityBusyException>()
+        .RetryWithCooldown(
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(100)
+        )
+        .Then.ScheduleRetryIndefinitely(TimeSpan.FromSeconds(1))
+        .WithFullJitter();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(SpatialModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);

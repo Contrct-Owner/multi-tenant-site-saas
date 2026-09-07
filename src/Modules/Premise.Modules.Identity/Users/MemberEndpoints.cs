@@ -101,7 +101,10 @@ public static class MemberEndpoints
         return Results.NoContent();
     }
 
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/members")]
     [ProducesResponseType(typeof(MemberListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -223,7 +226,10 @@ public static class MemberEndpoints
         return Results.Ok(new InvitationCreatedResponse(invitationId));
     }
 
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/members/invitations")]
     [ProducesResponseType(typeof(List<InvitationResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListInvitations(

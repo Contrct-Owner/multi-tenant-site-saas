@@ -240,10 +240,7 @@ public class GatesTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             JsonValueKind.Null,
             entitlements.GetProperty("contact_links.enabled").GetProperty("usage").ValueKind
         );
-        Assert.Equal(
-            JsonValueKind.Null,
-            entitlements.GetProperty("api.requests_per_minute").GetProperty("usage").ValueKind
-        );
+        Assert.False(entitlements.TryGetProperty("api.requests_per_minute", out _));
     }
 
     [Fact]

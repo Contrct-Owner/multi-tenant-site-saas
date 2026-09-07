@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Premise.Integrations.WorkOS;
@@ -67,6 +68,25 @@ internal static class AuthenticationHosting
                 "DataProtection:KeyPath is required in Production (a store all replicas share); "
                     + "the default per-process keyring breaks sessions and magic links after scale-out."
             );
+
+        if (
+            builder.Configuration["DataProtection:CertificatePath"] is
+            { Length: > 0 } certificatePath
+        )
+        {
+            var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+                certificatePath,
+                builder.Configuration["DataProtection:CertificatePassword"],
+                OperatingSystem.IsMacOS()
+                    ? X509KeyStorageFlags.DefaultKeySet
+                    : X509KeyStorageFlags.EphemeralKeySet
+            );
+            if (!certificate.HasPrivateKey)
+                throw new InvalidOperationException(
+                    "Data Protection certificate requires a private key."
+                );
+            dataProtection.ProtectKeysWithCertificate(certificate);
+        }
 
         // Cookie session (ADR 21): HttpOnly, no token ever reachable from JS.
         builder

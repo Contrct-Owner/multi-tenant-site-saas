@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server';
+import { fetchWithHost } from '../upstream';
 
 /**
  * The contact-link landing: relays the token to the API and the API's
@@ -13,11 +14,11 @@ const redeem = createServerFn({ method: 'GET' })
     const apiBase = process.env.PREMISE_API ?? 'http://localhost:5293';
     const host = getRequestHeader('host');
     try {
-      const response = await fetch(
+      const response = await fetchWithHost(
         `${apiBase}/contact/redeem?token=${encodeURIComponent(token)}`,
         {
           signal: AbortSignal.timeout(30_000),
-          headers: host ? { 'X-Forwarded-Host': host } : {},
+          headers: host ? { Host: host } : {},
           redirect: 'manual',
         },
       );

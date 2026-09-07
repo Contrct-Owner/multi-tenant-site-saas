@@ -80,7 +80,10 @@ public static partial class MapBasemapsEndpoints
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,39}$")]
     private static partial Regex IdShape();
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/map/basemaps")]
     [ProducesResponseType(typeof(BasemapListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -108,7 +111,10 @@ public static partial class MapBasemapsEndpoints
         return Results.Ok(new BasemapListResponse(basemaps));
     }
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/map/basemaps/settings")]
     [ProducesResponseType(typeof(BasemapSettingsResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Settings(

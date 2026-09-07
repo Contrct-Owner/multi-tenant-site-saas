@@ -11,7 +11,10 @@ namespace Premise.Modules.Storage;
 
 public static class FileReadEndpoint
 {
-    [Transactional(typeof(StorageDbContext))]
+    [Transactional(
+        typeof(StorageDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/files/{id}")]
     [ProducesResponseType(typeof(FileSummary), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(

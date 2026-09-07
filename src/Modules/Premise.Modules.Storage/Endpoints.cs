@@ -119,7 +119,10 @@ public static class FileEndpoints
         return Results.Accepted();
     }
 
-    [Transactional(typeof(StorageDbContext))]
+    [Transactional(
+        typeof(StorageDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/files")]
     [ProducesResponseType(typeof(FileListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -169,7 +172,10 @@ public static class FileEndpoints
     }
 
     /// <summary>Authorization happens HERE, before signing - the URL itself is unguarded (ADR 19).</summary>
-    [Transactional(typeof(StorageDbContext))]
+    [Transactional(
+        typeof(StorageDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/files/{id}/download")]
     [ProducesResponseType(typeof(DownloadFileResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Download(

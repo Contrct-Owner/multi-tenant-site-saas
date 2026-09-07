@@ -74,64 +74,78 @@ public sealed class FleetTests(Fleet fleet) : IClassFixture<Fleet>
         );
     }
 
+    // Gateway fairness is integration-proven by tools/gateway.test.mjs (ADR 54).
+
     [FleetFact]
-    public async Task C_an_org_quota_is_one_number_across_replicas()
+    public async Task C_concurrent_creates_share_one_remaining_business_slot()
     {
-        var alice = await fleet.LoginAsync(Fleet.Alice);
-        var op = await fleet.LoginAsync(Fleet.Operator);
+        using var alice = await fleet.LoginAsync(Fleet.Alice);
+        using var op = await fleet.LoginAsync(Fleet.Operator);
         var orgId = (await Fleet.JsonAsync(await alice.GetAsync("/me")))
             .GetProperty("activeOrg")
             .GetGuid();
-        const int quota = 10;
-        async Task SetQuota(string value) =>
-            Assert.Equal(
-                HttpStatusCode.NoContent,
-                (
-                    await op.PutAsJsonAsync(
-                        $"/api/operator/orgs/{orgId}/entitlements/api.requests_per_minute",
-                        new { value }
-                    )
-                ).StatusCode
-            );
-        await SetQuota(quota.ToString());
+        var original = (await Fleet.JsonAsync(await alice.GetAsync("/api/entitlements")))
+            .GetProperty("sites.max")
+            .GetProperty("value")
+            .GetString()!;
+        var before = (await Fleet.JsonAsync(await alice.GetAsync("/api/sites?limit=1")))
+            .GetProperty("total")
+            .GetInt32();
+        var root = await Fleet.RootNodeAsync(alice);
+        var endpoint = $"/api/operator/orgs/{orgId}/entitlements/sites.max";
+        (
+            await op.PutAsJsonAsync(endpoint, new { value = (before + 1).ToString() })
+        ).EnsureSuccessStatusCode();
         try
         {
-            // a quota change lands on one replica; the others learn it when their
-            // fifteen-second cache expires - then a fresh window shows one number
-            await Task.Delay(TimeSpan.FromSeconds(20));
-            await Task.Delay(TimeSpan.FromSeconds(61 - DateTimeOffset.UtcNow.Second));
-            var allowed = 0;
-            var refused = 0;
-            var refusedBy = new HashSet<string>();
-            for (var i = 0; i < quota * 4; i++)
-            {
-                var response = await alice.GetAsync("/api/sites?limit=1");
-                if (HttpStatus.IsRateLimited(response))
-                {
-                    refused++;
-                    refusedBy.Add(Fleet.InstanceOf(response));
-                }
-                else
-                {
-                    response.EnsureSuccessStatusCode();
-                    allowed++;
-                }
-            }
-            Assert.Equal(fleet.Replicas, refusedBy.Count); // every replica refuses on the same counter
-            // the org-limit cache refreshes behind: each replica's first request
-            // after expiry may still count under the stale limit, so at most one
-            // extra per replica, never the N-fold a per-process counter gives
-            Assert.InRange(allowed, quota, quota + fleet.Replicas);
-            Assert.Equal(quota * 4 - allowed, refused);
+            var instances = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var outcomes = await Task.WhenAll(
+                Enumerable
+                    .Range(0, fleet.Replicas * 4)
+                    .Select(async i =>
+                    {
+                        HttpStatusCode outcome = default;
+                        await Fleet.WaitUntilAsync(
+                            async () =>
+                            {
+                                using var response = await alice.PostAsJsonAsync(
+                                    "/api/sites",
+                                    new
+                                    {
+                                        nodeId = root,
+                                        name = $"Capacity {i}",
+                                        timeZone = "Etc/UTC",
+                                    }
+                                );
+                                instances.Add(Fleet.InstanceOf(response));
+                                outcome = response.StatusCode;
+                                return outcome != HttpStatusCode.ServiceUnavailable;
+                            },
+                            "site admission contention to clear"
+                        );
+                        return outcome;
+                    })
+            );
+            Assert.Single(outcomes, status => status == HttpStatusCode.OK);
+            Assert.All(
+                outcomes,
+                status =>
+                    Assert.Contains(
+                        status,
+                        new[] { HttpStatusCode.OK, HttpStatusCode.PaymentRequired }
+                    )
+            );
+            Assert.Equal(
+                before + 1,
+                (await Fleet.JsonAsync(await alice.GetAsync("/api/sites?limit=1")))
+                    .GetProperty("total")
+                    .GetInt32()
+            );
+            Assert.Equal(fleet.Replicas, instances.Distinct().Count());
         }
         finally
         {
-            await SetQuota("600");
-            // every replica learns the reset before the next case: wait out the
-            // cache, then let each replica take its one stale request here
-            await Task.Delay(TimeSpan.FromSeconds(16));
-            for (var i = 0; i < fleet.Replicas * 3; i++)
-                await alice.GetAsync("/me");
+            (await op.PutAsJsonAsync(endpoint, new { value = original })).EnsureSuccessStatusCode();
         }
     }
 

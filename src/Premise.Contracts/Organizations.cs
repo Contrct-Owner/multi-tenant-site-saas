@@ -119,7 +119,8 @@ public sealed record SiteChangeRequested(
     string ExternalId,
     string Name,
     string TimeZone,
-    Guid? NodeId
+    Guid? NodeId,
+    Guid? CapacityReservationId = null
 );
 
 /// <summary>

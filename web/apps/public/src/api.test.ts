@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { publicApi, publicApiMaybe, publicSignOut, publicLocator } from './api';
 import { setCookie } from '@tanstack/react-start/server';
 
+vi.mock('./upstream', () => ({ fetchWithHost: (...args: Parameters<typeof fetch>) => fetch(...args) }));
+
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeader: (name: string) => name === 'host' ? 'tenant.example.test' : 'test-cookie',
   setCookie: vi.fn(),
@@ -29,7 +31,7 @@ it('revokes with the current cookie and relays successful logout deletions', asy
   vi.stubGlobal('fetch', fetchMock);
   expect(await publicSignOut()).toEqual({ ok: true });
   expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/auth/logout'), expect.objectContaining({
-    method: 'POST', headers: { cookie: 'test-cookie' }, signal: expect.any(AbortSignal),
+    method: 'POST', headers: { Host: 'tenant.example.test', cookie: 'test-cookie' }, signal: expect.any(AbortSignal),
   }));
   expect(setCookie).toHaveBeenCalledWith('premise.session', '', { path: '/', maxAge: 0 });
 });
@@ -57,7 +59,7 @@ it('forwards host and cookie and returns a successful response', async () => {
   vi.stubGlobal('fetch', fetchMock);
   expect(await publicApi('/public/sites', [])).toEqual([{ id: 'site' }]);
   expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-    headers: { 'X-Forwarded-Host': 'tenant.example.test', cookie: 'test-cookie' },
+    headers: { Host: 'tenant.example.test', cookie: 'test-cookie' },
   });
 });
 

@@ -52,7 +52,10 @@ public sealed record OverlayFeaturesReplaced(Guid LayerId, int Count, int Versio
 /// </summary>
 public static class OverlayEndpoints
 {
-    [Transactional(typeof(SpatialDbContext))]
+    [Transactional(
+        typeof(SpatialDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/overlays")]
     [ProducesResponseType(typeof(OverlayLayerListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(

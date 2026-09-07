@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Ingest.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
@@ -116,7 +117,10 @@ public static class IngestEndpoints
     }
 
     /// <summary>The diff preview (ADR 18): what WOULD happen, row by row.</summary>
-    [Transactional(typeof(IngestDbContext))]
+    [Transactional(
+        typeof(IngestDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/ingest/batches/{id}")]
     [ProducesResponseType(typeof(IngestPreviewResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Preview(
@@ -157,7 +161,10 @@ public static class IngestEndpoints
     }
 
     /// <summary>Recent batches, newest first: the ingest history at a glance.</summary>
-    [Transactional(typeof(IngestDbContext))]
+    [Transactional(
+        typeof(IngestDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/ingest/batches")]
     [ProducesResponseType(typeof(List<ImportBatchResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListBatches(
@@ -215,6 +222,8 @@ public static class IngestEndpoints
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
+        if (!await db.TryTakeAsync(id, ct))
+            return ApiErrors.Conflict("batch is being modified; retry the request");
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
         if (batch is null)
             return Results.NotFound();
@@ -256,6 +265,8 @@ public static class IngestEndpoints
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
+        if (!await db.TryTakeAsync(id, ct))
+            return ApiErrors.Conflict("batch is being modified; retry the request");
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
         if (batch is null)
             return Results.NotFound();
@@ -273,15 +284,31 @@ public static class IngestEndpoints
         var creates = actionable.Count(r => r.Action == "create");
         if (creates > 0)
         {
+            if (!await CapacityReservations.TryLockAsync(db, org, EntitlementCatalog.MaxSites, ct))
+                return ApiErrors.Status(
+                    "site capacity is busy; retry the request",
+                    StatusCodes.Status503ServiceUnavailable
+                );
+            var occupied =
+                await sites.CountSitesAsync(ct)
+                + await CapacityReservations.PendingAsync(db, org, EntitlementCatalog.MaxSites, ct);
             var decision = await entitlements.CheckLimitAsync(
                 org,
                 EntitlementCatalog.MaxSites,
-                await sites.CountSitesAsync(ct),
+                occupied,
                 creates,
                 ct
             );
             if (!decision.IsAllowed)
                 return GateResults.LimitReached(decision);
+            await CapacityReservations.ReserveAsync(
+                db,
+                org,
+                EntitlementCatalog.MaxSites,
+                id,
+                actionable.Where(r => r.Action == "create").Select(r => r.Id).ToArray(),
+                ct
+            );
         }
         foreach (var row in actionable)
             await bus.PublishAsync(
@@ -290,7 +317,8 @@ public static class IngestEndpoints
                     row.ExternalId,
                     row.Name,
                     row.TimeZone,
-                    row.NodeId
+                    row.NodeId,
+                    row.Action == "create" ? row.Id : null
                 ),
                 new DeliveryOptions { TenantId = org.Value.ToString() }
             );
@@ -343,7 +371,10 @@ public static class IngestEndpoints
     }
 
     /// <summary>Connector inventory - credentials never leave the envelope.</summary>
-    [Transactional(typeof(IngestDbContext))]
+    [Transactional(
+        typeof(IngestDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/connectors")]
     [ProducesResponseType(typeof(List<ConnectorResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListConnectors(

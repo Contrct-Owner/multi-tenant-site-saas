@@ -24,7 +24,6 @@ export const CAPABILITIES = [
 export type Capability = (typeof CAPABILITIES)[number];
 
 export const ENTITLEMENTS = {
-  'api.requests_per_minute': { shape: 'Limit', policy: 'Block', defaultValue: '600' },
   'audit.read_logging': { shape: 'Boolean', policy: 'Block', defaultValue: 'true' },
   'audit.retention_days': { shape: 'Tiered', policy: 'WarnOnly', defaultValue: '90' },
   'contact_links.enabled': { shape: 'Boolean', policy: 'Block', defaultValue: 'true' },

@@ -148,7 +148,10 @@ public static class RoleManagementEndpoints
         return Results.NoContent();
     }
 
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/grant-exceptions")]
     [ProducesResponseType(typeof(List<GrantExceptionResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListExceptions(

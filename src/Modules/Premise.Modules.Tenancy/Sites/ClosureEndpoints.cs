@@ -21,7 +21,10 @@ public sealed record AddClosureRequest(DateOnly Date);
 /// </summary>
 public static class ClosureEndpoints
 {
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/{id}/closures")]
     [ProducesResponseType(typeof(List<DateOnly>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(

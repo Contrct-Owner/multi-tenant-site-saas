@@ -34,7 +34,10 @@ public sealed record RoleCreatedResponse(Guid Id);
 
 public static class AccessEndpoints
 {
-    [Wolverine.Attributes.Transactional(typeof(IdentityDbContext))]
+    [Wolverine.Attributes.Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/roles")]
     [ProducesResponseType(typeof(List<RoleResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListRoles(

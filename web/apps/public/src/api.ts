@@ -1,13 +1,15 @@
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server';
+import { fetchWithHost } from './upstream';
 
 /** Revoke upstream before relaying cookie deletions to this public host. */
 export async function publicSignOut(): Promise<{ ok: boolean; error?: string }> {
   const cookie = getRequestHeader('cookie');
+  const host = getRequestHeader('host');
   try {
-    const response = await fetch(`${process.env.PREMISE_API ?? 'http://localhost:5293'}/auth/logout`, {
+    const response = await fetchWithHost(`${process.env.PREMISE_API ?? 'http://localhost:5293'}/auth/logout`, {
       method: 'POST',
       signal: AbortSignal.timeout(30_000),
-      headers: cookie ? { cookie } : {},
+      headers: { ...(host ? { Host: host } : {}), ...(cookie ? { cookie } : {}) },
       redirect: 'manual',
     });
     const deletions = response.headers.getSetCookie();
@@ -64,10 +66,10 @@ export async function publicApiMaybe<T>(path: string): Promise<T | undefined> {
   try {
     const host = getRequestHeader('host');
     const cookie = getRequestHeader('cookie');
-    const response = await fetch(`${apiBase}${path}`, {
+    const response = await fetchWithHost(`${apiBase}${path}`, {
       signal: AbortSignal.timeout(30_000),
       headers: {
-        ...(host ? { 'X-Forwarded-Host': host } : {}),
+        ...(host ? { Host: host } : {}),
         ...(cookie ? { cookie } : {}),
       },
     });

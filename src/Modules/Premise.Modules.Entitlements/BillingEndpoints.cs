@@ -41,7 +41,10 @@ public sealed record BillingLinkResponse(string Url);
 /// </summary>
 public static class BillingEndpoints
 {
-    [Transactional(typeof(EntitlementsDbContext))]
+    [Transactional(
+        typeof(EntitlementsDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/billing")]
     [ProducesResponseType(typeof(BillingResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(

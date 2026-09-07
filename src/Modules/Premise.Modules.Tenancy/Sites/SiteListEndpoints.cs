@@ -34,7 +34,10 @@ public static class SiteListEndpoints
     /// <c>zoom</c> stays in the contract for clustering (ADR 50 §4); today it
     /// is validated and unused.
     /// </summary>
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites")]
     [ProducesResponseType(typeof(SiteListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -232,7 +235,10 @@ public static class SiteListEndpoints
         );
     }
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/open-now")]
     public static async Task<IReadOnlyList<SiteResponse>> OpenNow(
         TenancyDbContext db,

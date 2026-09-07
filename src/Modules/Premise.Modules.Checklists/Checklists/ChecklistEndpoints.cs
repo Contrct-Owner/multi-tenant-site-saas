@@ -49,7 +49,10 @@ public sealed record ChecklistTemplateCreatedResponse(Guid Id);
 /// </summary>
 public static class ChecklistEndpoints
 {
-    [Transactional(typeof(ChecklistsDbContext))]
+    [Transactional(
+        typeof(ChecklistsDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/checklists/templates")]
     [ProducesResponseType(typeof(List<ChecklistTemplateSummary>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListTemplates(
@@ -140,7 +143,10 @@ public static class ChecklistEndpoints
     }
 
     /// <summary>Today's lists for one site, on that site's clock.</summary>
-    [Transactional(typeof(ChecklistsDbContext))]
+    [Transactional(
+        typeof(ChecklistsDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/checklists/today")]
     [ProducesResponseType(typeof(ChecklistTodayResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Today(

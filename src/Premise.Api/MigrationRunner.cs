@@ -30,7 +30,10 @@ public sealed class MigrationRunner(
                 lifetime.StopApplication();
                 return;
             }
-            catch (Exception e) when (attempt < 30 && !stoppingToken.IsCancellationRequested)
+            // Retry unavailable/transient PostgreSQL only. A broken migration or
+            // missing privilege must fail immediately with its real error.
+            catch (Npgsql.NpgsqlException e)
+                when (e.IsTransient && attempt < 30 && !stoppingToken.IsCancellationRequested)
             {
                 logger.LogInformation("migrate waiting on the database ({Error})", e.Message);
                 await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
