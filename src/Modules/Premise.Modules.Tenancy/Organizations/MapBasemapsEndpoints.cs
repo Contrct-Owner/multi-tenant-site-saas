@@ -141,7 +141,7 @@ public static partial class MapBasemapsEndpoints
         if (gate is not GateOutcome.Allowed { Principal: Principal.User user, Org: var org })
             return gate.ToResult();
         if (request.Basemaps.Count > MaxEntries)
-            return Results.BadRequest(new { error = $"at most {MaxEntries} basemaps" });
+            return ApiErrors.BadRequest($"at most {MaxEntries} basemaps");
 
         var current = (await ReadAsync(db, ct)).ToDictionary(e => e.Id);
         var next = new List<Stored>();
@@ -153,19 +153,15 @@ public static partial class MapBasemapsEndpoints
             var attribution = input.Attribution?.Trim() ?? "";
             var maxZoom = input.MaxZoom ?? 19;
             if (!IdShape().IsMatch(id))
-                return Results.BadRequest(
-                    new { error = "a basemap id is lowercase letters, digits and dashes" }
-                );
+                return ApiErrors.BadRequest("a basemap id is lowercase letters, digits and dashes");
             if (next.Any(e => e.Id == id))
-                return Results.BadRequest(new { error = $"basemap '{id}' appears twice" });
+                return ApiErrors.BadRequest($"basemap '{id}' appears twice");
             if (name.Length is 0 or > 80)
-                return Results.BadRequest(new { error = $"basemap '{id}' needs a name" });
+                return ApiErrors.BadRequest($"basemap '{id}' needs a name");
             if (attribution.Length > 300)
-                return Results.BadRequest(
-                    new { error = $"basemap '{id}': attribution is too long" }
-                );
+                return ApiErrors.BadRequest($"basemap '{id}': attribution is too long");
             if (maxZoom is < 1 or > 22)
-                return Results.BadRequest(new { error = $"basemap '{id}': maxZoom is 1 to 22" });
+                return ApiErrors.BadRequest($"basemap '{id}': maxZoom is 1 to 22");
             if (
                 !Uri.TryCreate(template, UriKind.Absolute, out var uri)
                 || uri.Scheme != Uri.UriSchemeHttps
@@ -173,11 +169,8 @@ public static partial class MapBasemapsEndpoints
                 || !template.Contains("{x}")
                 || !template.Contains("{y}")
             )
-                return Results.BadRequest(
-                    new
-                    {
-                        error = $"basemap '{id}': the URL template must be https with {{z}}, {{x}} and {{y}}",
-                    }
+                return ApiErrors.BadRequest(
+                    $"basemap '{id}': the URL template must be https with {{z}}, {{x}} and {{y}}"
                 );
 
             byte[]? cipher = null;
@@ -189,11 +182,8 @@ public static partial class MapBasemapsEndpoints
                 else if (current.TryGetValue(id, out var existing))
                     cipher = existing.KeyCipher;
                 if (cipher is null)
-                    return Results.BadRequest(
-                        new
-                        {
-                            error = $"basemap '{id}': the template names {{key}} but no key was given",
-                        }
+                    return ApiErrors.BadRequest(
+                        $"basemap '{id}': the template names {{key}} but no key was given"
                     );
             }
             next.Add(new Stored(id, name, template, attribution, maxZoom, cipher));

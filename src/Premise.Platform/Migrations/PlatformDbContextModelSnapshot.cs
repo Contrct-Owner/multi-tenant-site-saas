@@ -70,6 +70,28 @@ namespace Premise.Platform.Migrations
                     b.ToTable("idempotency_keys", "platform");
                 });
 
+            modelBuilder.Entity("Premise.Platform.Infra.RateWindow", b =>
+                {
+                    b.Property<string>("Partition")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("partition");
+
+                    b.Property<DateTimeOffset>("WindowStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("window_start");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.HasKey("Partition", "WindowStart");
+
+                    b.HasIndex("WindowStart");
+
+                    b.ToTable("rate_windows", "platform");
+                });
+
             modelBuilder.Entity("Premise.Platform.Infra.SweepRun", b =>
                 {
                     b.Property<string>("Sweep")

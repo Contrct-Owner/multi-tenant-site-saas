@@ -1,12 +1,29 @@
 import { api, type components } from '@premise/api';
-import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, type ColumnDef, type DataGridFeatures } from '@premise/ui';
+import { Alert, AlertDescription, AlertTitle, Button, ConfirmButton, Field, FieldLabel, FormDialog, Input, type ColumnDef, type DataGridFeatures, CodeBlock, Stepper, StepperIndicator, StepperItem, StepperNav, StepperSeparator, StepperTitle, StepperTrigger } from '@premise/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fmtDateTime } from '../lib/format';
 import { Grid, PageHeader, Panel } from '../components/page';
+import { FileDropzone } from '../components/file-dropzone';
 import { useApiMutation } from '../lib/mutation';
 import { StatusBadge } from '../shell';
 import { uploadFile } from '../lib/uploads';
+import { Link } from '@tanstack/react-router';
+import { CheckCircle2 } from 'lucide-react';
+
+/** The invalid rows back as a CSV the uploader can fix and re-run (one row per problem row, its reasons in the last column). */
+function downloadInvalidRows(rows: { externalId: string; name: string; nodePath: string; errors: string[] }[]) {
+  const quote = (v: string) => `"${v.replaceAll('"', '""')}"`;
+  const csv = ['external_id,name,node,problems', ...rows.map((r) => [r.externalId, r.name, r.nodePath, r.errors.join('; ')].map(quote).join(','))].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'invalid-rows.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const STEPS = ['Upload', 'Review the diff', 'Commit'] as const;
 
 type Connector = components['schemas']['ConnectorResponse'];
 
@@ -14,7 +31,6 @@ export function IngestPage() {
   const queryClient = useQueryClient();
   const [batchId, setBatchId] = useState<string | null>(null);
   const [phase, setPhase] = useState<string>('');
-  const csvInput = useRef<HTMLInputElement>(null);
 
   const stage = useMutation({
     mutationFn: async (file: File) => {
@@ -112,28 +128,47 @@ export function IngestPage() {
     [],
   );
 
+  const step = preview === undefined ? 1 : preview.status === 'Committed' ? 3 : 2;
+  const changes = preview
+    ? preview.counts.create + preview.counts.update + preview.counts.close
+    : 0;
+  const invalid = preview?.counts.invalid ?? 0;
+  const invalidRows = preview?.rows.filter((r) => r.errors.length > 0) ?? [];
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader title="Site ingest" description="Bulk-load sites from a CSV or a connector; nothing applies until you review the diff and commit." />
+      {/* where a batch is: the ReUI Stepper, read-only, follows the batch's status */}
+      <Stepper value={step} orientation="horizontal" className="max-w-xl">
+        <StepperNav>
+          {STEPS.map((label, i) => (
+            <StepperItem key={label} step={i + 1} completed={step > i + 1}>
+              <StepperTrigger className="pointer-events-none">
+                <StepperIndicator>{i + 1}</StepperIndicator>
+                <StepperTitle>{label}</StepperTitle>
+              </StepperTrigger>
+              {i < STEPS.length - 1 && <StepperSeparator />}
+            </StepperItem>
+          ))}
+        </StepperNav>
+      </Stepper>
       <Panel title="Upload CSV" bodyClassName="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Columns: external_id, name, time_zone, node, status (open|closed). Nothing is applied
-            until you review the diff and commit.
+            One row per site. The node column is the node&apos;s name path below the root (or its id); status is open or closed.
+            Nothing is applied until you review the diff and commit.
           </p>
-          <input
-            ref={csvInput}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) stage.mutate(file);
-              e.target.value = '';
-            }}
+          <CodeBlock
+            code={'external_id,name,time_zone,node,status\nstore-001,Northgate,America/Los_Angeles,Pacific Northwest/Seattle,open'}
+            language="csv"
+            highlight={false}
           />
-          <Button disabled={stage.isPending} onClick={() => csvInput.current?.click()}>
-            Choose CSV…
-          </Button>
+          <FileDropzone
+            accept=".csv,text/csv"
+            onFile={(file) => stage.mutate(file)}
+            busy={stage.isPending}
+            phase="Staging…"
+            label="Drop a CSV here, or choose one"
+            buttonLabel="Choose CSV…"
+          />
           {phase && <p className="text-sm text-muted-foreground">{phase}</p>}
           {stage.isError && (
             <Alert variant="destructive">
@@ -158,9 +193,38 @@ export function IngestPage() {
           emptyMessage="Nothing in this batch."
           footer={
             preview.status === 'Staged' ? (
-              <Button disabled={commit.isPending} onClick={() => commit.mutate()}>
-                Commit {Number(preview.counts.create) + Number(preview.counts.update) + Number(preview.counts.close)} changes
-              </Button>
+              <>
+                <Button disabled={commit.isPending || changes === 0} onClick={() => commit.mutate()}>
+                  Commit {changes} {changes === 1 ? 'row' : 'rows'}
+                </Button>
+                {invalid > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {invalid} invalid {invalid === 1 ? 'row is' : 'rows are'} skipped.{' '}
+                    <Button variant="link" size="sm" className="h-auto px-0" onClick={() => downloadInvalidRows(invalidRows)}>
+                      Download them
+                    </Button>
+                  </span>
+                )}
+              </>
+            ) : preview.status === 'Committed' ? (
+              <Alert className="w-full">
+                <CheckCircle2 aria-hidden />
+                <AlertTitle>Committed</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    {preview.counts.create} new, {preview.counts.update} updated, {preview.counts.close} closed
+                    {invalid > 0 && `, ${invalid} invalid skipped`}.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Link to="/sites" className="underline underline-offset-4">View sites</Link>
+                    {invalid > 0 && (
+                      <Button variant="link" size="sm" className="h-auto px-0" onClick={() => downloadInvalidRows(invalidRows)}>
+                        Download the invalid rows
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
             ) : (
               <p className="text-sm text-muted-foreground">Batch is {preview.status}.</p>
             )

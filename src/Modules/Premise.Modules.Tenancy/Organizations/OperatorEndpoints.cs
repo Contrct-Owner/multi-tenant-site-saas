@@ -117,7 +117,7 @@ public static class OperatorOrgEndpoints
         if (org is null)
             return Results.NotFound();
         if (org.IsPlatform)
-            return Results.BadRequest(new { error = "the platform org cannot be suspended" });
+            return ApiErrors.BadRequest("the platform org cannot be suspended");
         if (org.Status == status)
             return Results.NoContent();
 

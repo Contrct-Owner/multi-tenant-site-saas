@@ -5,7 +5,8 @@ import sys
 import xml.etree.ElementTree as ET
 
 required = {
-    "Premise.Modules.Tenancy.Sites.SiteEndpoints": {"Create", "List", "Update"},
+    "Premise.Modules.Tenancy.Sites.SiteEndpoints": {"Create", "Update"},
+    "Premise.Modules.Tenancy.Sites.SiteListEndpoints": {"List"},
     "Premise.Modules.Identity.Users.OrganizationUpsertedHandler": {"Handle"},
     "Premise.Modules.Ingest.StagingService": {"StageAsync"},
 }

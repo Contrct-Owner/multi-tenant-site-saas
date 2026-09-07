@@ -28,7 +28,7 @@ export function MembersPage() {
       api.get('/api/members', { query: { limit: 50, offset: pageParam }, signal }),
     initialPageParam: 0,
     getNextPageParam: (last) =>
-      last.nextOffset == null ? undefined : Number(last.nextOffset),
+      last.nextOffset ?? undefined,
   });
   const members = membersQuery.data?.pages.flatMap((p) => p.items);
   const { data: roles } = useQuery({
@@ -327,15 +327,9 @@ export function MembersPage() {
         isLoading={members === undefined}
         loadingMessage="Loading…"
         emptyMessage={search ? 'No members match the search.' : 'No members yet.'}
-        footer={
-          membersQuery.hasNextPage ? (
-            <Button variant="outline" size="sm"
-              disabled={membersQuery.isFetchingNextPage}
-              onClick={() => void membersQuery.fetchNextPage()}>
-              Load more
-            </Button>
-          ) : undefined
-        }
+        onFetchMore={() => void membersQuery.fetchNextPage()}
+        hasMore={membersQuery.hasNextPage}
+        isFetchingMore={membersQuery.isFetchingNextPage}
       />
 
       {invitations && invitations.length > 0 && (

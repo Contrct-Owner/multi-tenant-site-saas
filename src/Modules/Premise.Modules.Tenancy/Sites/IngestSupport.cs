@@ -13,16 +13,34 @@ namespace Premise.Modules.Tenancy.Sites;
 /// <summary>Read contract for the ingest diff (ADR 18).</summary>
 public sealed class SiteLookup(TenancyDbContext db) : ISiteLookup
 {
-    public async Task<IReadOnlyList<SiteSnapshot>> ListSitesAsync(CancellationToken ct = default) =>
-        (await db.Sites.ToListAsync(ct))
-            .Select(s => new SiteSnapshot(
-                s.Id,
-                s.ExternalId,
-                s.Name,
-                s.TimeZone,
-                s.Status.ToString()
-            ))
-            .ToList();
+    /// <summary>One parameter list per thousand ids: each chunk is a range on the (org_id, external_id) index.</summary>
+    private const int Chunk = 1_000;
+
+    public async Task<IReadOnlyList<SiteSnapshot>> ListSitesAsync(
+        IReadOnlyCollection<string> externalIds,
+        CancellationToken ct = default
+    )
+    {
+        var found = new List<SiteSnapshot>(externalIds.Count);
+        foreach (var chunk in externalIds.Distinct().Chunk(Chunk))
+        {
+            var sites = await db
+                .Sites.Where(s => s.ExternalId != null && chunk.Contains(s.ExternalId))
+                .Select(s => new SiteSnapshot(
+                    s.Id,
+                    s.ExternalId,
+                    s.Name,
+                    s.TimeZone,
+                    s.Status.ToString()
+                ))
+                .ToListAsync(ct);
+            found.AddRange(sites);
+        }
+        return found;
+    }
+
+    public Task<long> CountSitesAsync(CancellationToken ct = default) =>
+        db.Sites.LongCountAsync(ct);
 
     public async Task<IReadOnlyList<NodeSnapshot>> ListNodesAsync(CancellationToken ct = default)
     {
@@ -55,6 +73,7 @@ public static class SiteChangeRequestedHandler
         ITenantContext tenant,
         TenancyDbContext db,
         IMessageBus bus,
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
         CancellationToken ct
     )
     {
@@ -85,6 +104,7 @@ public static class SiteChangeRequestedHandler
                     }
                 );
                 await db.SaveChangesAsync(ct);
+                SiteCount.Created(cache, org);
                 break;
             }
             case "update" when site is not null:

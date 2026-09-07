@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Premise.Modules.Identity.Auth;
 using Premise.Platform.Auth;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 
 namespace Premise.Api;
@@ -15,6 +16,30 @@ internal static class HttpPolicyHosting
         // reading metered entitlements attaches in step 4.
         var guestLimit = builder.Configuration.GetValue("RateLimits:GuestPerMinute", 60);
         var userLimit = builder.Configuration.GetValue("RateLimits:UserPerMinute", 300);
+        // ADR 52: a quota is one number across the fleet, so the org, user and
+        // key partitions count in Postgres; guests and IPs stay per instance
+        // (abuse control, not a sold quota). Off for the in-process test host,
+        // which has one instance and no reason to pay a round trip per request.
+        var shared = builder.Configuration.GetValue("RateLimits:Shared", true);
+        var window = TimeSpan.FromMinutes(1);
+        RateLimiter Counter(IServiceProvider services, string partition, int permits) =>
+            shared
+                ? new SharedRateLimiter(
+                    partition,
+                    permits,
+                    window,
+                    services.GetRequiredService<IRegionDataSources>(),
+                    services.GetRequiredService<TimeProvider>(),
+                    services.GetRequiredService<ILoggerFactory>().CreateLogger<SharedRateLimiter>()
+                )
+                : new FixedWindowRateLimiter(
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = permits,
+                        Window = window,
+                        QueueLimit = 0,
+                    }
+                );
         builder.Services.AddSingleton<OrgRateLimitCache>();
         builder.Services.AddRateLimiter(limiter =>
         {
@@ -60,41 +85,42 @@ internal static class HttpPolicyHosting
                         // created once and cached, so a quota change must roll to a
                         // fresh partition or a hot org keeps its old limit forever
                         // (found by the load baseline)
-                        return RateLimitPartition.GetFixedWindowLimiter(
-                            $"org:{orgGuid}:{orgLimit}",
-                            _ => new FixedWindowRateLimiterOptions
-                            {
-                                PermitLimit = orgLimit,
-                                Window = TimeSpan.FromMinutes(1),
-                                QueueLimit = 0,
-                            }
+                        var partition = $"org:{orgGuid}:{orgLimit}";
+                        return RateLimitPartition.Get(
+                            partition,
+                            _ => Counter(http.RequestServices, partition, orgLimit)
                         );
                     }
                     return RateLimitPartition.GetNoLimiter("org:none");
                 }),
                 PartitionedRateLimiter.Create<HttpContext, string>(http =>
                 {
-                    var (key, permits) = http
+                    var (key, permits, fleetWide) = http
                         .RequestServices.GetRequiredService<IPrincipalAccessor>()
                         .Current switch
                     {
                         // an API key is a first-class principal (ADR 40): its own
                         // bucket at the USER limit, never the per-IP guest bucket
-                        Principal.Service service => ($"key:{service.KeyId}", userLimit),
-                        Principal.User user => ($"user:{user.UserId}", userLimit),
+                        Principal.Service service => ($"key:{service.KeyId}", userLimit, true),
+                        Principal.User user => ($"user:{user.UserId}", userLimit, true),
                         _ => http.Request.Cookies.TryGetValue(
                             GuestSessionMiddleware.CookieName,
                             out var guest
                         )
-                            ? ($"guest:{guest}", guestLimit)
-                            : ($"ip:{http.Connection.RemoteIpAddress}", guestLimit),
+                            ? ($"guest:{guest}", guestLimit, false)
+                            : ($"ip:{http.Connection.RemoteIpAddress}", guestLimit, false),
                     };
+                    if (fleetWide)
+                        return RateLimitPartition.Get(
+                            key,
+                            _ => Counter(http.RequestServices, key, permits)
+                        );
                     return RateLimitPartition.GetFixedWindowLimiter(
                         key,
                         _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = permits,
-                            Window = TimeSpan.FromMinutes(1),
+                            Window = window,
                             QueueLimit = 0,
                         }
                     );

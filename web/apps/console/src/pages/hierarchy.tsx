@@ -1,30 +1,43 @@
 import { api, ApiError } from '@premise/api';
-import { Button, Field, FieldLabel, FormDialog, Input, Select } from '@premise/ui';
+import { Button, Field, FieldLabel, FormDialog, Input } from '@premise/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, PageHeader, Panel } from '../components/page';
 import { HierarchyTree } from '../features/hierarchy/hierarchy-tree';
+import { useHierarchy } from '../features/hierarchy/hooks';
+import { LevelsFields } from '../features/hierarchy/levels-fields';
+import { NodePicker } from '../features/hierarchy/node-picker';
 import { useApiMutation } from '../lib/mutation';
+import { useMe } from '../session';
+
+const trimmed = (levels: string[]) => levels.map((l) => l.trim()).filter(Boolean);
 
 export function HierarchyPage() {
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: ['hierarchy'],
-    queryFn: ({ signal }) => api.get('/api/hierarchy', { signal }),
-    retry: false,
+  const { data: me } = useMe();
+  const { data, isPending, isError, error } = useHierarchy();
+  // the plan's depth bounds both forms
+  const { data: entitlements } = useQuery({
+    queryKey: ['entitlements'],
+    queryFn: ({ signal }) => api.get('/api/entitlements', { signal }),
   });
-  const [levels, setLevels] = useState('Region, Market');
+  const maxDepth = Number(entitlements?.['hierarchy.depth']?.value ?? 4);
+  const [levels, setLevels] = useState(['Region', 'Market']);
+  const [renaming, setRenaming] = useState(false);
   const [nodeName, setNodeName] = useState('');
   const [parentId, setParentId] = useState('');
   const [adding, setAdding] = useState(false);
 
   const provision = useApiMutation({
     mutationFn: () =>
-      api.post('/api/hierarchy', {
-        name: 'Organization',
-        levels: levels.split(',').map((l) => l.trim()).filter(Boolean),
-      }),
+      api.post('/api/hierarchy', { name: (me?.tier === 'user' && me.organizations.find((o) => o.id === me.activeOrg)?.name) || 'Organization', levels: trimmed(levels) }),
     invalidate: [['hierarchy']],
     success: 'Hierarchy created',
+  });
+  const renameLevels = useApiMutation({
+    mutationFn: () => api.put('/api/hierarchy', { levels: trimmed(levels) }),
+    invalidate: [['hierarchy']],
+    success: 'Levels renamed',
+    onSuccess: () => setRenaming(false),
   });
   const addNode = useApiMutation({
     mutationFn: () => api.post('/api/hierarchy/nodes', { parentId, name: nodeName }),
@@ -57,12 +70,13 @@ export function HierarchyPage() {
     return (
       <div className="max-w-lg space-y-6">
         <PageHeader title="Hierarchy" description="The rollup structure every site sits in." />
-        <Panel title="Provision the org hierarchy" bodyClassName="space-y-3">
-            <Field>
-              <FieldLabel htmlFor="levels">Level names (root-first, comma-separated)</FieldLabel>
-              <Input id="levels" value={levels} onChange={(e) => setLevels(e.target.value)} />
-            </Field>
-            <Button disabled={provision.isPending} onClick={() => provision.mutate()}>
+        <Panel
+          title="Name your levels"
+          description="The layers between the organization and a site: regions and markets, districts and stores. You can rename them later."
+          bodyClassName="space-y-3"
+        >
+            <LevelsFields levels={levels} onChange={setLevels} max={maxDepth} />
+            <Button disabled={trimmed(levels).length === 0 || provision.isPending} onClick={() => provision.mutate()}>
               Create hierarchy
             </Button>
             {provision.isError && (
@@ -75,12 +89,35 @@ export function HierarchyPage() {
     );
   }
 
+  const deepestUsed = data.nodes.reduce((deep, n) => Math.max(deep, n.depth), 0);
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader
         title="Hierarchy"
         description={<>Levels: {data.levels.join(' → ')}</>}
         actions={
+        <>
+        <FormDialog
+          open={renaming}
+          onOpenChange={(open) => {
+            setRenaming(open);
+            if (open) setLevels([...data.levels]);
+          }}
+          trigger={<Button variant="outline">Rename levels</Button>}
+          title="Rename levels"
+          description="What each layer of the tree is called. Levels a node already uses stay; add more up to your plan's depth."
+        >
+          <div className="space-y-3">
+            <LevelsFields levels={levels} onChange={setLevels} max={maxDepth} min={deepestUsed} />
+            <Button
+              className="w-full"
+              disabled={trimmed(levels).length < Math.max(deepestUsed, 1) || renameLevels.isPending}
+              onClick={() => renameLevels.mutate()}
+            >
+              Save levels
+            </Button>
+          </div>
+        </FormDialog>
         <FormDialog
           open={adding}
           onOpenChange={setAdding}
@@ -96,15 +133,7 @@ export function HierarchyPage() {
             </Field>
             <Field>
               <FieldLabel htmlFor="node-parent">Parent</FieldLabel>
-              <Select id="node-parent" value={parentId}
-                onChange={(e) => setParentId(e.target.value)}>
-                <option value="">Choose…</option>
-                {data.nodes.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {' '.repeat(Number(n.depth) * 2)}{n.name}
-                  </option>
-                ))}
-              </Select>
+              <NodePicker id="node-parent" nodes={data.nodes} value={parentId} onChange={setParentId} />
             </Field>
             <Button className="w-full" disabled={!nodeName || !parentId || addNode.isPending}
               onClick={() => addNode.mutate()}>
@@ -112,6 +141,7 @@ export function HierarchyPage() {
             </Button>
           </div>
         </FormDialog>
+        </>
         }
       />
       <Panel>
@@ -119,7 +149,7 @@ export function HierarchyPage() {
           nodes={data.nodes.map((n) => ({
             id: n.id,
             name: n.name,
-            depth: Number(n.depth),
+            depth: n.depth,
             parentId: n.parentId ?? null,
           }))}
           busy={rename.isPending || removeNode.isPending}

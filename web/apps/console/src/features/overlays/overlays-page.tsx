@@ -1,8 +1,10 @@
 import { Button, buttonVariants, ConfirmButton, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Select, Textarea, toast, ToggleGroup, ToggleGroupItem } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import { FileUp, Layers, MapPin, Plus, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useScope } from '../../app/scope';
 import { EmptyState } from '../../components/page';
+import { FileDropzone } from '../../components/file-dropzone';
 import { useApiMutation } from '../../lib/mutation';
 import { can, useMe } from '../../session';
 import { useHierarchy } from '../sites/hooks';
@@ -26,7 +28,19 @@ export function OverlaysPage() {
   const manage = can(me, 'overlays:manage');
   const [tab, setTab] = useState<'active' | 'trash'>('active');
   const query = useOverlays(true, tab === 'trash');
-  const layers = query.data?.layers ?? [];
+  // the Scope node narrows the list to layers anchored under it; a layer
+  // anchored to the whole org covers every scope, so it always shows
+  const scope = useScope();
+  const { data: hierarchy } = useHierarchy();
+  const pathOf = useMemo(() => new Map((hierarchy?.nodes ?? []).map((n) => [n.id, n.path])), [hierarchy]);
+  const scopePath = scope.nodeId ? pathOf.get(scope.nodeId) : undefined;
+  const underScope = (layer: OverlayLayer) => {
+    if (!scopePath) return true;
+    if (!layer.nodeId) return true;
+    const anchor = pathOf.get(layer.nodeId);
+    return anchor !== undefined && (anchor === scopePath || anchor.startsWith(`${scopePath}.`));
+  };
+  const layers = (query.data?.layers ?? []).filter(underScope);
 
   const remove = useApiMutation({
     mutationFn: (id: string) => overlaysApi.remove(id),
@@ -92,7 +106,7 @@ export function OverlaysPage() {
           {query.data && layers.length === 0 && (
             <EmptyState
               icon={Layers}
-              title={tab === 'trash' ? 'The trash is empty' : 'No overlay layers yet'}
+              title={tab === 'trash' ? 'The trash is empty' : scopePath ? 'No overlay layers under this scope' : 'No overlay layers yet'}
               description={
                 tab === 'trash'
                   ? 'Deleted layers wait here until you restore them.'
@@ -105,7 +119,7 @@ export function OverlaysPage() {
           {layers.length > 0 && (
             <ul className="divide-y">
               {layers.map((layer) => {
-                const count = Number(layer.featureCount);
+                const count = layer.featureCount;
                 return (
                   <li key={layer.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <span
@@ -163,27 +177,49 @@ export function OverlaysPage() {
 
 function NewLayerDialog() {
   const { data: hierarchy } = useHierarchy();
+  const scope = useScope();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<string>(KINDS[0]);
   const [fill, setFill] = useState(DEFAULT_FILL);
-  const [nodeId, setNodeId] = useState('');
+  // a layer made under a scope anchors there unless told otherwise
+  const [nodeId, setNodeId] = useState(scope.nodeId ?? '');
 
+  const [shapes, setShapes] = useState<{ fileName: string; geoJson: unknown } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  // one dialog (flow review, 2026-09): the layer and, when a file is dropped
+  // in, its shapes - two calls behind one button
   const create = useApiMutation({
-    mutationFn: () =>
-      overlaysApi.create({
+    mutationFn: async () => {
+      const layer = await overlaysApi.create({
         name,
         kind,
         style: { fill, opacity: 0.2 },
         nodeId: nodeId || null,
-      }),
+      });
+      if (!shapes) return { count: 0 };
+      return overlaysApi.replaceFeatures(layer.id, shapes.geoJson);
+    },
     invalidate: [['overlays']],
-    success: 'Layer created - upload its shapes next',
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const n = result.count;
+      toast.success(shapes ? `Layer created with ${n} shape${n === 1 ? '' : 's'}` : 'Layer created - upload its shapes next');
       setName('');
+      setShapes(null);
       setOpen(false);
     },
   });
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setProblem(null);
+    try {
+      setShapes({ fileName: file.name, geoJson: JSON.parse(await file.text()) as unknown });
+    } catch {
+      setShapes(null);
+      setProblem(`${file.name} is not valid GeoJSON.`);
+    }
+  };
 
   return (
     <FormDialog
@@ -201,8 +237,15 @@ function NewLayerDialog() {
       <div className="space-y-3">
         <Field>
           <FieldLabel htmlFor="overlay-name">Name</FieldLabel>
-          <Input id="overlay-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="overlay-name" value={name} placeholder="Downtown zones" onChange={(e) => setName(e.target.value)} />
         </Field>
+        <FileDropzone
+          accept=".geojson,.json,application/geo+json,application/json"
+          onFile={(file) => void pick(file)}
+          label={shapes ? `Ready: ${shapes.fileName}` : 'Drop the shapes here as GeoJSON, or add them later'}
+          buttonLabel="Choose GeoJSON…"
+          error={problem ?? undefined}
+        />
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field>
             <FieldLabel htmlFor="overlay-kind">Kind</FieldLabel>
@@ -231,14 +274,14 @@ function NewLayerDialog() {
             <option value="">Whole organization</option>
             {hierarchy?.nodes.map((n) => (
               <option key={n.id} value={n.id}>
-                {' '.repeat(Number(n.depth) * 2)}
+                {' '.repeat(n.depth * 2)}
                 {n.name}
               </option>
             ))}
           </Select>
         </Field>
         <Button className="w-full" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>
-          Create layer
+          {shapes ? 'Create layer and upload shapes' : 'Create layer'}
         </Button>
       </div>
     </FormDialog>
@@ -246,6 +289,8 @@ function NewLayerDialog() {
 }
 
 function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
+  // the honest verb: a layer with nothing in it is uploaded to, not replaced
+  const verb = layer.featureCount === 0 ? 'Upload shapes' : 'Replace shapes';
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -258,7 +303,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       setText('');
       setFileName(null);
       setOpen(false);
-      const n = Number(result.count);
+      const n = result.count;
       // the success line carries the count, which the generic option cannot
       toast.success(`${n} shape${n === 1 ? '' : 's'} uploaded`);
     },
@@ -292,23 +337,23 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
       trigger={
         <Button variant="outline" size="sm">
           <FileUp className="size-4" aria-hidden />
-          Upload shapes
+          {verb}
         </Button>
       }
       title={`Shapes for ${layer.name}`}
-      description="A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map."
+      description={
+        layer.featureCount === 0
+          ? 'A GeoJSON FeatureCollection of polygons; feature properties ride along to the map.'
+          : 'A GeoJSON FeatureCollection of polygons. The upload replaces every shape the layer has; feature properties ride along to the map.'
+      }
     >
       <div className="space-y-3">
-        <Field>
-          <FieldLabel htmlFor="overlay-file">GeoJSON file</FieldLabel>
-          <Input
-            id="overlay-file"
-            type="file"
-            accept=".geojson,.json,application/geo+json,application/json"
-            onChange={(e) => void pick(e.target.files?.[0])}
-          />
-          {fileName && <p className="text-xs text-muted-foreground">{fileName}</p>}
-        </Field>
+        <FileDropzone
+          accept=".geojson,.json,application/geo+json,application/json"
+          onFile={(file) => void pick(file)}
+          label={fileName ? `Ready: ${fileName}` : 'Drop a GeoJSON file here, or choose one'}
+          buttonLabel="Choose GeoJSON…"
+        />
         <Field>
           <FieldLabel htmlFor="overlay-geojson">Or paste it</FieldLabel>
           <Textarea
@@ -326,7 +371,7 @@ function UploadShapesDialog({ layer }: { layer: OverlayLayer }) {
           </p>
         )}
         <Button className="w-full" disabled={!text.trim() || upload.isPending} onClick={submit}>
-          {upload.isPending ? 'Uploading…' : 'Replace shapes'}
+          {upload.isPending ? 'Uploading…' : verb}
         </Button>
       </div>
     </FormDialog>

@@ -28,12 +28,21 @@ public sealed class StagingService(IngestDbContext db, ISiteLookup sites)
         CancellationToken ct
     )
     {
-        var liveSites = (await sites.ListSitesAsync(ct))
+        // the file's ids, not the org's sites: the diff reads what it needs (code review, 2026-09)
+        var externalIds = rows.Select(r => r.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToArray();
+        var liveSites = (await sites.ListSitesAsync(externalIds, ct))
             .Where(s => s.ExternalId is not null)
-            .ToDictionary(s => s.ExternalId!);
-        var nodesByPath = (await sites.ListNodesAsync(ct))
+            .GroupBy(s => s.ExternalId!)
+            .ToDictionary(g => g.Key, g => g.First());
+        var nodes = await sites.ListNodesAsync(ct);
+        var nodesByPath = nodes
             .GroupBy(n => n.NamePath)
             .ToDictionary(g => g.Key, g => g.First().Id);
+        // a spreadsheet may carry the node's id instead of its name path
+        var nodeIds = nodes.Select(n => n.Id).ToHashSet();
 
         var batch = new ImportBatch
         {
@@ -79,6 +88,8 @@ public sealed class StagingService(IngestDbContext db, ISiteLookup sites)
                 errors.Add($"status must be open|closed, got '{row.Status}'");
             if (nodesByPath.TryGetValue(row.NodePath, out var nodeId))
                 staged.NodeId = nodeId;
+            else if (Guid.TryParse(row.NodePath, out var byId) && nodeIds.Contains(byId))
+                staged.NodeId = byId;
             else
                 errors.Add($"no hierarchy node at '{row.NodePath}'");
 

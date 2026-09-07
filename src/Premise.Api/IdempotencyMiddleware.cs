@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Premise.Contracts;
 using Premise.Platform.Infra;
 using Premise.Platform.Kernel;
 
@@ -49,7 +50,7 @@ public sealed class IdempotencyMiddleware(RequestDelegate next)
             {
                 context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
                 await context.Response.WriteAsJsonAsync(
-                    new { error = "Idempotency-Key was already used with a different request" }
+                    ApiErrors.Body("Idempotency-Key was already used with a different request")
                 );
                 return;
             }
@@ -57,10 +58,9 @@ public sealed class IdempotencyMiddleware(RequestDelegate next)
             {
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 await context.Response.WriteAsJsonAsync(
-                    new
-                    {
-                        error = "the original request with this Idempotency-Key is still in flight",
-                    }
+                    ApiErrors.Body(
+                        "the original request with this Idempotency-Key is still in flight"
+                    )
                 );
                 return;
             }

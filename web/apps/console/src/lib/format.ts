@@ -31,6 +31,13 @@ export const fmtTimeInZone = (value: string | Date, timeZone: string): string =>
     timeZone,
   });
 
+/** A stamped business date ("2026-09-06", a site-local day) as "Saturday, Sep 6" - never shifted through a zone. */
+export const fmtBusinessDate = (value: string): string => {
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return value;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+};
+
 /** Friendly names for entitlement codes; the raw code stays available as detail. */
 export const ENTITLEMENT_LABELS: Record<string, string> = {
   'api.requests_per_minute': 'API requests / minute',

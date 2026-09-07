@@ -87,7 +87,7 @@ export function SiteFilters({ onChange }: { onChange: (values: SiteFilterValues)
           <Search aria-hidden />
         </InputGroupAddon>
         <InputGroupInput
-          placeholder="Search a word of the name or city…"
+          placeholder="Search sites…"
           aria-label="Search sites"
           value={q}
           onChange={(e) => setQ(e.target.value)}

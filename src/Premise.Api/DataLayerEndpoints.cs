@@ -95,7 +95,7 @@ public static class DataLayerEndpoints
                     if (registered is null)
                         return Results.NotFound();
                     if (!DataLayerTiles.InRange(z, x, y))
-                        return Results.BadRequest(new { error = "tile out of range" });
+                        return ApiErrors.BadRequest("tile out of range");
 
                     var gate = await Gate.RequireAsync(accessor, scopes, registered.Capability, ct);
                     if (gate is not GateOutcome.Allowed { Org: var org, Scope: var scope })

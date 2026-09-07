@@ -68,7 +68,7 @@ public static class OrgClosureEndpoints
         var userId = principal.UserId;
         var org = await db.Organizations.FirstAsync(o => o.Id == orgId, ct);
         if (org.IsPlatform)
-            return Results.BadRequest(new { error = "the platform org cannot be closed" });
+            return ApiErrors.BadRequest("the platform org cannot be closed");
         if (org.CloseRequestedAt is not null)
             return Results.NoContent(); // already pending: idempotent
 

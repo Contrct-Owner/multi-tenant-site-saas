@@ -46,7 +46,7 @@ public static class OverlayTilesEndpoint
     )
     {
         if (z is < 0 or > 22 || x < 0 || y < 0 || x >= (1L << z) || y >= (1L << z))
-            return Results.BadRequest(new { error = "tile out of range" });
+            return ApiErrors.BadRequest("tile out of range");
 
         var gate = await Gate.RequireAsync(accessor, scopes, Capabilities.OverlaysRead, ct);
         if (gate is not GateOutcome.Allowed { Org: var org, Scope: var scope })

@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { usePreference } from '../lib/preference';
 
 /**
  * The console's global scope (direction B): a hierarchy node the whole app
@@ -11,30 +12,9 @@ type Scope = { nodeId: string | null; setNodeId: (id: string | null) => void };
 
 const ScopeContext = createContext<Scope | null>(null);
 
-const storageKey = (orgId: string) => `premise.scope.${orgId}`;
-
-function readStored(orgId: string): string | null {
-  try {
-    return localStorage.getItem(storageKey(orgId));
-  } catch {
-    return null;
-  }
-}
-
 export function ScopeProvider({ orgId, children }: { orgId: string; children: ReactNode }) {
-  const [nodeId, setState] = useState<string | null>(() => readStored(orgId));
-  const setNodeId = useCallback(
-    (id: string | null) => {
-      setState(id);
-      try {
-        if (id === null) localStorage.removeItem(storageKey(orgId));
-        else localStorage.setItem(storageKey(orgId), id);
-      } catch {
-        // storage is a convenience; the choice still holds for this session
-      }
-    },
-    [orgId],
-  );
+  // per org, this browser only: a preference, not data
+  const [nodeId, setNodeId] = usePreference<string | null>(`scope.${orgId}`, null);
   const value = useMemo(() => ({ nodeId, setNodeId }), [nodeId, setNodeId]);
   return <ScopeContext.Provider value={value}>{children}</ScopeContext.Provider>;
 }

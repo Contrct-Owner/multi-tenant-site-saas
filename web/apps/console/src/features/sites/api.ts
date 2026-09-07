@@ -36,6 +36,9 @@ export const sitesApi = {
     parseSiteResponse(await api.get('/api/sites/{id}', { path: { id }, signal })),
   update: (id: string, body: UpdateSite) =>
     api.post('/api/sites/{id}', body, { path: { id } }),
+  /** One status for the selected sites; the server counts what scope left alone. */
+  bulkStatus: (ids: string[], status: components['schemas']['SiteStatus']) =>
+    api.post('/api/sites/bulk-status', { ids, status }),
   schedules: (id: string, signal?: AbortSignal) => api.get('/api/sites/{id}/schedules', { path: { id }, signal }),
   createSchedule: (id: string, body: CreateSchedule) =>
     api.post('/api/sites/{id}/schedules', body, { path: { id } }),

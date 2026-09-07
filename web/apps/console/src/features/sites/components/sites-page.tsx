@@ -1,58 +1,25 @@
-import { Button, Checkbox, cn, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridScrollArea, DataGridTable, DataGridTableRowSelect, DataGridTableRowSelectAll, Field, FieldLabel, FormDialog, Frame, FrameFooter, FrameHeader, FramePanel, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Select, SiteMap, TimeZoneSelect, ToggleGroup, ToggleGroupItem, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapOverlay, type SiteMapPoint } from '@premise/ui';
+import { toast, Button, DataGrid, DataGridColumnVisibility, DataGridContainer, dataGridFeatures, DataGridTableVirtual, DataGridTableRowSelect, DataGridTableRowSelectAll, Frame, FrameFooter, FrameHeader, FramePanel, Select, SiteMap, ToggleGroup, ToggleGroupItem, useIsMobile, useTable, type ColumnDef, type DataGridFeatures, type RowSelectionState, type SiteMapPoint } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
-import { Columns3, Layers, MapPin, Plus, Table2 } from 'lucide-react';
+import { Columns3, MapPin, Table2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useScope } from '../../../app/scope';
 import { useTheme } from '../../../app/theme';
 import { bboxParam, snapToTileGrid, type Viewport } from '../../../lib/map';
 import { useApiMutation } from '../../../lib/mutation';
+import { usePreference } from '../../../lib/preference';
 import { can, useMe } from '../../../session';
 import { StatusBadge } from '../../../shell';
-import { overlaysApi } from '../../overlays/api';
-import { useOverlays } from '../../overlays/hooks';
 import { sitesApi } from '../api';
-import { useBasemaps, useDataLayers, useHierarchy, useSites } from '../hooks';
+import { useHierarchy, useSites } from '../hooks';
 import { SiteFilters } from './site-filters';
-
-type SiteRow = ReturnType<typeof useSites>['data'] extends infer D
-  ? D extends { pages: { items: (infer R)[] }[] }
-    ? R
-    : never
-  : never;
+import { LayersPopover } from './layers-popover';
+import { NewSiteDialog } from './new-site-dialog';
+import { SiteList, type SiteRow } from './site-list';
+import { useMapLayers } from './use-map-layers';
 
 type View = 'table' | 'map';
-const VIEW_KEY = 'premise.sites.view';
-const HIDDEN_OVERLAYS_KEY = 'premise.sites.overlays.hidden';
-const BASEMAP_KEY = 'premise.map.basemap';
-const LAYER_KEY = 'premise.map.layer';
 
-function readBasemapChoice(): string {
-  try {
-    return localStorage.getItem(BASEMAP_KEY) ?? 'auto';
-  } catch {
-    return 'auto';
-  }
-}
-
-function readHiddenOverlays(): Set<string> {
-  try {
-    const raw = localStorage.getItem(HIDDEN_OVERLAYS_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-const readView = (): View => {
-  try {
-    return localStorage.getItem(VIEW_KEY) === 'map' ? 'map' : 'table';
-  } catch {
-    return 'table';
-  }
-};
-
-const toNumber = (v: unknown): number | null =>
-  v === null || v === undefined || v === '' ? null : Number(v);
+const toNumber = (v: number | null | undefined): number | null => v ?? null;
 
 /**
  * The site library (direction B, steps 4-5): one scoped, searched list in two
@@ -66,116 +33,18 @@ export function SitesPage() {
   const { data: me } = useMe();
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [view, setViewState] = useState<View>(readView);
+  const [view, setView] = usePreference<View>('sites.view', 'table');
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [fitKey, setFitKey] = useState(0);
   const scope = useScope();
   const theme = useTheme();
-
-  const setView = (next: View) => {
-    setViewState(next);
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // a preference; losing it costs one click
-    }
-  };
+  // a phone reads a list, not a clipped table (flow review, 2026-09)
+  const phone = useIsMobile();
 
   // the box only exists in the map view: the table is the whole scope
   const box = view === 'map' && viewport ? snapToTileGrid(viewport) : null;
-  // the map draws one data layer's tiles (ADR 50 §3-4): a registered query
-  // over the sites, scope and clustering the server's; the console's chosen
-  // node rides along as `under`. Sites is the default; the rest are offered
-  // by the registry for principals who may read them
-  const layersQuery = useDataLayers(view === 'map');
-  const dataLayers = layersQuery.data?.layers ?? [];
-  const [layerChoice, setLayerChoice] = useState(() => {
-    try {
-      return localStorage.getItem(LAYER_KEY) ?? 'sites';
-    } catch {
-      return 'sites';
-    }
-  });
-  const chooseLayer = useCallback((name: string) => {
-    setLayerChoice(name);
-    try {
-      localStorage.setItem(LAYER_KEY, name);
-    } catch {
-      // storage is a convenience
-    }
-  }, []);
-  const dataLayer =
-    dataLayers.find((l) => l.name === layerChoice) ?? dataLayers.find((l) => l.name === 'sites');
-  const layerName = dataLayer?.name ?? 'sites';
-  const tiles = useMemo(
-    () => ({ url: sitesApi.tiles(layerName, scope.nodeId), sourceLayer: layerName }),
-    [layerName, scope.nodeId],
-  );
-  const statuses = useMemo(
-    () => (dataLayer?.statuses ?? []).map((s) => ({ key: s.key, color: s.color })),
-    [dataLayer],
-  );
-  // the org's overlays (ADR 50 §3) ride under the sites; each is its own
-  // tile source, and the viewer decides which are showing
-  const canSeeOverlays = can(me, 'overlays:read');
-  const overlaysQuery = useOverlays(canSeeOverlays && view === 'map');
-  const [hiddenOverlays, setHiddenOverlays] = useState(readHiddenOverlays);
-  const toggleOverlay = useCallback((id: string) => {
-    setHiddenOverlays((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(HIDDEN_OVERLAYS_KEY, JSON.stringify([...next]));
-      } catch {
-        // storage is a convenience
-      }
-      return next;
-    });
-  }, []);
-  // the basemap: the theme's own by default, OpenStreetMap, or one the org configured
-  const basemapsQuery = useBasemaps(view === 'map');
-  const rasters = useMemo(
-    () => (basemapsQuery.data?.basemaps ?? []).map((r) => ({ ...r, maxZoom: Number(r.maxZoom) })),
-    [basemapsQuery.data],
-  );
-  const [basemapChoice, setBasemapChoice] = useState(readBasemapChoice);
-  const chooseBasemap = useCallback((id: string) => {
-    setBasemapChoice(id);
-    try {
-      localStorage.setItem(BASEMAP_KEY, id);
-    } catch {
-      // storage is a convenience
-    }
-  }, []);
-  const knownChoice =
-    basemapChoice === 'auto' ||
-    basemapChoice === 'osm' ||
-    !basemapsQuery.data ||
-    rasters.some((r) => r.id === basemapChoice);
-  const basemap =
-    basemapChoice === 'auto' || !knownChoice ? (theme === 'dark' ? 'dark' : 'light') : basemapChoice;
-  const basemapChoices = [
-    { id: 'auto', name: 'Match theme' },
-    { id: 'osm', name: 'OpenStreetMap' },
-    ...rasters.map((r) => ({ id: r.id, name: r.name })),
-  ];
-  const overlayLayers = useMemo(
-    () => (overlaysQuery.data?.layers ?? []).filter((l) => Number(l.featureCount) > 0),
-    [overlaysQuery.data],
-  );
-  const overlays = useMemo<SiteMapOverlay[]>(
-    () =>
-      overlayLayers
-        .filter((l) => !hiddenOverlays.has(l.id))
-        .map((l) => ({
-          id: l.id,
-          url: overlaysApi.tiles(l.id),
-          sourceLayer: 'overlay',
-          style: (l.style ?? null) as SiteMapOverlay['style'],
-        })),
-    [overlayLayers, hiddenOverlays],
-  );
+  const mapLayers = useMapLayers({ active: view === 'map', under: scope.nodeId, theme, me });
+  const { tiles, statuses, canSeeOverlays, overlays, rasters, basemap } = mapLayers;
   const sitesQuery = useSites(
     filter,
     scope.nodeId,
@@ -188,7 +57,7 @@ export function SitesPage() {
     [sitesQuery.data],
   );
   const firstPage = sitesQuery.data?.pages[0];
-  const total = firstPage === undefined ? undefined : Number(firstPage.total);
+  const total = firstPage?.total;
   // a search stops counting past ten thousand hits and says so (ADR 51)
   const totalLabel =
     total === undefined ? '' : firstPage?.totalIsLowerBound ? `${total.toLocaleString()}+` : String(total);
@@ -212,6 +81,22 @@ export function SitesPage() {
   );
 
   const nodeName = (id: string) => hierarchy?.nodes.find((n) => n.id === id)?.name ?? '—';
+
+  // the selection's one action: a status for every chosen site, in one call
+  const bulkStatus = useApiMutation({
+    mutationFn: (status: string) =>
+      sitesApi.bulkStatus(selectedIds, status as Parameters<typeof sitesApi.bulkStatus>[1]),
+    invalidate: [['sites']],
+    onSuccess: (result) => {
+      const { updated, skipped } = result;
+      toast.success(
+        skipped > 0
+          ? `${updated} updated, ${skipped} outside your scope left alone`
+          : `${updated} site${updated === 1 ? '' : 's'} updated`,
+      );
+      setRowSelection({});
+    },
+  });
 
   const columns = useMemo<ColumnDef<DataGridFeatures, SiteRow>[]>(
     () => [
@@ -339,6 +224,24 @@ export function SitesPage() {
     selectedCount > 0 ? (
       <>
         <span className="font-medium tabular-nums">{selectedCount} selected</span>
+        {manage && (
+          <Select
+            aria-label="Set status for the selected sites"
+            className="w-44"
+            value=""
+            disabled={bulkStatus.isPending}
+            onChange={(e) => {
+              if (e.target.value) bulkStatus.mutate(e.target.value);
+            }}
+          >
+            <option value="">Set status…</option>
+            {SITE_STATUSES.map((status) => (
+              <option key={status.key} value={status.key}>
+                {status.label}
+              </option>
+            ))}
+          </Select>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
           Clear
         </Button>
@@ -408,6 +311,7 @@ export function SitesPage() {
             isLoading={sitesQuery.isPending}
             loadingMode="skeleton"
             loadingMessage="Loading sites…"
+            fetchingMoreMessage="Loading more sites…"
             emptyMessage={emptyMessage}
             tableLayout={{
               headerBackground: false,
@@ -429,112 +333,28 @@ export function SitesPage() {
                   }
                 />
               )}
-              {view === 'map' && canSeeOverlays && (
-                <Popover>
-                  <PopoverTrigger
-                    render={
-                      <Button variant="outline" size="sm" className="ml-auto">
-                        <Layers className="size-4" aria-hidden />
-                        Layers
-                        {overlays.length > 0 && (
-                          <span className="text-muted-foreground">{overlays.length}</span>
-                        )}
-                      </Button>
-                    }
-                  />
-                  <PopoverContent align="end" className="w-64">
-                    <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">Basemap</p>
-                    <RadioGroup
-                      aria-label="Basemap"
-                      className="gap-0.5"
-                      value={knownChoice ? basemapChoice : 'auto'}
-                      onValueChange={(value) => chooseBasemap(String(value))}
-                    >
-                      {basemapChoices.map((c) => (
-                        <label
-                          key={c.id}
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
-                        >
-                          <RadioGroupItem value={c.id} />
-                          <span className="truncate">{c.name}</span>
-                        </label>
-                      ))}
-                    </RadioGroup>
-                    {dataLayers.length > 1 && (
-                      <>
-                        <p className="px-1 pb-1 pt-1 text-xs font-medium text-muted-foreground">Data layer</p>
-                        <RadioGroup
-                          aria-label="Data layer"
-                          className="gap-0.5"
-                          value={layerName}
-                          onValueChange={(value) => chooseLayer(String(value))}
-                        >
-                          {dataLayers.map((l) => (
-                            <label
-                              key={l.name}
-                              className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted"
-                              title={l.description}
-                            >
-                              <RadioGroupItem value={l.name} />
-                              <span className="truncate">{l.title}</span>
-                            </label>
-                          ))}
-                        </RadioGroup>
-                      </>
-                    )}
-                    {dataLayer && dataLayer.statuses.length > 0 && (
-                      <ul className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground" aria-label="Legend">
-                        {dataLayer.statuses.map((s) => (
-                          <li key={s.key} className="flex items-center gap-1.5">
-                            <span
-                              className="size-2.5 rounded-full border border-background"
-                              style={{ background: s.color }}
-                              aria-hidden
-                            />
-                            {s.label}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className="px-1 pt-1 text-xs font-medium text-muted-foreground">Overlays</p>
-                    {overlayLayers.length === 0 ? (
-                      <p className="px-1 text-sm text-muted-foreground">
-                        No overlay layers with shapes yet.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-1">
-                        {overlayLayers.map((l) => (
-                          <li key={l.id}>
-                            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted">
-                              <Checkbox
-                                checked={!hiddenOverlays.has(l.id)}
-                                onCheckedChange={() => toggleOverlay(l.id)}
-                              />
-                              <span
-                                className="size-3 shrink-0 rounded-sm border"
-                                style={{
-                                  background: (l.style as { fill?: string } | null)?.fill ?? '#7c6cf0',
-                                }}
-                                aria-hidden
-                              />
-                              <span className="truncate">{l.name}</span>
-                              <span className="ml-auto text-xs text-muted-foreground">{l.kind}</span>
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
+              {view === 'map' && canSeeOverlays && <LayersPopover layers={mapLayers} />}
             </FrameHeader>
 
-            {view === 'table' ? (
+            {view === 'table' && !phone ? (
               <DataGridContainer>
-                <DataGridScrollArea>
-                  <DataGridTable />
-                </DataGridScrollArea>
+                <DataGridTableVirtual
+                  height={Math.min(Math.max(sites.length, 5) * 53 + 48, Math.max(window.innerHeight - 320, 320))}
+                  onFetchMore={() => void sitesQuery.fetchNextPage()}
+                  hasMore={sitesQuery.hasNextPage}
+                  isFetchingMore={sitesQuery.isFetchingNextPage}
+                  fetchMoreOffset={5}
+                />
               </DataGridContainer>
+            ) : view === 'table' ? (
+              <SiteList
+                sites={sites}
+                rowSelection={rowSelection}
+                onToggle={toggleSelected}
+                pending={sitesQuery.isPending}
+                emptyMessage={emptyMessage}
+                className="border-t"
+              />
             ) : (
               <div className="grid md:grid-cols-[300px_minmax(0,1fr)]">
                 {/* the accessible equivalent of the map: what is in view, with the same selection */}
@@ -546,57 +366,15 @@ export function SitesPage() {
                     </span>
                     <span>List follows the map</span>
                   </div>
-                  <ul aria-label="Sites in view">
-                    {sites.map((s, i) => {
-                      const selected = !!rowSelection[s.id];
-                      return (
-                        <li
-                          key={s.id}
-                          className={cn(
-                            'flex items-center gap-2.5 border-b px-3 py-2',
-                            selected && 'bg-accent/50',
-                          )}
-                        >
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => toggleSelected(s.id)}
-                            aria-label={`Select ${s.name}`}
-                          />
-                          <span
-                            className={cn(
-                              'flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums',
-                              selected
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground',
-                            )}
-                            aria-hidden
-                          >
-                            {i + 1}
-                          </span>
-                          <span className="min-w-0 flex-1 leading-tight">
-                            <Link
-                              to="/sites/$siteId"
-                              params={{ siteId: s.id }}
-                              className="block truncate text-sm font-medium hover:underline"
-                            >
-                              {s.name}
-                            </Link>
-                            {s.city && (
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {s.city}
-                              </span>
-                            )}
-                          </span>
-                          <StatusBadge status={s.status} />
-                        </li>
-                      );
-                    })}
-                    {!sitesQuery.isPending && sites.length === 0 && (
-                      <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-                        No sites in this part of the map.
-                      </li>
-                    )}
-                  </ul>
+                  <SiteList
+                    sites={sites}
+                    rowSelection={rowSelection}
+                    onToggle={toggleSelected}
+                    pending={sitesQuery.isPending}
+                    emptyMessage="No sites in this part of the map."
+                    numbered
+                    aria-label="Sites in view"
+                  />
                   {withoutCoordinates !== null && withoutCoordinates > 0 && (
                     <p className="px-3 py-3 text-xs text-muted-foreground">
                       {withoutCoordinates} in scope without coordinates, so never on the map.
@@ -649,7 +427,7 @@ export function SitesPage() {
                     Fit to scope
                   </Button>
                 )}
-                {loadMore}
+                {(view === 'map' || phone) && loadMore}
               </div>
             </FrameFooter>
           </DataGrid>
@@ -659,69 +437,12 @@ export function SitesPage() {
   );
 }
 
-function NewSiteDialog() {
-  const { data: hierarchy } = useHierarchy();
-  const [name, setName] = useState('');
-  const [timeZone, setTimeZone] = useState('America/New_York');
-  const [nodeId, setNodeId] = useState('');
-  const [creating, setCreating] = useState(false);
+const SITE_STATUSES = [
+  { key: 'ComingSoon', label: 'Coming soon' },
+  { key: 'Open', label: 'Open' },
+  { key: 'TemporarilyClosed', label: 'Temporarily closed' },
+  { key: 'Closed', label: 'Closed' },
+] as const;
 
-  const create = useApiMutation({
-    mutationFn: () => sitesApi.create({ nodeId, name, timeZone }),
-    invalidate: [['sites']],
-    success: 'Site created',
-    onSuccess: () => {
-      setName('');
-      setCreating(false);
-    },
-  });
 
-  return (
-    <FormDialog
-      open={creating}
-      onOpenChange={setCreating}
-      trigger={
-        <Button>
-          <Plus className="size-4" aria-hidden />
-          New site
-        </Button>
-      }
-      title="New site"
-      description="A site is a physical location, placed on a hierarchy node."
-    >
-      <div className="space-y-3">
-        <Field>
-          <FieldLabel htmlFor="site-name">Name</FieldLabel>
-          <Input id="site-name" value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="site-tz">Time zone</FieldLabel>
-          <TimeZoneSelect
-            id="site-tz"
-            value={timeZone}
-            onChange={(e) => setTimeZone(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="site-node">Hierarchy node</FieldLabel>
-          <Select id="site-node" value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
-            <option value="">Choose…</option>
-            {hierarchy?.nodes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {' '.repeat(Number(n.depth) * 2)}
-                {n.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Button
-          className="w-full"
-          disabled={!name || !nodeId || create.isPending}
-          onClick={() => create.mutate()}
-        >
-          Create site
-        </Button>
-      </div>
-    </FormDialog>
-  );
-}
+

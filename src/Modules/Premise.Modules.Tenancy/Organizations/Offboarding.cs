@@ -228,16 +228,14 @@ public static class LifecycleEndpoints
         if (org is null)
             return Results.NotFound();
         if (org.IsPlatform)
-            return Results.BadRequest(new { error = "the platform org cannot be offboarded" });
+            return ApiErrors.BadRequest("the platform org cannot be offboarded");
         if (org.Status == OrganizationStatus.Offboarding)
             return Results.NoContent();
         if (org.Status != OrganizationStatus.Suspended)
-            return Results.Conflict(
-                new
-                {
-                    error = "suspend the org first - offboarding is a two-step",
-                    code = "not_suspended",
-                }
+            return ApiErrors.Status(
+                "suspend the org first - offboarding is a two-step",
+                StatusCodes.Status409Conflict,
+                "not_suspended"
             );
 
         org.Status = OrganizationStatus.Offboarding;

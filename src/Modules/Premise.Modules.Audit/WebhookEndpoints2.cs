@@ -113,15 +113,15 @@ public static class WebhookManagementEndpoints
         if (gate is not GateOutcome.Allowed)
             return gate.ToResult();
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri))
-            return Results.BadRequest(new { error = "url must be absolute" });
+            return ApiErrors.BadRequest("url must be absolute");
         if (environment.IsProduction())
         {
             // SSRF floor: outbound calls originate from OUR network, so the
             // target must be a PUBLIC https endpoint (ADR 40).
             if (uri.Scheme != "https")
-                return Results.BadRequest(new { error = "webhook urls must be https" });
+                return ApiErrors.BadRequest("webhook urls must be https");
             if (uri.IsLoopback || uri.Host is "localhost")
-                return Results.BadRequest(new { error = "webhook urls must be public" });
+                return ApiErrors.BadRequest("webhook urls must be public");
             // resolve the name and reject any address in a private/reserved
             // range - a public DNS name that A-records to 10.x or the cloud
             // metadata IP (169.254.169.254) is the classic SSRF pivot. This
@@ -134,11 +134,11 @@ public static class WebhookManagementEndpoints
             }
             catch (Exception)
             {
-                return Results.BadRequest(new { error = "webhook host does not resolve" });
+                return ApiErrors.BadRequest("webhook host does not resolve");
             }
             if (addresses.Length == 0 || addresses.Any(IsPrivateOrReserved))
-                return Results.BadRequest(
-                    new { error = "webhook host resolves to a private or reserved address" }
+                return ApiErrors.BadRequest(
+                    "webhook host resolves to a private or reserved address"
                 );
         }
 

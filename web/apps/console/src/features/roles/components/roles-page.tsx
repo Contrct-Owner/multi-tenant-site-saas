@@ -6,6 +6,7 @@ import { Grid, Loading, PageHeader } from '../../../components/page';
 import { useApiMutation } from '../../../lib/mutation';
 import { rolesApi } from '../api';
 import { useGrantExceptions, useRoleHierarchy, useRoleMembers, useRoles } from '../hooks';
+import { capabilityLabel } from '../labels';
 import { GRANTABLE, grantKey, parseGrant } from '../schema';
 import { RoleEditor } from './role-editor';
 
@@ -50,8 +51,8 @@ export function RolesPage() {
         cell: ({ row }) => (
           <div className="flex max-w-md flex-wrap gap-1">
             {row.original.grants.map((g) => (
-              <Badge key={grantKey(g)} variant="secondary" size="sm" className="font-mono">
-                {grantKey(g)}
+              <Badge key={grantKey(g)} variant="secondary" size="sm" title={grantKey(g)}>
+                {capabilityLabel(grantKey(g))}
               </Badge>
             ))}
           </div>
@@ -105,7 +106,7 @@ export function RolesPage() {
           <AssignDialog roles={roles ?? []} members={members ?? []}
             nodes={(hierarchy?.nodes ?? []).map((node) => ({
               ...node,
-              depth: Number(node.depth),
+              depth: node.depth,
             }))} />
           <FormDialog
             open={editorOpen}
@@ -132,7 +133,7 @@ export function RolesPage() {
 
       <ExceptionsCard members={members ?? []} nodes={(hierarchy?.nodes ?? []).map((node) => ({
         ...node,
-        depth: Number(node.depth),
+        depth: node.depth,
       }))} />
     </div>
   );
@@ -312,7 +313,7 @@ function ExceptionsCard({ members, nodes }: { members: Member[]; nodes: Node[] }
                   onChange={(e) => setCapability(e.target.value)}>
                   <option value="">Choose…</option>
                   {GRANTABLE.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{capabilityLabel(c)}</option>
                   ))}
                 </Select>
               </Field>

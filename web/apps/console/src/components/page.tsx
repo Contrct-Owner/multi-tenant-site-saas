@@ -22,6 +22,7 @@ import {
   useTable,
   type ColumnDef,
   type DataGridFeatures,
+  DataGridTableVirtual,
 } from '@premise/ui';
 import { Link } from '@tanstack/react-router';
 import type { ComponentType, ReactNode } from 'react';
@@ -169,6 +170,9 @@ export function Grid<TRow extends object>({
   footer,
   rowClassName,
   children,
+  onFetchMore,
+  hasMore,
+  isFetchingMore,
 }: {
   columns: ColumnDef<DataGridFeatures, TRow>[];
   rows: TRow[];
@@ -185,6 +189,10 @@ export function Grid<TRow extends object>({
   rowClassName?: string;
   /** Rendered under the table, inside the panel (a detail pane, a note). */
   children?: ReactNode;
+  /** Keyset paging as the grid's own infinite scroll: the next page loads as the end comes into view. */
+  onFetchMore?: () => void;
+  hasMore?: boolean;
+  isFetchingMore?: boolean;
 }) {
   const table = useTable({
     features: dataGridFeatures,
@@ -205,6 +213,7 @@ export function Grid<TRow extends object>({
           isLoading={isLoading}
           loadingMode="skeleton"
           loadingMessage={loadingMessage}
+          fetchingMoreMessage="Loading more…"
           emptyMessage={emptyMessage}
           onRowClick={onRowClick}
           tableLayout={{ headerBackground: false, headerBorder: true, rowBorder: true }}
@@ -220,9 +229,21 @@ export function Grid<TRow extends object>({
             </FrameHeader>
           )}
           <DataGridContainer>
-            <DataGridScrollArea>
-              <DataGridTable />
-            </DataGridScrollArea>
+            {onFetchMore ? (
+              // its own scroll box, sized to the rows it has (a definite height
+              // is what makes "near the end" mean something), capped for long lists
+              <DataGridTableVirtual
+                height={Math.min(Math.max(rows.length, 3) * 48 + 48, 640)}
+                onFetchMore={onFetchMore}
+                hasMore={hasMore}
+                isFetchingMore={isFetchingMore}
+                fetchMoreOffset={5}
+              />
+            ) : (
+              <DataGridScrollArea>
+                <DataGridTable />
+              </DataGridScrollArea>
+            )}
           </DataGridContainer>
           {children}
           {footer && <FrameFooter className="flex-row flex-wrap items-center gap-3">{footer}</FrameFooter>}

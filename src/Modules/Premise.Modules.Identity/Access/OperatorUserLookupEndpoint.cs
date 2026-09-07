@@ -44,7 +44,7 @@ public static class OperatorUserLookupEndpoint
             return gate.ToResult();
         var term = q.Trim();
         if (term.Length < 2)
-            return Results.BadRequest(new { error = "search needs at least 2 characters" });
+            return ApiErrors.BadRequest("search needs at least 2 characters");
 
         var users = await db
             .Users.Where(u =>

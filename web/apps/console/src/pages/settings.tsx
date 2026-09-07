@@ -1,5 +1,5 @@
 import { api } from '@premise/api';
-import { Button, cn, ConfirmButton, Field, FieldLabel, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useIsMobile } from '@premise/ui';
+import { Button, cn, ConfirmButton, Field, FieldLabel, Input, Label, Select, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useIsMobile, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@premise/ui';
 import { Building2, CreditCard, Database, Globe, KeyRound, Map as MapIcon, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -341,21 +341,27 @@ function SiteAttributesCard() {
           Your own fields on every site - a drive-thru flag, a cost center, a manager name.
           Public attributes appear on the site&apos;s public page; the rest stay internal.
         </p>
-        {definitions?.map((d) => (
-          <div key={d.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-            <span>
-              <span className="font-medium">{d.label}</span>
-              <span className="ml-2 text-muted-foreground">
-                {d.key} · {d.type}
-                {d.public && ' · public'}
-              </span>
-            </span>
-            <ConfirmButton size="sm" variant="ghost" confirmLabel="Delete? Values go too"
-              disabled={remove.isPending} onConfirm={() => remove.mutate(d.id)}>
-              Delete
-            </ConfirmButton>
-          </div>
-        ))}
+        {definitions && definitions.length > 0 && (
+          <ItemGroup>
+            {definitions.map((d) => (
+              <Item key={d.id} variant="outline" size="sm">
+                <ItemContent>
+                  <ItemTitle>{d.label}</ItemTitle>
+                  <ItemDescription>
+                    {d.key} · {d.type}
+                    {d.public && ' · public'}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <ConfirmButton size="sm" variant="ghost" confirmLabel="Delete? Values go too"
+                    disabled={remove.isPending} onConfirm={() => remove.mutate(d.id)}>
+                    Delete
+                  </ConfirmButton>
+                </ItemActions>
+              </Item>
+            ))}
+          </ItemGroup>
+        )}
         <div className="flex flex-wrap items-end gap-2">
           <Field>
             <FieldLabel htmlFor="attr-label">Label</FieldLabel>
@@ -417,7 +423,7 @@ function MapBasemapsCard() {
     name: e.name,
     urlTemplate: e.urlTemplate,
     attribution: e.attribution,
-    maxZoom: Number(e.maxZoom),
+    maxZoom: e.maxZoom,
   }));
   const save = useApiMutation({
     mutationFn: (basemaps: typeof keep & { key?: string | null }[]) =>
@@ -443,17 +449,21 @@ function MapBasemapsCard() {
           key; the key is stored encrypted and never shown again.
         </p>
         {entries.map((e) => (
-          <div key={e.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-            <span className="min-w-0">
-              <span className="font-medium">{e.name}</span>
-              <span className="ml-2 text-muted-foreground">{e.id} · zoom {String(e.maxZoom)}{e.hasKey && ' · keyed'}</span>
-              <span className="block truncate text-xs text-muted-foreground">{e.urlTemplate}</span>
-            </span>
-            <ConfirmButton size="sm" variant="ghost" confirmLabel="Remove?" disabled={save.isPending}
+          <Item key={e.id} variant="outline" size="sm">
+            <ItemContent>
+              <ItemTitle>{e.name}</ItemTitle>
+              <ItemDescription>
+                {e.id} · zoom {String(e.maxZoom)}{e.hasKey && ' · keyed'}
+                <span className="block truncate">{e.urlTemplate}</span>
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <ConfirmButton size="sm" variant="ghost" confirmLabel="Remove?" disabled={save.isPending}
               onConfirm={() => save.mutate(keep.filter((k) => k.id !== e.id))}>
               Remove
             </ConfirmButton>
-          </div>
+            </ItemActions>
+          </Item>
         ))}
         <div className="grid gap-2 sm:grid-cols-2">
           <Field>

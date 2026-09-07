@@ -145,7 +145,7 @@ public static class AccessEndpoints
             return gate.ToResult();
         var grantor = principal.UserId;
         if (request.ExpiresAt <= DateTimeOffset.UtcNow)
-            return Results.BadRequest(new { error = "exceptions must expire in the future" });
+            return ApiErrors.BadRequest("exceptions must expire in the future");
         if (!await db.Memberships.AnyAsync(m => m.UserId == request.UserId && m.OrgId == org, ct))
             return Results.NotFound();
 

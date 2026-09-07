@@ -1,4 +1,4 @@
-import { Button, ConfirmButton, Input } from '@premise/ui';
+import { Button, ConfirmButton, Input, Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@premise/ui';
 import { useState } from 'react';
 import { fmtDateTime } from '../../../lib/format';
 import { Loading, PageHeader, Panel } from '../../../components/page';
@@ -98,18 +98,20 @@ function Suppressions() {
           <p className="text-sm text-muted-foreground">Nothing suppressed.</p>
         )}
         {rows?.map((s) => (
-          <div key={s.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-            <span>
-              <span className="font-medium">{s.email}</span>
-              <span className="ml-2 text-muted-foreground">
+          <Item key={s.id} variant="outline" size="sm">
+            <ItemContent>
+              <ItemTitle>{s.email}</ItemTitle>
+              <ItemDescription>
                 {s.reason} · {fmtDateTime(s.createdAt)}
-              </span>
-            </span>
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
             <ConfirmButton size="sm" variant="outline" confirmLabel="Verified real address?"
               disabled={unsuppress.isPending} onConfirm={() => unsuppress.mutate(s.id)}>
               Unsuppress
             </ConfirmButton>
-          </div>
+            </ItemActions>
+          </Item>
         ))}
       </Panel>
   );
@@ -126,11 +128,11 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
           <p className="text-sm text-muted-foreground">No people match.</p>
         )}
         {hits?.map((u) => (
-          <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
-            <span>
-              <span className="font-medium">{u.email}</span>
-              {u.name && <span className="ml-2 text-muted-foreground">{u.name}</span>}
-            </span>
+          <Item key={u.id} variant="outline" size="sm" className="flex-wrap">
+            <ItemContent>
+              <ItemTitle>{u.email}</ItemTitle>
+              {u.name && <ItemDescription>{u.name}</ItemDescription>}
+            </ItemContent>
             <span className="flex flex-wrap gap-1">
               {u.orgs.length === 0 && <span className="text-muted-foreground">no orgs</span>}
               {u.orgs.map((o) => (
@@ -142,7 +144,7 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
                 </Button>
               ))}
             </span>
-          </div>
+          </Item>
         ))}
       </Panel>
   );
@@ -151,14 +153,14 @@ function CustomerSearch({ onPickOrg }: { onPickOrg: (orgId: string) => void }) {
 function PlatformOverview() {
   const { data } = useOperatorOverview();
   if (!data) return null;
-  const active = Number(data.orgsByStatus.find((s) => s.status === 'Active')?.count ?? 0);
-  const suspended = Number(data.orgsByStatus.find((s) => s.status === 'Suspended')?.count ?? 0);
+  const active = data.orgsByStatus.find((s) => s.status === 'Active')?.count ?? 0;
+  const suspended = data.orgsByStatus.find((s) => s.status === 'Suspended')?.count ?? 0;
   const stats: [string, number, boolean][] = [
     ['Active orgs', active, false],
     ['Suspended', suspended, suspended > 0],
-    ['Closures pending', Number(data.closuresPending), Number(data.closuresPending) > 0],
-    ['People', Number(data.users), false],
-    ['Dead letters', Number(data.deadLetters), Number(data.deadLetters) > 0],
+    ['Closures pending', data.closuresPending, data.closuresPending > 0],
+    ['People', data.users, false],
+    ['Dead letters', data.deadLetters, data.deadLetters > 0],
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -187,7 +189,7 @@ function DeadLetters() {
     success: 'Discarded',
   });
   return (
-    <Panel title={<>Dead letters{data && Number(data.total) > 0 ? ` (${data.total})` : ''}</>} bodyClassName="space-y-2">
+    <Panel title={<>Dead letters{data && data.total > 0 ? ` (${data.total})` : ''}</>} bodyClassName="space-y-2">
         {data?.total === 0 && (
           <p className="text-sm text-muted-foreground">
             No failed messages. Background work that fails after retries lands here for
@@ -195,17 +197,17 @@ function DeadLetters() {
           </p>
         )}
         {data?.items.map((d) => (
-          <div key={d.id} className="flex items-start justify-between gap-3 rounded-md border p-2 text-sm">
-            <div className="min-w-0">
-              <div className="font-medium">
+          <Item key={d.id} variant="outline" size="sm" className="items-start">
+            <ItemContent>
+              <ItemTitle>
                 {d.messageType}
-                {d.replayable && <span className="ml-2 text-xs text-muted-foreground">requeued…</span>}
-              </div>
-              <div className="truncate text-xs text-muted-foreground" title={d.exceptionMessage}>
+                {d.replayable && <span className="ml-2 text-xs font-normal text-muted-foreground">requeued…</span>}
+              </ItemTitle>
+              <ItemDescription className="truncate" title={d.exceptionMessage}>
                 {d.exceptionType}: {d.exceptionMessage}
-              </div>
+              </ItemDescription>
               {d.tenantId && <div className="text-xs text-muted-foreground">org {d.tenantId}</div>}
-            </div>
+            </ItemContent>
             <div className="flex shrink-0 gap-1">
               <Button size="sm" variant="outline" disabled={replay.isPending || d.replayable}
                 onClick={() => replay.mutate(d.id)}>
@@ -216,7 +218,7 @@ function DeadLetters() {
                 Discard
               </ConfirmButton>
             </div>
-          </div>
+          </Item>
         ))}
       </Panel>
   );

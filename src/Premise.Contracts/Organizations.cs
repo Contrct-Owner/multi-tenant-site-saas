@@ -74,8 +74,15 @@ public sealed record RecordAccessAudit(string Method, string Path, int StatusCod
 /// <summary>Cross-module read contracts for ingest (implemented by Tenancy / Storage; consumed above the ladder).</summary>
 public interface ISiteLookup
 {
-    Task<IReadOnlyList<SiteSnapshot>> ListSitesAsync(CancellationToken ct = default);
+    /// <summary>The live sites behind these external ids - the file's rows, never the whole org.</summary>
+    Task<IReadOnlyList<SiteSnapshot>> ListSitesAsync(
+        IReadOnlyCollection<string> externalIds,
+        CancellationToken ct = default
+    );
     Task<IReadOnlyList<NodeSnapshot>> ListNodesAsync(CancellationToken ct = default);
+
+    /// <summary>How many sites the org has (the plan limit's "current", checked once per batch).</summary>
+    Task<long> CountSitesAsync(CancellationToken ct = default);
 }
 
 public sealed record SiteSnapshot(
