@@ -77,3 +77,73 @@ operators for, found the hard way.
 Read it as: throughput that grows with replicas is CPU-bound in the api and
 scales out; throughput that does not is bound by Postgres or by the host,
 and the next conversation is about the database, not more replicas.
+
+## What the database does per request
+
+The same bench with Postgres held to two CPUs (`--pg-cpus 2`, the default
+now) and `pg_stat_statements` loaded, so each target reports the statements
+the server ran per request. Requests per second, then statements per request.
+
+| Target | 1 replica | 2 replicas | 4 replicas | statements / request |
+|---|---|---|---|---|
+| sites paged (limit 50) | 562 | 437 | 436 | 25 |
+| sites search | 519 | 434 | 406 | 25 |
+| site detail | 579 | 484 | 485 | 24 |
+| listings feed | 462 | 454 | 462 | 26 |
+| public sites (paged) | 491 | 487 | 480 | 22 |
+| public sites near | 372 | 361 | 363 | 26 |
+
+With the database on two cores the ceiling is the database, exactly as the
+first table implied: one replica already saturates it and three more add
+nothing. The statements-per-request column says why, and it is the number
+to act on. Of the roughly 25 statements behind a paged list, only a handful
+are the request's own work; the rest is connection churn. In order:
+
+| Statement | per request | What it is |
+|---|---|---|
+| `DISCARD ALL` | ~8 | Npgsql resetting a pooled connection on every return |
+| `SELECT set_config('app.org_id', …)` | ~6 | the RLS session variable, set on every connection open (ADR 38) |
+| `INSERT INTO platform.rate_windows …` | 2 | the org and the user rate counters (ADR 52) |
+| `BEGIN` / `COMMIT` | 1 each | the endpoint's transaction |
+| the endpoint's own queries | 2-4 | count and page, or the detail read |
+
+A request opens six to eight database connections because each middleware
+(session validity, suspension, the rate counters, idempotency, the access
+audit's outbox write) and the endpoint use their own context, and every
+open costs a `set_config` and every return a `DISCARD ALL`. The levers,
+cheapest first: drop the reset on return (`No Reset On Close`; the session
+variable is re-set on every open by construction, so it leaks nothing the
+interceptor does not overwrite - Wolverine's advisory locks need checking
+first), share one connection across the pipeline's reads, and cache the
+suspension check for a few seconds. Session validity is not cacheable: a
+revoked session must stop on the next request, and the session-boundary
+suite proves it does. None of these is done yet; this table is the case for
+them.
+
+## PgBouncer
+
+`tools/replica-stack.sh 4 --pgbouncer` runs the api and worker replicas
+through a PgBouncer container (`edoburu/pgbouncer`, session mode) with
+Postgres kept at its default hundred connections and every process asking
+for a pool of a hundred - the exact configuration a bare server refused
+with `53300`. Through the bouncer the fleet suite passes five of five at
+four replicas: the bouncer queues what the server cannot take instead of
+refusing it. That is the lever it offers here, a ceiling that degrades into
+latency rather than errors.
+
+It is not a throughput lever for this application, and the bench shows
+why: in session mode a client holds its server connection for as long as
+the client connection lives, so under load the p95 climbs into seconds as
+clients wait their turn. Transaction mode, which is where a bouncer
+multiplexes, is off the table: the RLS session variable is connection
+state set at open (ADR 38), and Wolverine's leader election takes
+session-level advisory locks; `--pgbouncer transaction` fails three of the
+five fleet cases in exactly the ways that predicts (idempotency keys and
+quotas counted under the wrong org, then refused). Making the application
+transaction-pool-safe would mean setting the tenant variable inside every
+transaction and giving Wolverine its own direct connection - a real change,
+recorded here as the price rather than paid.
+
+The dev host has the same pooler behind a flag: `PREMISE_PGBOUNCER=1
+aspire run` routes api and worker through a PgBouncer container while the
+migrate role keeps its direct owner connection.
