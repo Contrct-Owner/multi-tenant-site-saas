@@ -42,8 +42,11 @@ under which two api replicas are not a supported topology.
 
 ## Consequences
 
-- One indexed upsert per authenticated request, roughly a third of a
-  millisecond on the same host. The million-site baseline did not move.
+- One indexed upsert per authenticated request, roughly a millisecond on
+  the same host. The first shape was one row per partition and minute, and
+  the fleet bench found every request of an org waiting on that row's lock,
+  15 ms each at 32 concurrent - the database's whole ceiling. A window is
+  now sixteen rows; a request bumps one and reads the sum.
 - The counter is exact across replicas within a window; the in-memory
   guest limiter is per replica, and the production doc says so.
 - Two other per-process caches remain and are documented rather than

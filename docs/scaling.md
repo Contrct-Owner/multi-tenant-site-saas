@@ -80,70 +80,70 @@ and the next conversation is about the database, not more replicas.
 
 ## What the database does per request
 
-The same bench with Postgres held to two CPUs (`--pg-cpus 2`, the default
-now) and `pg_stat_statements` loaded, so each target reports the statements
-the server ran per request. Requests per second, then statements per request.
+The same bench with Postgres held to two CPUs (`--pg-cpus 2`, the default)
+and `pg_stat_statements` loaded, so each target reports the statements the
+server ran per request and, ranked by execution time, what the server's
+cores actually went on. The first run of this bench corrected the working
+theory: connection churn was not the cost.
 
-| Target | 1 replica | 2 replicas | 4 replicas | statements / request |
-|---|---|---|---|---|
-| sites paged (limit 50) | 562 | 437 | 436 | 25 |
-| sites search | 519 | 434 | 406 | 25 |
-| site detail | 579 | 484 | 485 | 24 |
-| listings feed | 462 | 454 | 462 | 26 |
-| public sites (paged) | 491 | 487 | 480 | 22 |
-| public sites near | 372 | 361 | 363 | 26 |
-
-With the database on two cores the ceiling is the database, exactly as the
-first table implied: one replica already saturates it and three more add
-nothing. The statements-per-request column says why, and it is the number
-to act on. Of the roughly 25 statements behind a paged list, only a handful
-are the request's own work; the rest is connection churn. In order:
-
-| Statement | per request | What it is |
+| Statement (paged list, per request) | count | cost |
 |---|---|---|
-| `DISCARD ALL` | ~8 | Npgsql resetting a pooled connection on every return |
-| `SELECT set_config('app.org_id', …)` | ~6 | the RLS session variable, set on every connection open (ADR 38) |
-| `INSERT INTO platform.rate_windows …` | 2 | the org and the user rate counters (ADR 52) |
-| `BEGIN` / `COMMIT` | 1 each | the endpoint's transaction |
-| the endpoint's own queries | 2-4 | count and page, or the detail read |
+| `DISCARD ALL` (Npgsql resetting a pooled connection) | ~8 | 8 µs each |
+| `SET LOCAL app.org_id` (the tenant, ADR 53) | ~5 | 40 µs each |
+| the list's own count and page | 2 | 1.3 ms together |
+| the rate counters (ADR 52), first shape | 2 | **15 ms each** |
 
-A request opens six to eight database connections because each middleware
-(session validity, suspension, the rate counters, idempotency, the access
-audit's outbox write) and the endpoint use their own context, and every
-open costs a `set_config` and every return a `DISCARD ALL`. The levers,
-cheapest first: drop the reset on return (`No Reset On Close`; the session
-variable is re-set on every open by construction, so it leaks nothing the
-interceptor does not overwrite - Wolverine's advisory locks need checking
-first), share one connection across the pipeline's reads, and cache the
-suspension check for a few seconds. Session validity is not cacheable: a
-revoked session must stop on the next request, and the session-boundary
-suite proves it does. None of these is done yet; this table is the case for
-them.
+The rate counter was the ceiling. Its first shape was one row per
+partition and minute, so every request of an org waited on the previous
+request's row lock: at 32 concurrent requests that was 15 ms of the
+database's time per request, 116 seconds across the fifteen-second run,
+against a fifth of a millisecond for the real queries. A window is now
+sixteen rows; a request bumps one shard and reads the sum. Database time
+per request fell from 31 ms to 2-3 ms. The churn everyone suspects
+(connection resets, the tenant variable) is microseconds and stays.
+
+## Two and four replicas, with the fix, direct and through PgBouncer
+
+Requests per second, then p50 / p99 in milliseconds, then server
+connections in use at the end of the run.
+
+| Target | 1 replica, direct | 4 replicas, direct | 4 replicas, PgBouncer transaction |
+|---|---|---|---|
+| sites paged (limit 50) | 618 · 54 / 96 · 57 | 534 · 55 / 218 · 140 | 522 · 58 / 172 · 73 |
+| sites search | 568 · 66 / 101 · 57 | 477 · 65 / 190 · 161 | 531 · 60 / 118 · 75 |
+| site detail | 700 · 33 / 90 · 57 | 592 · 52 / 108 · 161 | 669 · 43 / 102 · 77 |
+| listings feed | 592 · 61 / 96 · 57 | 580 · 59 / 103 · 161 | 565 · 55 / 129 · 79 |
+| public sites (paged) | 656 · 39 / 91 · 57 | 627 · 50 / 97 · 162 | 633 · 48 / 105 · 79 |
+| public sites near | 440 · 80 / 151 · 57 | 400 · 85 / 147 · 163 | 397 · 84 / 151 · 80 |
+
+Zero errors on every row. On one laptop the throughput is flat across
+replicas because every process shares the same cores; that is the host,
+not the design, and it is the same shape as before the fix, only higher.
+The column that changes is the last: through the bouncer the four replicas
+hold 73 to 80 server connections where direct connections hold 140 to 163,
+with every process asking for a pool of a hundred. That is transaction
+pooling doing what it is for, and the fleet suite passes five of five
+through it, including the replica killed mid-batch.
 
 ## PgBouncer
 
-`tools/replica-stack.sh 4 --pgbouncer` runs the api and worker replicas
-through a PgBouncer container (`edoburu/pgbouncer`, session mode) with
-Postgres kept at its default hundred connections and every process asking
-for a pool of a hundred - the exact configuration a bare server refused
-with `53300`. Through the bouncer the fleet suite passes five of five at
-four replicas: the bouncer queues what the server cannot take instead of
-refusing it. That is the lever it offers here, a ceiling that degrades into
-latency rather than errors.
+`tools/replica-stack.sh N --pgbouncer` runs the api and worker replicas
+through a PgBouncer container (`edoburu/pgbouncer`) in transaction mode,
+with Postgres kept at its default hundred connections and every process
+asking for a pool of a hundred - the configuration a bare server refused
+with `53300`. The message store takes its own direct connection
+(`ConnectionStrings:premise-messaging`, ADR 53) and the bouncer tracks
+prepared statements (`MAX_PREPARED_STATEMENTS`).
 
-It is not a throughput lever for this application, and the bench shows
-why: in session mode a client holds its server connection for as long as
-the client connection lives, so under load the p95 climbs into seconds as
-clients wait their turn. Transaction mode, which is where a bouncer
-multiplexes, is off the table: the RLS session variable is connection
-state set at open (ADR 38), and Wolverine's leader election takes
-session-level advisory locks; `--pgbouncer transaction` fails three of the
-five fleet cases in exactly the ways that predicts (idempotency keys and
-quotas counted under the wrong org, then refused). Making the application
-transaction-pool-safe would mean setting the tenant variable inside every
-transaction and giving Wolverine its own direct connection - a real change,
-recorded here as the price rather than paid.
+Transaction mode is the mode that matters: a server connection serves a
+client for one transaction and someone else for the next, so the server
+sees in-flight transactions rather than every replica's whole pool. It was
+not possible before ADR 53 - the tenant variable was session state, and
+`--pgbouncer transaction` failed three of five fleet cases with work
+attributed to the wrong org. With the variable transaction-scoped and the
+message store direct, the same run passes five of five. Session mode
+(`--pgbouncer session`) still works and only queues.
 
 The dev host has the same pooler behind a flag: `PREMISE_PGBOUNCER=1
-aspire run` routes api and worker through a PgBouncer container while the
-migrate role keeps its direct owner connection.
+aspire run` routes api and worker through a PgBouncer container in
+transaction mode while the migrate role keeps its direct owner connection.

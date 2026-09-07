@@ -42,7 +42,7 @@ public sealed class SharedRateLimiter(
         {
             using var connection = dataSources.For(RegionId.Default).OpenConnection();
             using var command = Upsert(connection, windowStart, permitCount);
-            return Decide((int)command.ExecuteScalar()!, windowStart, now);
+            return Decide(Convert.ToInt64(command.ExecuteScalar()), windowStart, now);
         }
         catch (Exception exception)
         {
@@ -63,7 +63,7 @@ public sealed class SharedRateLimiter(
                 .OpenConnectionAsync(cancellationToken);
             await using var command = Upsert(connection, windowStart, permitCount);
             return Decide(
-                (int)(await command.ExecuteScalarAsync(cancellationToken))!,
+                Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken)),
                 windowStart,
                 now
             );
@@ -84,6 +84,22 @@ public sealed class SharedRateLimiter(
         );
     }
 
+    /// <summary>
+    /// A window is sixteen rows, not one: every request for an org used to
+    /// upsert the same row and wait on the previous writer's lock, and the
+    /// bench found that wait to be the database's whole ceiling (15 ms per
+    /// request at 32 concurrent). Each request bumps one shard and reads the
+    /// window's sum; the CTE's own increment is not in the statement's
+    /// snapshot, so it is added back. Fixed windows are approximate by
+    /// design; the sum is exact between concurrent bumps.
+    /// </summary>
+    private const int Shards = 16;
+
+    private static readonly string[] ShardSuffixes = Enumerable
+        .Range(0, Shards)
+        .Select(i => $"#{i:D2}")
+        .ToArray();
+
     private NpgsqlCommand Upsert(
         NpgsqlConnection connection,
         DateTimeOffset windowStart,
@@ -92,21 +108,30 @@ public sealed class SharedRateLimiter(
     {
         var command = new NpgsqlCommand(
             """
-            INSERT INTO platform.rate_windows (partition, window_start, count)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (partition, window_start)
-            DO UPDATE SET count = platform.rate_windows.count + EXCLUDED.count
-            RETURNING count
+            WITH bump AS (
+                INSERT INTO platform.rate_windows (partition, window_start, count)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (partition, window_start)
+                DO UPDATE SET count = platform.rate_windows.count + EXCLUDED.count
+                RETURNING 1
+            )
+            SELECT coalesce(sum(count), 0) + $3
+            FROM platform.rate_windows
+            WHERE window_start = $2 AND partition = ANY($4)
             """,
             connection
         );
-        command.Parameters.Add(new NpgsqlParameter { Value = partition });
+        var shard = Random.Shared.Next(Shards);
+        command.Parameters.Add(new NpgsqlParameter { Value = partition + ShardSuffixes[shard] });
         command.Parameters.Add(new NpgsqlParameter { Value = windowStart });
         command.Parameters.Add(new NpgsqlParameter { Value = permits });
+        command.Parameters.Add(
+            new NpgsqlParameter { Value = ShardSuffixes.Select(x => partition + x).ToArray() }
+        );
         return command;
     }
 
-    private RateLimitLease Decide(int count, DateTimeOffset windowStart, DateTimeOffset now) =>
+    private RateLimitLease Decide(long count, DateTimeOffset windowStart, DateTimeOffset now) =>
         count <= permitLimit ? new Lease(true, null) : new Lease(false, windowStart + window - now);
 
     /// <summary>Fail open, and say so once per window.</summary>

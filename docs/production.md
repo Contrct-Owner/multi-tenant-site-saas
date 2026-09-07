@@ -16,16 +16,20 @@ One image, three roles, selected by the `ROLE` environment variable (ADR 34):
 | `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas — sessions, idempotency keys and the org/user/key rate counters live in Postgres (ADR 52), so any replica answers any request; the guest/IP limiter and two sixty-second caches (plan-limit site count, cluster tiles) are per replica by design |
 | `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas — every recurring sweep is leased per period in `platform.sweep_runs` (first replica to claim `(sweep, period)` runs it, the rest skip), so replicas never duplicate a sweep |
 
-A connection pooler in front of Postgres runs in **session mode only**:
-the RLS session variable is set when a connection opens (ADR 38) and
-Wolverine's leader election holds session-level advisory locks, so
-transaction pooling silently attributes work to the wrong tenant. In
-session mode the pooler is a ceiling that queues rather than refuses; size
-each process's pool so the fleet's total stays under the server's budget
-regardless, and give Npgsql a short `Connection Idle Lifetime` so idle
-client connections hand their server connection back. `docs/scaling.md`
-has the measurements; `PREMISE_PGBOUNCER=1 aspire run` and
-`tools/replica-stack.sh N --pgbouncer` run the same container locally.
+A connection pooler in front of Postgres runs in **transaction mode**
+(ADR 53): the tenant variable is transaction state (`SET LOCAL`, set when
+a transaction starts and carried in the batch of any read outside one), so
+a server connection that moves between clients between transactions
+carries nothing from the last one. Two settings make it work: point
+`ConnectionStrings:premise-messaging` at Postgres directly, because
+Wolverine's node agents and leader election hold session-level advisory
+locks that a transaction pool cannot carry (the app-role rewrite applies to
+it too), and give the pooler `max_prepared_statements` (PgBouncer 1.21+).
+The api and worker connect through the pooler; the migrate role connects
+directly. `docs/scaling.md` has the measurements; `PREMISE_PGBOUNCER=1
+aspire run` and `tools/replica-stack.sh N --pgbouncer` run the same
+container locally. Session mode still works and is no longer the
+recommendation.
 
 Two and four replicas of each role are proven by the fleet suite:
 `tools/replica-stack.sh 2` boots the topology above on one host (a

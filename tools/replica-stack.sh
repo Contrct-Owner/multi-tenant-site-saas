@@ -8,7 +8,7 @@
 #
 #   tools/replica-stack.sh [replicas]                 # fleet suite (default 2)
 #   tools/replica-stack.sh [replicas] --bench [s] [c] # load baseline, s seconds x c concurrency
-#   ... --pgbouncer [session|transaction]             # api/worker connect through a PgBouncer container
+#   ... --pgbouncer [transaction|session]             # api/worker connect through a PgBouncer container
 #   ... --pg-cpus N                                   # the CPU quota Postgres gets (default 2)
 # Postgres runs with pg_stat_statements loaded, so the bench reports the
 # statements the database ran per request.
@@ -20,7 +20,7 @@ mode=suite; seconds=15; concurrency=32; pgbouncer=""; pg_cpus=${FLEET_PG_CPUS:-2
 while [ $# -gt 0 ]; do
   case "$1" in
     --bench) mode=bench; shift; [ $# -gt 0 ] && [[ "$1" != --* ]] && { seconds=$1; shift; }; [ $# -gt 0 ] && [[ "$1" != --* ]] && { concurrency=$1; shift; } ;;
-    --pgbouncer) pgbouncer=session; shift; [ $# -gt 0 ] && [[ "$1" != --* ]] && { pgbouncer=$1; shift; } ;;
+    --pgbouncer) pgbouncer=transaction; shift; [ $# -gt 0 ] && [[ "$1" != --* ]] && { pgbouncer=$1; shift; } ;;
     --pg-cpus) pg_cpus=$2; shift 2 ;;
     *) echo "unknown argument: $1"; exit 1 ;;
   esac
@@ -70,7 +70,7 @@ if [ -n "$pgbouncer" ]; then
     -e DB_HOST=fleet-pg -e DB_PORT=5432 -e DB_USER=postgres -e DB_PASSWORD=owner -e DB_NAME=premise \
     -e AUTH_TYPE=scram-sha-256 -e AUTH_USER=postgres -e "AUTH_QUERY=SELECT usename, passwd FROM pg_shadow WHERE usename=\$1" \
     -e POOL_MODE="$pgbouncer" -e MAX_CLIENT_CONN=2000 -e DEFAULT_POOL_SIZE=$((pg_max_connections - 20)) -e MAX_DB_CONNECTIONS=$((pg_max_connections - 20)) \
-    -e IGNORE_STARTUP_PARAMETERS=extra_float_digits,search_path \
+    -e IGNORE_STARTUP_PARAMETERS=extra_float_digits,search_path -e MAX_PREPARED_STATEMENTS=200 \
     "${FLEET_PGBOUNCER_IMAGE:-edoburu/pgbouncer:v1.24.1-p1}" > "$log_dir/pgbouncer.log" 2>&1
   for _ in $(seq 1 30); do (exec 3<>/dev/tcp/127.0.0.1/$bouncer_port) 2>/dev/null && break; sleep 1; done
   # session mode hands a server connection to a client for as long as the
@@ -79,8 +79,12 @@ if [ -n "$pgbouncer" ]; then
   # became ready with Npgsql's default five minutes)
   app_cs="Host=localhost;Port=$bouncer_port;Database=premise;Username=postgres;Password=owner;Connection Idle Lifetime=5;Connection Pruning Interval=1"
   pool_size=100
+  # the message store bypasses the bouncer (ADR 53): advisory locks and node
+  # agents are session state. (A hyphen in the name: env, not export.)
+  app_env=("ConnectionStrings__premise-messaging=$owner_cs;Maximum Pool Size=10")
   echo "pgbouncer: $pgbouncer mode, server budget $((pg_max_connections - 20)), each process asks for $pool_size"
 else
+  app_env=("PREMISE_FLEET=direct") # a non-empty array: bash 3 treats an empty one as unbound under set -u
   app_cs="$owner_cs"
   pool_size=$(( (pg_max_connections - 20) / (2 * replicas) ))
   [ "$pool_size" -gt 40 ] && pool_size=40
@@ -102,7 +106,7 @@ api_pids=()
 for i in $(seq 1 "$replicas"); do
   port=$((api_base + i - 1))
   # --no-launch-profile: launchSettings.json would pin every replica to the same port
-  ROLE=api ASPNETCORE_URLS="http://127.0.0.1:$port" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/api-$i.log" 2>&1 &
+  env "${app_env[@]}" ROLE=api ASPNETCORE_URLS="http://127.0.0.1:$port" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/api-$i.log" 2>&1 &
   pids+=($!); api_pids+=($!)
   # the first replica seeds the dev data before the others boot (the seed is idempotent, not concurrent)
   wait_ready "api-$i" "$port"
@@ -111,7 +115,7 @@ done
 worker_pids=()
 for i in $(seq 1 "$replicas"); do
   port=$((worker_base + i - 1))
-  ROLE=worker ASPNETCORE_URLS="http://127.0.0.1:$port" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/worker-$i.log" 2>&1 &
+  env "${app_env[@]}" ROLE=worker ASPNETCORE_URLS="http://127.0.0.1:$port" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/worker-$i.log" 2>&1 &
   pids+=($!); worker_pids+=($!)
 done
 for i in $(seq 1 "$replicas"); do wait_ready "worker-$i" $((worker_base + i - 1)); done

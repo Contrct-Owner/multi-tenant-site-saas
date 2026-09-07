@@ -63,16 +63,20 @@ var buildVersion =
 // region sources, Wolverine, middleware - sees the same identity.
 if (role != "migrate" && builder.Configuration["Database:AppUser"] is { Length: > 0 } appUser)
 {
-    var ownerCs =
-        builder.Configuration.GetConnectionString("premise")
-        ?? throw new InvalidOperationException("Missing connection string 'premise'.");
-    builder.Configuration["ConnectionStrings:premise"] = new Npgsql.NpgsqlConnectionStringBuilder(
-        ownerCs
-    )
+    // both strings: the app's, and the message store's when it has its own
+    // (ADR 53: behind a transaction-mode pooler Wolverine's advisory locks
+    // and node agents need a direct connection)
+    foreach (var name in new[] { "premise", "premise-messaging" })
     {
-        Username = appUser,
-        Password = builder.Configuration["Database:AppPassword"],
-    }.ConnectionString;
+        if (builder.Configuration.GetConnectionString(name) is not { } ownerCs)
+            continue;
+        builder.Configuration[$"ConnectionStrings:{name}"] =
+            new Npgsql.NpgsqlConnectionStringBuilder(ownerCs)
+            {
+                Username = appUser,
+                Password = builder.Configuration["Database:AppPassword"],
+            }.ConnectionString;
+    }
 }
 
 // Independent EF, messaging, and direct-connection pools share one server budget.
@@ -282,8 +286,12 @@ builder.AddRequestPolicies();
 // Wolverine (ADR 23): mediation + messaging + durable Postgres outbox.
 builder.UseWolverine(opts =>
 {
+    // the message store's own connection string when one is configured: a
+    // transaction-mode pooler cannot carry Wolverine's session advisory
+    // locks and node agents, so those go straight to Postgres (ADR 53)
     var cs =
-        builder.Configuration.GetConnectionString("premise")
+        builder.Configuration.GetConnectionString("premise-messaging")
+        ?? builder.Configuration.GetConnectionString("premise")
         ?? throw new InvalidOperationException("Missing connection string 'premise'.");
     opts.PersistMessagesWithPostgresql(cs, "wolverine");
     // the migrate role owns DDL, not messaging: never let it provision or

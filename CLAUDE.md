@@ -65,6 +65,10 @@ don't restate them here.
   replicas lives in Postgres (rate windows, idempotency keys, sweep leases);
   one that may differ per replica is listed as such in `docs/production.md`.
   `tools/replica-stack.sh` proves it with two and four.
+- **No session state on a database connection** (ADR 53): the tenant
+  variable is `SET LOCAL` per transaction, never `set_config(..., false)`;
+  a transaction-mode pooler hands connections between tenants between
+  transactions. `SessionStateTests` refuses the session-scoped shapes.
 - **Never put tenant/site/actor on metric labels** — traces and logs only, as
   baggage (ADR 33).
 - **Frontend imports UI only from `@/ui`**, never `components/ui/*` directly

@@ -69,3 +69,4 @@ confirmation on edits under this directory.
 - [0050. Spatial foundation: PostGIS, geography on sites, layers as vector tiles](0050-spatial-foundation-postgis-layers.md) — pinned
 - [0051. Leakproof keys: how indexes work under row security](0051-leakproof-keys-under-rls.md)
 - [0052. Rate limits are counted in Postgres, not in the process](0052-fleet-wide-rate-limits.md)
+- [0053. The tenant variable is transaction state, and the message store has its own connection](0053-tenant-is-transaction-state.md)

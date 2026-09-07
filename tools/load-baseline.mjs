@@ -38,15 +38,21 @@ const sql = (statement) =>
 const statsReset = () => statsCmd && sql('SELECT pg_stat_statements_reset()');
 const statsRead = () => {
   if (!statsCmd) return null;
-  const [app, background] = sql(
+  const churnFilter =
+    "(query ILIKE 'DISCARD ALL%' OR query ILIKE '%set_config%' OR query ILIKE '%rate_windows%' OR query IN ('BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED', 'COMMIT', 'ROLLBACK'))";
+  const [app, background, appMs, churnMs] = sql(
     "SELECT coalesce(sum(calls) FILTER (WHERE query NOT ILIKE '%wolverine%' AND query NOT ILIKE '%pg_stat_statements%'), 0), " +
-      "coalesce(sum(calls) FILTER (WHERE query ILIKE '%wolverine%'), 0) FROM pg_stat_statements",
+      "coalesce(sum(calls) FILTER (WHERE query ILIKE '%wolverine%'), 0), " +
+      "coalesce(sum(total_exec_time) FILTER (WHERE query NOT ILIKE '%wolverine%' AND query NOT ILIKE '%pg_stat_statements%'), 0), " +
+      `coalesce(sum(total_exec_time) FILTER (WHERE query NOT ILIKE '%wolverine%' AND ${churnFilter}), 0) FROM pg_stat_statements`,
   ).split('|').map(Number);
+  // by time, not by calls: what the server actually spends its cores on
   const top = sql(
-    "SELECT calls || 'x ' || left(regexp_replace(query, '\\s+', ' ', 'g'), 70) FROM pg_stat_statements " +
-      "WHERE query NOT ILIKE '%wolverine%' AND query NOT ILIKE '%pg_stat_statements%' ORDER BY calls DESC LIMIT 4",
+    "SELECT round(total_exec_time)::text || 'ms ' || calls || 'x ' || left(regexp_replace(query, '\\s+', ' ', 'g'), 60) FROM pg_stat_statements " +
+      "WHERE query NOT ILIKE '%wolverine%' AND query NOT ILIKE '%pg_stat_statements%' ORDER BY total_exec_time DESC LIMIT 5",
   );
-  return { app, background, top: top.split('\n').filter(Boolean) };
+  const serverConnections = Number(sql("SELECT count(*) FROM pg_stat_activity WHERE backend_type = 'client backend' AND usename <> 'postgres'"));
+  return { app, background, appMs, churnMs, serverConnections, top: top.split('\n').filter(Boolean) };
 };
 
 async function measure(name, path) {
@@ -76,7 +82,12 @@ async function measure(name, path) {
   latencies.sort((a, b) => a - b);
   const pct = (p) => latencies[Math.min(latencies.length - 1, Math.floor((p / 100) * latencies.length))]?.toFixed(1);
   const requests = latencies.length + errors;
-  const perRequest = stats && requests > 0 ? `  db/req=${(stats.app / requests).toFixed(1)} (+${(stats.background / elapsed).toFixed(0)}/s background)` : '';
+  // db-ms/req: server execution time per request; churn: the share of it spent
+  // on connection resets, the tenant variable, rate counters and BEGIN/COMMIT
+  const perRequest =
+    stats && requests > 0
+      ? `  db/req=${(stats.app / requests).toFixed(1)}  db-ms/req=${(stats.appMs / requests).toFixed(2)}  churn=${stats.appMs > 0 ? ((100 * stats.churnMs) / stats.appMs).toFixed(0) : '?'}%  server-conns=${stats.serverConnections}`
+      : '';
   console.log(
     `${name.padEnd(32)} rps=${(latencies.length / elapsed).toFixed(0).padStart(6)}  p50=${pct(50)}ms  p95=${pct(95)}ms  p99=${pct(99)}ms  errors=${errors}${perRequest}`,
   );
