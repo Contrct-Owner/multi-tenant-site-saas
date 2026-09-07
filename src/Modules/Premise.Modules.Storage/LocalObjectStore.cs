@@ -14,11 +14,16 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
     private readonly string _root =
         configuration["Storage:LocalRoot"] ?? Path.Combine(Path.GetTempPath(), "premise-objects");
 
-    // token -> (key, expiry); tickets are short-lived by design
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<
-        string,
-        (string key, long maxBytes, DateTimeOffset expires)
-    > _tickets = new();
+    // tickets are SIGNED, not remembered (ADR 52): a fleet of api replicas
+    // shares the master key and the store directory, so the replica that
+    // receives the PUT need not be the one that issued the ticket - the same
+    // property a cloud adapter's presigned URL has
+    private readonly byte[] _secret = Convert.FromBase64String(
+        configuration["Secrets:LocalMasterKey"]
+            ?? throw new InvalidOperationException(
+                "Secrets:LocalMasterKey is required to sign local upload tickets"
+            )
+    );
 
     public ValueTask<UploadTicket> CreateUploadTicketAsync(
         string key,
@@ -27,12 +32,10 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
         CancellationToken ct = default
     )
     {
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var expires = DateTimeOffset.UtcNow.AddMinutes(15);
-        _tickets[token] = (key, maxBytes, expires);
         return ValueTask.FromResult(
             new UploadTicket(
-                $"/objects/upload/{token}",
+                $"/objects/upload/{Sign(key, maxBytes, expires)}",
                 "PUT",
                 new Dictionary<string, string> { ["Content-Type"] = contentType },
                 expires
@@ -44,18 +47,63 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
         string key,
         TimeSpan ttl,
         CancellationToken ct = default
-    )
-    {
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
-        _tickets[token] = (key, 0, DateTimeOffset.UtcNow.Add(ttl));
-        return ValueTask.FromResult(new Uri($"/objects/download/{token}", UriKind.Relative));
-    }
+    ) =>
+        ValueTask.FromResult(
+            new Uri(
+                $"/objects/download/{Sign(key, 0, DateTimeOffset.UtcNow.Add(ttl))}",
+                UriKind.Relative
+            )
+        );
 
     public (string key, long maxBytes)? Redeem(string token)
     {
-        if (!_tickets.TryRemove(token, out var ticket) || ticket.expires < DateTimeOffset.UtcNow)
+        var parts = token.Split('.', 2);
+        if (parts.Length != 2)
             return null;
-        return (ticket.key, ticket.maxBytes);
+        byte[] payload;
+        byte[] signature;
+        try
+        {
+            payload = Convert.FromBase64String(FromUrl(parts[0]));
+            signature = Convert.FromBase64String(FromUrl(parts[1]));
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+        if (
+            !CryptographicOperations.FixedTimeEquals(
+                HMACSHA256.HashData(_secret, payload),
+                signature
+            )
+        )
+            return null;
+        var fields = System.Text.Encoding.UTF8.GetString(payload).Split('\n');
+        if (
+            fields.Length != 3
+            || !long.TryParse(fields[1], out var maxBytes)
+            || !long.TryParse(fields[2], out var expiresUnix)
+            || DateTimeOffset.FromUnixTimeSeconds(expiresUnix) < DateTimeOffset.UtcNow
+        )
+            return null;
+        return (fields[0], maxBytes);
+    }
+
+    private string Sign(string key, long maxBytes, DateTimeOffset expires)
+    {
+        var payload = System.Text.Encoding.UTF8.GetBytes(
+            $"{key}\n{maxBytes}\n{expires.ToUnixTimeSeconds()}"
+        );
+        return $"{ToUrl(payload)}.{ToUrl(HMACSHA256.HashData(_secret, payload))}";
+    }
+
+    private static string ToUrl(byte[] bytes) =>
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static string FromUrl(string text)
+    {
+        var padded = text.Replace('-', '+').Replace('_', '/');
+        return padded + new string('=', (4 - padded.Length % 4) % 4);
     }
 
     public ValueTask<long?> GetLengthAsync(string key, CancellationToken ct = default)

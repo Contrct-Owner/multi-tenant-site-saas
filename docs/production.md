@@ -13,8 +13,20 @@ One image, three roles, selected by the `ROLE` environment variable (ADR 34):
 | Role | What it does | Runs |
 |---|---|---|
 | `migrate` | Applies all eight modules' EF migrations with **owner** credentials, provisions the unprivileged `app_user` role, reassigns schema ownership, exits | Once per deploy, before the others |
-| `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas |
+| `api` | HTTP surface (Wolverine endpoints, auth, webhooks) | 1+ replicas — sessions, idempotency keys and the org/user/key rate counters live in Postgres (ADR 52), so any replica answers any request; the guest/IP limiter and two sixty-second caches (plan-limit site count, cluster tiles) are per replica by design |
 | `worker` | Outbox delivery, scheduled retries, occurrence materialization, retention purge, idempotency cleanup | 1+ replicas — every recurring sweep is leased per period in `platform.sweep_runs` (first replica to claim `(sweep, period)` runs it, the rest skip), so replicas never duplicate a sweep |
+
+Two and four replicas of each role are proven by the fleet suite:
+`tools/replica-stack.sh 2` boots the topology above on one host (a
+round-robin proxy in front) and runs `tests/Premise.FleetTests` - one
+session answered by every replica, an idempotency key honoured across
+replicas, an org quota that is one number across the fleet, one sweep claim
+per period across workers, and a replica killed while its local queue
+still holds a committed batch, whose messages the survivors finish.
+`tools/replica-stack.sh 4 --bench` runs the load baseline through the proxy;
+`docs/scaling.md` holds the table. Every piece of per-process state is
+either shared through Postgres or listed in the table above as per replica
+on purpose; add a new one to one of those two places.
 
 Ordering matters: `api`/`worker` should start (or restart) after `migrate`
 exits successfully — the Aspire graph does this with `WaitForCompletion`;

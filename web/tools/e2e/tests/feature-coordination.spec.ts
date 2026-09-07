@@ -9,8 +9,10 @@ test('a pending or unavailable hierarchy never offers provisioning', async ({ pa
     await held;
     await route.fulfill({ status: 503, body: 'Hierarchy unavailable' });
   });
-  // the cold path: a warm tab renders the shell's remembered tree instead of loading
-  await page.evaluate(() => sessionStorage.clear());
+  // the cold path: a warm tab renders the remembered tree instead of loading.
+  // Cleared as the next document starts, so a late write from the page we
+  // are leaving (the dashboard reads the tree too) cannot warm it again.
+  await page.addInitScript(() => sessionStorage.clear());
   await page.goto('/hierarchy');
   await expect(page.getByText('Loading hierarchy…', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create hierarchy', exact: true })).toHaveCount(0);

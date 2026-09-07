@@ -60,6 +60,11 @@ don't restate them here.
   predicates on tenant tables go through derived btree keys (`cell`,
   `path_text`, search terms, keyset cursors); prove a new one with EXPLAIN as
   `app_user`, never as the migrate role (`ScaleIndexTests` shows how).
+- **Per-process state is a fleet bug unless it says so** (ADR 52): a
+  counter, cache or lease that must be one number across api or worker
+  replicas lives in Postgres (rate windows, idempotency keys, sweep leases);
+  one that may differ per replica is listed as such in `docs/production.md`.
+  `tools/replica-stack.sh` proves it with two and four.
 - **Never put tenant/site/actor on metric labels** — traces and logs only, as
   baggage (ADR 33).
 - **Frontend imports UI only from `@/ui`**, never `components/ui/*` directly
@@ -145,6 +150,9 @@ don't restate them here.
 - Browser + a11y suite (Docker, Playwright; the same script CI runs):
   `tools/e2e-stack.sh` boots Postgres, migrate + api with the local provider,
   the console dev server, then Playwright with an axe pass per page.
+- Fleet suite (Docker; N api + N worker behind a proxy on one host):
+  `tools/replica-stack.sh 2` runs `tests/Premise.FleetTests`;
+  `tools/replica-stack.sh 4 --bench` runs the load baseline through the proxy.
 - Frontend (web/): `pnpm install`, `pnpm typecheck`, `pnpm build`,
   `pnpm dev:console` (SPA, proxies to the API), `pnpm dev:public` (Start/SSR)
 - ReUI/shadcn installs run FROM `web/packages/ui` (the CLI reads

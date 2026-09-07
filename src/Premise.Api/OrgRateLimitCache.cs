@@ -16,7 +16,10 @@ public sealed class OrgRateLimitCache(
     ILogger<OrgRateLimitCache> logger
 )
 {
-    private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
+    // fifteen seconds, not five minutes: a quota change is applied by ONE
+    // replica and the others learn it by expiry (ADR 52) - one entitlement
+    // read per org per replica per window is the price of no broadcast
+    private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(15);
     private readonly ConcurrentDictionary<OrgId, (int limit, DateTimeOffset at)> _cache = new();
     private readonly ConcurrentDictionary<OrgId, bool> _refreshing = new();
 

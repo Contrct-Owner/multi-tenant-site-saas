@@ -207,6 +207,7 @@ public static class PublicSiteEndpoints
         {
             candidates = await listed
                 .Where(SpatialPredicates.InViewport<Site>(BoxAround(from, radius)))
+                .OrderBy(s => s.Cell) // the (org_id, cell) index's own order: a stable cap, no sort
                 .Take(RingCap)
                 .ToListAsync(ct);
             if (candidates.Count >= take)

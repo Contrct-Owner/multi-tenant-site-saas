@@ -6,8 +6,8 @@ namespace Premise.Platform.Infra;
 
 /// <summary>
 /// Platform-owned infrastructure tables (not a domain module): currently the
-/// idempotency store (ADR 29) and the sweep leases. Excluded from change-diff audit - infra churn
-/// is noise.
+/// idempotency store (ADR 29), the sweep leases, and the shared rate
+/// windows (ADR 52). Excluded from change-diff audit - infra churn is noise.
 /// </summary>
 public sealed class PlatformDbContext(
     DbContextOptions<PlatformDbContext> options,
@@ -19,6 +19,7 @@ public sealed class PlatformDbContext(
 
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<SweepRun> SweepRuns => Set<SweepRun>();
+    public DbSet<RateWindow> RateWindows => Set<RateWindow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,16 @@ public sealed class PlatformDbContext(
             b.Property(r => r.Period).HasColumnName("period");
             b.Property(r => r.ClaimedAt).HasColumnName("claimed_at");
             b.Property(r => r.ClaimedBy).HasColumnName("claimed_by").HasMaxLength(200);
+        });
+        modelBuilder.Entity<RateWindow>(b =>
+        {
+            // platform upkeep, not tenant data: no org column, no RLS (ADR 52)
+            b.ToTable("rate_windows");
+            b.HasKey(r => new { r.Partition, r.WindowStart });
+            b.Property(r => r.Partition).HasColumnName("partition").HasMaxLength(200);
+            b.Property(r => r.WindowStart).HasColumnName("window_start");
+            b.Property(r => r.Count).HasColumnName("count");
+            b.HasIndex(r => r.WindowStart);
         });
     }
 }
