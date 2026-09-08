@@ -113,7 +113,7 @@ configuration, validation and teardown.
 
 | Provider/setup | Required configuration and ordered details |
 |---|---|
-| WorkOS test environment | `Auth__Provider=workos`, `Auth__WorkOS__ApiKey`, `Auth__WorkOS__ClientId`. Register `https://console.<test-domain>/auth/callback` once the console host routes auth to the API. For directory sync, configure `https://api.<test-domain>/auth/directory/webhook`, its `Auth__WorkOS__WebhookSecret`, and `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`. Provision a test directory if testing directory revocation. |
+| WorkOS test environment | `Auth__Provider=workos`, `Auth__WorkOS__ApiKey`, `Auth__WorkOS__ClientId`. Register `https://console.<test-domain>/auth/callback` once the console host routes auth to the API. Configure `https://api.<test-domain>/auth/directory/webhook`, its required `Auth__WorkOS__WebhookSecret`, and `session.revoked`, `password_reset.succeeded`, `user.deleted`. Add `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted` for directory sync. Verify signed session revocation delivery; provision a test directory if testing directory revocation. |
 | Stripe test environment | `Billing__Provider=stripe`, `Billing__Stripe__ApiKey`; create prices and set `Billing__Stripe__PriceIds__growth` and `Billing__Stripe__PriceIds__scale`. Register `https://api.<test-domain>/billing/webhook` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, then use that destination's `Billing__Stripe__WebhookSecret`. |
 | SMTP provider | `Notifications__Transport=smtp`, `Notifications__Smtp__Host`, `__Port`, `__UserName`, `__Password`, `__FromAddress`, optionally `__FromName`; keep `Notifications__Smtp__UseStartTls=true`. Verify the sender/domain and publish the provider's SPF/DKIM records and a DMARC policy. Verify actual delivery to the owned test mailbox from a pod. |
 | Spaces/S3 object storage | Dedicated private test bucket and bucket-scoped object credentials. Set `Storage__Provider=s3`, `Storage__S3__BucketName`, `Storage__S3__ServiceUrl`, `Storage__S3__AccessKey`, `Storage__S3__SecretKey`. For Spaces use its regional HTTPS endpoint. Configure console-origin CORS for PUT/GET and `Content-Type`/`If-None-Match`. Test create-only upload, metadata, download and deletion against the actual provider. |
@@ -240,18 +240,72 @@ These are initial-creation commands, not a blanket secret rotation operation.
 Reject inherited `ConnectionStrings__*` or `Database__AppPassword` in `providers`:
 only the role-specific database secret owns those values.
 
+## Network and pod security configuration
+
+The renderer installs namespace default-deny ingress/egress, allows API ingress
+only from same-namespace pods labeled `app=gateway`, and permits DNS to
+`kube-system`/`k8s-app=kube-dns` plus scanner traffic to same-namespace
+`app=scanner` on TCP 3310. Only api/worker/migrate receive the additional approved
+database/provider egress rules. New gateway, limiter, scanner-signature-update
+and observability deployments must bring their own explicit policies; adding a
+pod to this namespace does not grant network access. Kubelet probes use the
+fixed Host `health.premise.internal`, included by the renderer.
+
+Supply `--egress-rules /private/path/egress.json`, a nonempty JSON array of native
+NetworkPolicy egress rules. Each rule must contain explicit IP CIDRs and TCP/UDP
+ports; wildcard destinations, empty peer/port lists and unrestricted CIDRs are
+refused. For example, this **illustrative** rule allows one database IP/port:
+
+```json
+[{"to":[{"ipBlock":{"cidr":"10.0.0.3/32"}}],"ports":[{"protocol":"TCP","port":25060}]}]
+```
+
+Replace it with actual approved database, SMTP, HTTPS-provider and collector
+addresses/ports. Record who updates their ranges. If a provider's addresses are
+dynamic, use the cluster's supported DNS-aware egress policy or a controlled
+outbound proxy with equivalent destination restrictions; do not reopen all
+internet egress to make a test pass. Native NetworkPolicy cannot match DNS
+names. Confirm CNI enforcement and DNS routing on the selected DOKS cluster.
+
+Set `APP_HOSTS` to the actual semicolon-separated console/API/tenant host names
+or suffix wildcards, and `GATEWAY_CIDR` to the actual bounded network of the
+immediate gateway peers. Pass them through `--allowed-hosts` and `--proxy-cidr`.
+They configure `AllowedHosts`, one-hop forwarding and `Proxy:KnownNetworks:0`;
+there is no trust-all fallback. The gateway must strip client forwarding headers.
+An unrelated pod/namespace must fail to reach API/identity/DB; verify this on the
+real cluster before admitting external traffic.
+
+Pods explicitly request RuntimeDefault seccomp, non-root UID/GID, no privilege
+escalation, no capabilities, no service-account token, and a read-only root
+filesystem. Only the shared key volume and a bounded 256 MiB `/tmp` volume are
+writable. Account for concurrent temporary work: a bounded upload relay can
+consume up to 100 MiB per request, so two such requests nearly exhaust this
+volume before report/native-library scratch space. Set relay concurrency and
+pod ephemeral-storage capacity from measured combined use; exceeding the
+volume must fail cleanly rather than increasing it without a budget.
+
+The namespace enforces the baseline Pod Security Standard pinned to v1.36.
+The stronger restricted standard does not allow this bootstrap's inline NFS
+volume; switch to the managed CSI/PVC mount and validate before enabling it.
+Neither a namespace policy nor encrypted key XML secures arbitrary NFS writes:
+restrict export/node/VPC access and UID/GID ownership independently, and prove an
+unrelated workload cannot access the key share. NFS mounts originate at the node,
+so pod egress rules alone are insufficient.
+
 ## Deploy and verify in order
 
-Render each phase separately. Rendering contains secret **references**, not values.
+Render each phase separately. Rendering contains secret **references**, not values. Apply namespace/network policies in both phases so isolation exists before the migration Job starts.
 
 ```bash
 python3 deploy/digitalocean/render.py --inventory /private/path/inventory.json \
-  --image registry.example/premise@sha256:REPLACE --phase migrate > /private/path/migrate.json
+  --image registry.example/premise@sha256:REPLACE --egress-rules /private/path/egress.json \
+  --allowed-hosts "$APP_HOSTS" --proxy-cidr "$GATEWAY_CIDR" --phase migrate > /private/path/migrate.json
 # kubectl [explicit context/namespace] apply -f /private/path/migrate.json
 # kubectl [explicit context/namespace] wait --for=condition=complete job/migrate --timeout=600s
 
 python3 deploy/digitalocean/render.py --inventory /private/path/inventory.json \
-  --image registry.example/premise@sha256:REPLACE --phase workloads > /private/path/workloads.json
+  --image registry.example/premise@sha256:REPLACE --egress-rules /private/path/egress.json \
+  --allowed-hosts "$APP_HOSTS" --proxy-cidr "$GATEWAY_CIDR" --phase workloads > /private/path/workloads.json
 # Apply workloads ONLY after migration succeeds.
 # Wait for both API replicas and the worker to become ready; inspect pod node placement.
 ```

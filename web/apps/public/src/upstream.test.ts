@@ -3,6 +3,11 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { fetchWithHost } from './upstream';
 
 const server = createServer((request, response) => {
+  if (request.url === '/oversized') {
+    response.writeHead(200);
+    response.end(Buffer.alloc(4 * 1024 * 1024 + 1));
+    return;
+  }
   if (request.url === '/slow') {
     response.writeHead(200); response.flushHeaders();
     return; // The client's abort must also terminate a pending response body.
@@ -39,4 +44,10 @@ it('aborts the body after headers have arrived', async () => {
   const body = response.text();
   cancellation.abort();
   await expect(body).rejects.toThrow();
+});
+
+
+it('rejects a chunked response beyond the byte ceiling', async () => {
+  const response = await fetchWithHost(base + '/oversized', { headers: {}, signal: AbortSignal.timeout(1000) });
+  await expect(response.text()).rejects.toThrow('Upstream response exceeds 4 MiB');
 });

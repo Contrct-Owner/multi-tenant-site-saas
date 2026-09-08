@@ -14,7 +14,7 @@ public class PublicJourneyTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     {
         var client = fixture.GuestClient();
         // what the SSR/public app forwards from the browser's address bar
-        client.DefaultRequestHeaders.Add("X-Forwarded-Host", $"{slug}.premise.test");
+        client.DefaultRequestHeaders.Host = $"{slug}.premise.test";
         return client;
     }
 

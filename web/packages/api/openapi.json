@@ -4732,6 +4732,55 @@
         }
       }
     },
+    "/api/files/{id}/content": {
+      "put": {
+        "tags": [
+          "Premise.Modules.Storage.BoundedUploadEndpoint"
+        ],
+        "summary": "PUT_api_files_id_content",
+        "description": "PUT_api_files_id_content",
+        "operationId": "PUT_api_files_id_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/files": {
       "post": {
         "tags": [
@@ -10553,6 +10602,9 @@
     },
     {
       "name": "Premise.Modules.Audit.WebhookManagementEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Storage.BoundedUploadEndpoint"
     },
     {
       "name": "Premise.Modules.Storage.FileEndpoints"

@@ -17,6 +17,8 @@ x-app: &app
     DataProtection__KeyPath: /state/keys
     Storage__LocalRoot: /state/storage
     Proxy__TrustForwardedHeaders: "true"
+    Proxy__KnownNetworks__0: "${GATEWAY_SUBNET:-172.31.249.0/24}"
+    AllowedHosts: "localhost;127.0.0.1;*.localhost;*.premise.test"
     Gateway__IdentityKey: ${GATEWAY_IDENTITY_KEY:?run tools/gateway-stack.sh}
     Gateway__Required: "true"
     Traffic__MaxConcurrentRequests: "${TRAFFIC_MAX_CONCURRENT_REQUESTS:-128}"
@@ -99,4 +101,7 @@ services:
     depends_on: [api, ratelimit]
     networks: [backend]
 networks:
-  backend: {}
+  backend:
+    ipam:
+      config:
+        - subnet: "${GATEWAY_SUBNET:-172.31.249.0/24}"

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.IO;
 using Premise.Contracts;
 using Premise.Modules.Spatial.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
 
@@ -37,29 +38,19 @@ public sealed class SpatialExporter(SpatialDbContext db) : IOrgDataExporter
                 l.UpdatedAt,
                 l.DeletedAt,
             })
-            .ToListAsync(ct);
-        var writer = new WKTWriter();
-        var features = (
-            await db
-                .Features.IgnoreQueryFilters()
-                .Where(f => f.OrgId == org)
-                .Select(f => new
-                {
-                    f.Id,
-                    f.LayerId,
-                    f.Geom,
-                    f.Properties,
-                    f.CreatedAt,
-                })
-                .ToListAsync(ct)
-        ).Select(f => new
-        {
-            f.Id,
-            f.LayerId,
-            Wkt = writer.Write(f.Geom),
-            f.Properties,
-            f.CreatedAt,
-        });
+            .ToBoundedExportListAsync(ct);
+        var features = await db
+            .Features.IgnoreQueryFilters()
+            .Where(f => f.OrgId == org)
+            .Select(f => new
+            {
+                f.Id,
+                f.LayerId,
+                Wkt = f.Geom.AsText(),
+                f.Properties,
+                f.CreatedAt,
+            })
+            .ToBoundedExportListAsync(ct);
         return JsonSerializer.Serialize(
             new { layers, features },
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Audit.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Audit;
@@ -32,7 +33,7 @@ public sealed class AuditExporter(AuditDbContext db) : IOrgDataExporter
                 payload = e.Payload,
                 e.OccurredAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         return JsonSerializer.Serialize(
             new
             {

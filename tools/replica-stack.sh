@@ -71,7 +71,7 @@ source "$root/tools/postgres-image.sh"
 # process gets a pool bigger than its share: the bouncer queues what the
 # server cannot take, where a bare server refuses it (53300).
 if [ -n "$pgbouncer" ]; then pg_max_connections=${FLEET_PG_MAX_CONNECTIONS:-100}; else pg_max_connections=${FLEET_PG_MAX_CONNECTIONS:-300}; fi
-docker run -d --name fleet-pg --network fleet-net --cpus "$pg_cpus" -p "$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" \
+docker run -d --name fleet-pg --network fleet-net --cpus "$pg_cpus" -p "127.0.0.1:$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" \
   -c "max_connections=$pg_max_connections" -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all >/dev/null
 for _ in $(seq 1 60); do docker exec fleet-pg pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec fleet-pg psql -U postgres -d premise -q -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements" >/dev/null
@@ -83,7 +83,7 @@ ROLE=migrate ASPNETCORE_URLS="http://127.0.0.1:0" dotnet run --project src/Premi
 if [ -n "$pgbouncer" ]; then
   # the bouncer owns the server budget; each process asks for more than its
   # share on purpose, which is exactly the situation a bare server refuses
-  docker run -d --name fleet-pgbouncer --network fleet-net -p "$bouncer_port:5432" \
+  docker run -d --name fleet-pgbouncer --network fleet-net -p "127.0.0.1:$bouncer_port:5432" \
     -e DB_HOST=fleet-pg -e DB_PORT=5432 -e DB_USER=postgres -e DB_PASSWORD=owner -e DB_NAME=premise \
     -e AUTH_TYPE=scram-sha-256 -e AUTH_USER=postgres -e "AUTH_QUERY=SELECT usename, passwd FROM pg_shadow WHERE usename=\$1" \
     -e POOL_MODE="$pgbouncer" -e MAX_CLIENT_CONN=2000 -e DEFAULT_POOL_SIZE=$((pg_max_connections - 20)) -e MAX_DB_CONNECTIONS=$((pg_max_connections - 20)) \
@@ -110,7 +110,8 @@ export ConnectionStrings__premise="$app_cs;Maximum Pool Size=$pool_size;Max Auto
 export Auth__Provider=local Database__AppUser=app_user Database__AppPassword=app_user
 export Storage__LocalRoot="${TMPDIR:-/tmp}/premise-fleet-store" Logging__LogLevel__Default=Warning
 # the proxy is the request host the api sees, so CSRF's origin check and every URL it builds agree
-export Proxy__TrustForwardedHeaders=true
+export Proxy__TrustForwardedHeaders=true Proxy__KnownProxies__0=127.0.0.1
+export AllowedHosts="localhost;127.0.0.1;*.localhost;*.premise.test"
 
 wait_ready() { # name port
   for _ in $(seq 1 120); do curl -fsS "http://127.0.0.1:$2/healthz" 2>/dev/null | grep -q '"status":"ok"' && return 0; sleep 1; done

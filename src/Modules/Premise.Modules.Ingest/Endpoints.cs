@@ -2,10 +2,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Premise.Contracts;
 using Premise.Modules.Ingest.Data;
 using Premise.Platform.Data;
 using Premise.Platform.Entitlements;
+using Premise.Platform.Http;
 using Premise.Platform.Kernel;
 using Premise.Platform.Messaging;
 using Premise.Platform.Secrets;
@@ -92,7 +94,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
@@ -103,16 +105,22 @@ public static class IngestEndpoints
         if (file.Status != "Clean")
             return ApiErrors.Conflict($"file is {file.Status}; only Clean files can be staged");
 
-        string text;
-        await using (var stream = await store.OpenReadAsync(file.Key, ct))
-        using (var reader = new StreamReader(stream))
-            text = await reader.ReadToEndAsync(ct);
-
-        var rows = CsvParser.Parse(text).Select(CsvParser.ToSourceRow).ToList();
-        if (rows.Count == 0)
-            return ApiErrors.BadRequest("no data rows found");
-
-        var batch = await staging.StageAsync(org, userId, "upload", rows, ct);
+        ImportBatch batch;
+        try
+        {
+            await using var stream = await store.OpenReadAsync(file.Key, ct);
+            var text = System.Text.Encoding.UTF8.GetString(
+                await BoundedRead.ReadAsync(stream, IngestLimits.MaxBytes, ct)
+            );
+            var rows = CsvParser.Parse(text).Select(CsvParser.ToSourceRow).ToList();
+            if (rows.Count == 0)
+                return ApiErrors.BadRequest("no data rows found");
+            batch = await staging.StageAsync(org, userId, "upload", rows, ct);
+        }
+        catch (InvalidDataException e)
+        {
+            return ApiErrors.BadRequest(e.Message);
+        }
         return Results.Ok(new StagedUploadResponse(batch.Id, Counts(batch.Counts)));
     }
 
@@ -131,7 +139,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+        if (!await IngestAccess.CanAsync(accessor.Current, scopes, ct))
             return new GateOutcome.Forbidden(Capabilities.IngestManage).ToResult();
         var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == id, ct);
         if (batch is null)
@@ -174,7 +182,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+        if (!await IngestAccess.CanAsync(accessor.Current, scopes, ct))
             return new GateOutcome.Forbidden(Capabilities.IngestManage).ToResult();
         var batches = await db
             .Batches.OrderByDescending(b => b.CreatedAt)
@@ -218,7 +226,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
@@ -261,7 +269,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
@@ -347,18 +355,39 @@ public static class IngestEndpoints
         IKeyWrapper kms,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        IHostEnvironment environment,
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
 
+        if (
+            request.Name is null
+            || request.Name.Trim().Length is 0 or > 120
+            || !PublicHttp.IsAllowedUrl(
+                request.Url,
+                environment.IsDevelopment() || environment.IsEnvironment("Testing")
+            )
+            || request.SyncIntervalHours is <= 0 or > 8760
+            || request.ApiKey is { Length: > 4096 }
+        )
+            return ApiErrors.BadRequest(
+                "Use a name up to 120 characters, a public HTTPS URL, and a positive sync interval up to one year."
+            );
+        if (!await db.TryTakeAsync(org.Value, ct))
+            return ApiErrors.Conflict("Connector configuration is busy.");
+        if (await db.Connectors.CountAsync(ct) >= IngestLimits.MaxConnectors)
+            return ApiErrors.Status(
+                "Connector limit reached.",
+                StatusCodes.Status429TooManyRequests
+            );
         var connector = new SiteConnector
         {
             Id = Guid.CreateVersion7(),
             OrgId = org,
-            Name = request.Name,
+            Name = request.Name.Trim(),
             Type = "json-http",
             Url = request.Url,
             // ADR 31: envelope-encrypted, never plaintext at rest
@@ -384,7 +413,7 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+        if (!await IngestAccess.CanAsync(accessor.Current, scopes, ct))
             return new GateOutcome.Forbidden(Capabilities.IngestManage).ToResult();
         var connectors = await db
             .Connectors.OrderBy(c => c.Name)
@@ -425,17 +454,46 @@ public static class IngestEndpoints
         IKeyWrapper kms,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        IHostEnvironment environment,
         CancellationToken ct
     )
     {
-        if (!await scopes.CanAsync(accessor.Current, Capabilities.IngestManage, ct))
+        if (!await IngestAccess.CanAsync(accessor.Current, scopes, ct))
             return new GateOutcome.Forbidden(Capabilities.IngestManage).ToResult();
+        if (!await db.TryTakeAsync(id, ct))
+            return ApiErrors.Conflict("Connector is syncing; retry the request.");
         var connector = await db.Connectors.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (connector is null)
             return Results.NotFound();
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Url))
             return ApiErrors.BadRequest("name and url are required");
 
+        if (
+            request.Name is null
+            || request.Name.Trim().Length is 0 or > 120
+            || !PublicHttp.IsAllowedUrl(
+                request.Url,
+                environment.IsDevelopment() || environment.IsEnvironment("Testing")
+            )
+            || request.SyncIntervalHours is <= 0 or > 8760
+            || request.ApiKey is { Length: > 4096 }
+        )
+            return ApiErrors.BadRequest(
+                "Use a name up to 120 characters, a public HTTPS URL, and a positive sync interval up to one year."
+            );
+        var sameOrigin =
+            Uri.TryCreate(connector.Url, UriKind.Absolute, out var previousUrl)
+            && Uri.Compare(
+                previousUrl,
+                new Uri(request.Url),
+                UriComponents.SchemeAndServer,
+                UriFormat.SafeUnescaped,
+                StringComparison.OrdinalIgnoreCase
+            ) == 0;
+        if (!sameOrigin && string.IsNullOrWhiteSpace(request.ApiKey))
+            return ApiErrors.BadRequest(
+                "changing the connector origin requires replacement credentials"
+            );
         connector.Name = request.Name.Trim();
         connector.Url = request.Url.Trim();
         connector.SyncIntervalHours = request.SyncIntervalHours;
@@ -462,13 +520,16 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         var userId = principal.UserId;
+        if (!await db.TryTakeAsync(id, ct))
+            return ApiErrors.Conflict("Connector is syncing; retry the request.");
         var connector = await db.Connectors.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (connector is null)
             return Results.NotFound();
+        await CapacityReservations.ConsumeAsync(db, org, ConnectorQueue.Code, id, ct);
         db.Connectors.Remove(connector);
         await db.SaveChangesAsync(ct);
         await bus.AuditAsync(
@@ -492,15 +553,16 @@ public static class IngestEndpoints
         CancellationToken ct
     )
     {
-        var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.IngestManage, ct);
+        var gate = await IngestAccess.RequireUserAsync(accessor, scopes, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         if (!await db.Connectors.AnyAsync(c => c.Id == id, ct))
             return Results.NotFound();
-        await bus.PublishAsync(
-            new SyncSiteConnector(id),
-            new DeliveryOptions { TenantId = org.Value.ToString() }
-        );
+        if (!await ConnectorQueue.EnqueueAsync(db, org, id, bus, ct))
+            return ApiErrors.Status(
+                "A sync is already pending or the organization queue is full.",
+                StatusCodes.Status429TooManyRequests
+            );
         return Results.Accepted();
     }
 }

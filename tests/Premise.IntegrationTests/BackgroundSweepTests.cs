@@ -58,7 +58,7 @@ public class BackgroundSweepTests(ApiFixture fixture, ITestOutputHelper output)
         await ReportAsync(owner, "/api/audit/changes?limit=500");
 
         var guest = fixture.GuestClient();
-        guest.DefaultRequestHeaders.Add("X-Forwarded-Host", "org-a.localhost");
+        guest.DefaultRequestHeaders.Host = "org-a.localhost";
         await ReportAsync(guest, "/public/sites", 5);
         await ReportAsync(guest, "/public/sites?near=42.36,-71.05", 5);
 

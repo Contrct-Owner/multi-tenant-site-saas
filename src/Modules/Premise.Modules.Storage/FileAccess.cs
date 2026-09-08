@@ -20,6 +20,22 @@ public sealed class FileAccess(
     {
         if (!await scopes.CanAsync(principal, capability, ct))
             return false;
+        // Legacy archives predate origin metadata. Their reserved names remain protected
+        // until a migration/backfill can distinguish them from ordinary uploads.
+        var source = file.Origin switch
+        {
+            "org-export" => Capabilities.OrgManage,
+            "audit-export" => Capabilities.AuditRead,
+            null when file.Name.StartsWith("org-export-", StringComparison.Ordinal) =>
+                Capabilities.OrgManage,
+            null when file.Name.StartsWith("audit-export-", StringComparison.Ordinal) =>
+                Capabilities.AuditRead,
+            _ => null,
+        };
+        if (source is not null)
+            return principal is Principal.User { ActiveOrg: { } org }
+                && org == file.OrgId
+                && await scopes.ScopeForAsync(principal, source, ct) is NodeScope.EntireOrg;
         if (file.SiteIds.Length > 0)
         {
             var siteScope = await scopes.ScopeForAsync(principal, Capabilities.SitesRead, ct);

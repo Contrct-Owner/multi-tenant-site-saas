@@ -68,7 +68,7 @@ public class ContactTierTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // redeem, prove the identified session works against the public tier
         var visitor = fixture.GuestClient();
-        visitor.DefaultRequestHeaders.Add("X-Forwarded-Host", "org-a.premise.test");
+        visitor.DefaultRequestHeaders.Host = "org-a.premise.test";
         await visitor.GetAsync(path);
         Assert.Equal(
             "contact",

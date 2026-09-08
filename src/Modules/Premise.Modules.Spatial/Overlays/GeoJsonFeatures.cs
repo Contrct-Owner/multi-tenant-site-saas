@@ -15,6 +15,9 @@ namespace Premise.Modules.Spatial.Overlays;
 public static class GeoJsonFeatures
 {
     public const int MaxFeatures = 5000;
+    public const int MaxVertices = 20_000;
+    public const int MaxRings = 2_000;
+    public const int MaxBytes = 2 * 1024 * 1024;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -31,10 +34,16 @@ public static class GeoJsonFeatures
     {
         if (geoJson.ValueKind != JsonValueKind.Object)
             return ([], "a GeoJSON object is required");
-        var type = geoJson.TryGetProperty("type", out var t) ? t.GetString() : null;
+        if (!geoJson.TryGetProperty("type", out var t) || t.ValueKind != JsonValueKind.String)
+            return ([], "GeoJSON type must be a string");
+        var type = t.GetString();
         try
         {
             var raw = geoJson.GetRawText();
+            if (System.Text.Encoding.UTF8.GetByteCount(raw) > MaxBytes)
+                return ([], "GeoJSON exceeds the 2 MiB byte limit");
+            if (!WithinBudget(geoJson))
+                return ([], "GeoJSON exceeds feature, coordinate, ring or property limits");
             IEnumerable<IFeature> features = type switch
             {
                 "FeatureCollection" => JsonSerializer.Deserialize<FeatureCollection>(raw, Options)
@@ -66,6 +75,74 @@ public static class GeoJsonFeatures
         {
             return ([], "malformed GeoJSON: " + e.Message);
         }
+    }
+
+    private static bool WithinBudget(JsonElement value)
+    {
+        var type = value.GetProperty("type").GetString();
+        JsonElement[] features;
+        if (type == "FeatureCollection")
+        {
+            if (
+                !value.TryGetProperty("features", out var array)
+                || array.ValueKind != JsonValueKind.Array
+                || array.GetArrayLength() > MaxFeatures
+            )
+                return false;
+            features = array.EnumerateArray().ToArray();
+        }
+        else
+            features = [value];
+        int points = 0,
+            rings = 0;
+        foreach (var feature in features)
+        {
+            if (feature.ValueKind != JsonValueKind.Object)
+                return false;
+            if (
+                feature.TryGetProperty("properties", out var properties)
+                && System.Text.Encoding.UTF8.GetByteCount(properties.GetRawText()) > 4096
+            )
+                return false;
+            var geometry = feature.TryGetProperty("geometry", out var nested) ? nested : feature;
+            if (
+                geometry.ValueKind != JsonValueKind.Object
+                || !geometry.TryGetProperty("coordinates", out var coordinates)
+                || !CountCoordinates(coordinates, 0, ref points, ref rings)
+            )
+                return false;
+        }
+        return true;
+    }
+
+    private static bool CountCoordinates(
+        JsonElement coordinates,
+        int depth,
+        ref int points,
+        ref int rings
+    )
+    {
+        if (
+            depth > 4
+            || coordinates.ValueKind != JsonValueKind.Array
+            || coordinates.GetArrayLength() == 0
+        )
+            return false;
+        if (coordinates[0].ValueKind == JsonValueKind.Number)
+            return coordinates.GetArrayLength() is 2 or 3
+                && ++points <= MaxVertices
+                && coordinates.EnumerateArray().All(x => x.ValueKind == JsonValueKind.Number);
+        if (
+            coordinates[0].ValueKind == JsonValueKind.Array
+            && coordinates[0].GetArrayLength() > 0
+            && coordinates[0][0].ValueKind == JsonValueKind.Number
+            && ++rings > MaxRings
+        )
+            return false;
+        foreach (var child in coordinates.EnumerateArray())
+            if (!CountCoordinates(child, depth + 1, ref points, ref rings))
+                return false;
+        return true;
     }
 
     private static bool InWgs84(Geometry geometry)

@@ -53,7 +53,8 @@ export function MapBasemapsCard() {
         <p className="text-sm text-muted-foreground">
           Raster tile providers the map offers beside OpenStreetMap and the themed default. Put{' '}
           <code className="rounded bg-muted px-1">{'{key}'}</code> in the URL where the provider wants its
-          key; the key is stored encrypted and never shown again.
+          key. Use a browser/public tile key: map viewers can see it in network requests.
+          Restrict it to tile reads, your allowed origins, and a provider quota. Never enter a server secret.
         </p>
         {entries.map((e) => (
           <Item key={e.id} variant="outline" size="sm">

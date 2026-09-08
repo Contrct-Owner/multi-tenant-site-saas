@@ -189,8 +189,8 @@ switch (builder.Configuration["Billing:Provider"] ?? "local")
                 "Billing:Stripe:WebhookSecret is required."
             )
             .Validate(
-                o => IsHttpUrl(o.ApiBase),
-                "Billing:Stripe:ApiBase must be an absolute HTTP(S) URL."
+                o => IsProviderUrl(o.ApiBase, builder.Environment),
+                "Billing:Stripe:ApiBase must be an absolute HTTPS URL outside Development/Testing."
             )
             .Validate(
                 o =>
@@ -206,7 +206,7 @@ switch (builder.Configuration["Billing:Provider"] ?? "local")
             Premise.Integrations.Stripe.StripeBillingProvider
         >();
         break;
-    case "local" when !builder.Environment.IsProduction():
+    case "local" when IsDevelopmentOrTesting(builder.Environment):
         builder.Services.AddSingleton<Premise.Platform.Billing.IBillingProvider>(
             new Premise.Modules.Entitlements.LocalBillingProvider(
                 builder.Configuration["Billing:WebhookSecret"] ?? "dev-billing-secret"
@@ -235,7 +235,7 @@ switch (builder.Configuration["Notifications:Sms"] ?? "off")
     case "off":
         builder.Services.AddSingleton<ISmsTransport, NoSmsTransport>();
         break;
-    case "local" when !builder.Environment.IsProduction():
+    case "local" when IsDevelopmentOrTesting(builder.Environment):
         builder.Services.AddSingleton<LocalSmsCatcher>();
         builder.Services.AddSingleton<ISmsTransport>(sp =>
             sp.GetRequiredService<LocalSmsCatcher>()
@@ -272,6 +272,10 @@ switch (builder.Configuration["Notifications:Transport"] ?? "local")
                 o => CredentialsMatch(o.UserName, o.Password),
                 "Notifications:Smtp:UserName and Password must be configured together."
             )
+            .Validate(
+                o => IsDevelopmentOrTesting(builder.Environment) || o.UseStartTls,
+                "Notifications:Smtp:UseStartTls must be true outside Development/Testing."
+            )
             .ValidateOnStart();
         builder.Services.AddSingleton<Premise.Integrations.Smtp.SmtpNotificationTransport>();
         builder.Services.AddSingleton<
@@ -279,7 +283,7 @@ switch (builder.Configuration["Notifications:Transport"] ?? "local")
             Premise.Modules.Identity.Users.SuppressingNotificationTransport<Premise.Integrations.Smtp.SmtpNotificationTransport>
         >();
         break;
-    case "local" when !builder.Environment.IsProduction():
+    case "local" when IsDevelopmentOrTesting(builder.Environment):
         builder.Services.AddSingleton<LocalMailCatcher>();
         builder.Services.AddSingleton<
             INotificationTransport,
@@ -320,9 +324,14 @@ builder.UseWolverine(opts =>
         opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
     opts.PublishMessage<Premise.Modules.Reporting.GenerateReport>().ToPostgresqlQueue("reports");
+    opts.PublishMessage<Premise.Contracts.ExportOrgData>().ToPostgresqlQueue("exports");
+    opts.PublishMessage<Premise.Contracts.ExportAuditTrail>().ToPostgresqlQueue("exports");
     // Integration hosts combine roles; deployed APIs only publish report work.
     if (role == "worker" || builder.Environment.IsEnvironment("Testing"))
+    {
         opts.ListenToPostgresqlQueue("reports").MaximumParallelMessages(1);
+        opts.ListenToPostgresqlQueue("exports").MaximumParallelMessages(1);
+    }
     opts.OnException<Premise.Platform.Entitlements.CapacityBusyException>()
         .RetryWithCooldown(
             TimeSpan.FromMilliseconds(20),
@@ -369,7 +378,7 @@ if (role == "api")
     // in-process, so codegen is unaffected either way.
     if (builder.Configuration.GetValue("Api:ExposeOpenApi", true))
         app.MapOpenApi();
-    if (!app.Environment.IsProduction())
+    if (IsDevelopmentOrTesting(app.Environment))
         app.MapGet(
                 "/dev/boom",
                 new Func<IResult>(() =>

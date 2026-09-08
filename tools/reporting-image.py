@@ -4,6 +4,7 @@ import http.cookiejar
 import io
 import json
 import pathlib
+import ssl
 import sys
 import time
 import urllib.error
@@ -11,8 +12,9 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-mode, base, s3_port, output_arg = sys.argv[1:]
+mode, base, s3_port, output_arg, s3_ca = sys.argv[1:]
 output = pathlib.Path(output_arg)
+s3_tls = ssl.create_default_context(cafile=s3_ca)
 cookies = http.cookiejar.LWPCookieJar(str(output / "session.cookies"))
 client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
 
@@ -33,10 +35,11 @@ def download(run_id, artifact_id):
     ticket = request(f"/api/reports/{run_id}/artifacts/{artifact_id}/download")
     url = urllib.parse.urlsplit(ticket["url"])
     assert url.hostname == "report-s3", url.hostname
+    assert url.scheme == "https", url.scheme
     # The host runner reaches the container through its published loopback port.
     # Keep the signed Host header intact, so MinIO validates the real S3 signature.
     local = urllib.parse.urlunsplit((url.scheme, f"127.0.0.1:{s3_port}", url.path, url.query, ""))
-    with urllib.request.urlopen(urllib.request.Request(local, headers={"Host": url.netloc}), timeout=30) as response:
+    with urllib.request.urlopen(urllib.request.Request(local, headers={"Host": url.netloc}), timeout=30, context=s3_tls) as response:
         return response.read()
 
 

@@ -22,9 +22,18 @@ export function fetchWithHost(url: string, init: {
         const status = incoming.statusCode!;
         const empty = [204, 205, 304].includes(status);
         if (empty) incoming.resume();
-        const body = empty ? null : Readable.toWeb(incoming, {
+        let bytes = 0;
+        const body = empty ? null : (Readable.toWeb(incoming, {
           strategy: { highWaterMark: incoming.readableHighWaterMark, size: (chunk: Uint8Array) => chunk.byteLength },
-        }) as ReadableStream;
+        }) as ReadableStream<Uint8Array>).pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk, controller) {
+            bytes += chunk.byteLength;
+            if (bytes > 4 * 1024 * 1024) {
+              incoming.destroy();
+              controller.error(new Error('Upstream response exceeds 4 MiB'));
+            } else controller.enqueue(chunk);
+          },
+        }));
         resolve(new Response(body, { status, headers }));
       } catch (error) {
         incoming.destroy();

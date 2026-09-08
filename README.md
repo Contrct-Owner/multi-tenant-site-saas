@@ -123,3 +123,5 @@ web/apps/public/           public locator ({slug}.yourdomain, SSR)
 web/packages/api/          generated client + capability keys (never hand-edit)
 tools/                     init.py, new-module.py, run-integration-shard.sh
 ```
+
+Security: [assessment](docs/security-assessment.md) and [remediation ledger](docs/security-remediation.md), including deployment acceptance and verification evidence.

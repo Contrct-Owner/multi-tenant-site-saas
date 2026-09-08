@@ -60,6 +60,7 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                 "entitlements.json",
                 "identity.json",
                 "ingest.json",
+                "reporting.json",
                 "spatial.json",
                 "storage.json",
                 "tenancy.json",
@@ -141,7 +142,7 @@ public class LifecycleTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // the guest surface is live before the end
         var guest = fixture.GuestClient();
-        guest.DefaultRequestHeaders.Add("X-Forwarded-Host", "doomed.premise.test");
+        guest.DefaultRequestHeaders.Host = "doomed.premise.test";
         JsonElement publicSites = default;
         await ApiFixture.WaitUntilAsync(
             async () =>
