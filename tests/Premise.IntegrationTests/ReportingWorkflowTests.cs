@@ -787,6 +787,151 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         Assert.Single(result.GetProperty("artifacts").EnumerateArray());
     }
 
+    [Theory]
+    [InlineData("pdf-stored")]
+    [InlineData("zip-partial")]
+    [InlineData("zip-stored")]
+    [InlineData("zip-published")]
+    public async Task Recovery_from_storage_commit_boundaries_preserves_files_quota_and_one_bundle(
+        string boundary
+    )
+    {
+        var (client, sites) = await Setup(2);
+        var id = await Submit(client, sites, new { });
+        var original = await Wait(client, id, "Completed");
+        var firstPdf = original
+            .GetProperty("artifacts")
+            .EnumerateArray()
+            .First(x => x.GetProperty("contentType").GetString() == "application/pdf")
+            .GetProperty("id")
+            .GetGuid();
+        var firstBytes = await Download(client, id, firstPdf);
+        Guid previousZip;
+        string orphanKey;
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            scope
+                .ServiceProvider.GetRequiredService<TenantContext>()
+                .Set(fixture.OrgA, RegionId.Default);
+            var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
+            var storage =
+                scope.ServiceProvider.GetRequiredService<Premise.Modules.Storage.Data.StorageDbContext>();
+            var store =
+                scope.ServiceProvider.GetRequiredService<Premise.Platform.Storage.IObjectStore>();
+            var job = await db
+                .Jobs.Include(x => x.Items)
+                .Include(x => x.Artifacts)
+                .SingleAsync(x => x.Id == id);
+            var zip = job.Artifacts.Single(x => x.ItemId == null && x.Ready);
+            previousZip = zip.Id;
+            orphanKey = zip.Key;
+            // Reconstruct the durable database/object-store snapshot left by a hard
+            // crash at each boundary. No graceful-shutdown cleanup is invoked.
+            job.State = "Running";
+            job.CompletedAt = null;
+            job.ExpiresAt = null;
+            job.MetadataExpiresAt = null;
+            job.LeaseOwner = Guid.CreateVersion7();
+            job.LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(-1);
+            if (boundary == "pdf-stored")
+            {
+                var pdf = job.Artifacts.Single(x => x.ItemId != null && x.Id != firstPdf);
+                var item = job.Items.Single(x => x.Id == pdf.ItemId);
+                item.State = "Running";
+                item.GeneratedAt = null;
+                item.DependenciesJson = "{}";
+                pdf.Ready = false;
+                pdf.FilePublished = false;
+                pdf.Bytes = 0;
+                orphanKey = pdf.Key;
+                (await db.QuotaEntries.SingleAsync(x => x.Id == item.Id)).Consumed = false;
+                await storage.Files.Where(x => x.Id == pdf.Id).ExecuteDeleteAsync();
+                await store.DeleteAsync(zip.Key);
+                db.Artifacts.Remove(zip);
+            }
+            else if (boundary != "zip-published")
+            {
+                zip.Ready = false;
+                zip.Bytes = 0;
+                if (boundary == "zip-partial")
+                    await store.WriteAsync(
+                        zip.Key,
+                        new MemoryStream(Encoding.UTF8.GetBytes("PK interrupted ZIP")),
+                        "application/zip"
+                    );
+            }
+            await db.SaveChangesAsync();
+        }
+        await fixture.PublishForOrgA(new MaintainReports());
+        var recovered = await Wait(client, id, "Completed");
+        Assert.Equal(firstBytes, await Download(client, id, firstPdf));
+        var bundleId = Assert
+            .Single(
+                recovered.GetProperty("artifacts").EnumerateArray(),
+                x => x.GetProperty("contentType").GetString() == "application/zip"
+            )
+            .GetProperty("id")
+            .GetGuid();
+        if (boundary == "zip-published")
+            Assert.Equal(previousZip, bundleId);
+        else
+            Assert.NotEqual(previousZip, bundleId);
+        using (var zip = new ZipArchive(new MemoryStream(await Download(client, id, bundleId))))
+        {
+            Assert.Equal(3, zip.Entries.Count);
+            using var manifest = JsonDocument.Parse(zip.GetEntry("manifest.json")!.Open());
+            Assert.All(
+                manifest.RootElement.GetProperty("items").EnumerateArray(),
+                item => Assert.Equal("Succeeded", item.GetProperty("State").GetString())
+            );
+            Assert.Equal(
+                sites.Order(),
+                manifest
+                    .RootElement.GetProperty("items")
+                    .EnumerateArray()
+                    .SelectMany(item =>
+                        item.GetProperty("SiteIds").EnumerateArray().Select(site => site.GetGuid())
+                    )
+                    .Order()
+            );
+        }
+        using var verification = fixture.Factory.Services.CreateScope();
+        verification
+            .ServiceProvider.GetRequiredService<TenantContext>()
+            .Set(fixture.OrgA, RegionId.Default);
+        var reports = verification.ServiceProvider.GetRequiredService<ReportingDbContext>();
+        var files =
+            verification.ServiceProvider.GetRequiredService<Premise.Modules.Storage.Data.StorageDbContext>();
+        Assert.Equal(2, await reports.QuotaEntries.CountAsync(x => x.JobId == id && x.Consumed));
+        Assert.False(await reports.QuotaEntries.AnyAsync(x => x.JobId == id && !x.Consumed));
+        Assert.Equal(2, await files.Files.CountAsync(x => x.OriginId == id));
+        var attempts = await reports
+            .Items.Where(x => x.JobId == id)
+            .Select(x => x.Attempt)
+            .ToArrayAsync();
+        Assert.Equal(boundary == "pdf-stored" ? 3 : 2, attempts.Sum());
+        Assert.Equal(3, await reports.Artifacts.CountAsync(x => x.JobId == id && x.Ready));
+        await reports
+            .Jobs.Where(x => x.Id == id)
+            .ExecuteUpdateAsync(set =>
+                set.SetProperty(x => x.ExpiresAt, DateTimeOffset.UtcNow.AddDays(-1))
+            );
+        await fixture.PublishForOrgA(new MaintainReports());
+        await ApiFixture.WaitUntilAsync(
+            async () =>
+                !await reports.Artifacts.AnyAsync(x =>
+                    x.JobId == id && (!x.Ready || x.ItemId == null)
+                ),
+            "crash orphan and ZIP cleanup"
+        );
+        Assert.Null(
+            await verification
+                .ServiceProvider.GetRequiredService<Premise.Platform.Storage.IObjectStore>()
+                .GetLengthAsync(orphanKey)
+        );
+        Assert.Equal(firstBytes, await Download(client, id, firstPdf));
+    }
+
     [Fact]
     public async Task Published_site_pdf_survives_report_expiry_and_uses_file_trash_hold_and_restore()
     {

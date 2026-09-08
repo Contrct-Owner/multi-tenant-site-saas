@@ -1,6 +1,6 @@
 # Reporting for implementing applications
 
-- **Status:** Implementation active: reference definitions, persistence, backend workflow and console are implemented with targeted and browser verification. Full deployment qualification pending.
+- **Status:** Shared site-file workflow, subscription backfill and local Linux production-image execution verified. Live-provider and target-deployment qualification remain separate. See the latest [deployment and recovery evidence](#deployment-and-recovery-follow-through--2026-09-07).
 - **Owner:** Project maintainers.
 - **Updated:** 2026-09-07.
 - **Parent:** [Premise README](../README.md).
@@ -51,7 +51,9 @@ The template must ship working examples, not only interfaces.
 
 Typed report-job APIs, production reference definitions and a renderer proof now
 exist, along with the report console, as described in the evidence ledger below.
-Full deployment qualification remains pending. Existing organization and audit exports generate JSON/JSONL ZIPs
+Local Linux production-image qualification now includes actual reference jobs and
+S3-backed downloads; external basemap and target-deployment checks remain pending.
+Existing organization and audit exports generate JSON/JSONL ZIPs
 in memory. They establish useful storage and messaging patterns, but do not prove
 bounded bulk PDF generation. No reporting performance or production acceptance
 is claimed by this design document.
@@ -122,6 +124,24 @@ defaults in the entitlement/plan catalogs; operators use the
 existing assigned values and expiring exceptions. Its usage probe includes both
 reserved and consumed PDFs, so existing downgrade preflight sees outstanding work.
 `GET /api/reports/quota` exposes the current allowance to permitted report users.
+
+On a drained deployment, the migrate role also runs `PlanEntitlementBackfill`
+after schema migrations. It fills missing bundle codes for known Active,
+Trialing and PastDue subscriptions, including `reports.monthly`, using the fork's
+current `PlanCatalog`. It pages through 200 subscriptions at a time and inserts
+with `ON CONFLICT DO NOTHING`. Existing assignments of every source, their
+timestamps, and entitlement exceptions remain untouched. Canceled subscriptions,
+unknown statuses and retired/unknown plan IDs receive no new plan values.
+An interrupted pass can be rerun safely. This is missing-code backfill, not a
+reconciliation of changed prices or existing assigned limits; billing events
+remain responsible for subscription changes.
+
+Upgrade order: drain/stop API and worker writers, run the new image's migrate
+role against each deployed regional database using its owner credentials, check
+the successful exit and inserted-row count, then start API and worker with the
+application credentials. Do not run this backfill concurrently with older billing
+writers. Operator exceptions continue to override the new underlying plan value
+until they expire. No manual per-organization webhook replay is needed.
 
 `reporting.quota_entries` stores one entry per PDF item, with its reserved month
 and consumed state. Admission uses the existing capacity advisory-lock helper and
@@ -1150,3 +1170,129 @@ The requested site-library/run-history/shared-file redesign is functionally
 implemented and verified. The broader reporting goal still has the separate
 production/deployment and upgrade qualifications listed above; it is not marked
 complete by this checkpoint. No commit, push or cloud provisioning was performed.
+
+### Deployment and recovery follow-through — 2026-09-07
+
+The missing-subscription-code upgrade is now part of the migrate role (see the
+upgrade order above). `PlanEntitlementBackfillTests` starts with 205 subscriptions
+and their pre-reporting plan bundles: **199 missing report assignments inserted**,
+then **zero changes** on a second pass. It covers Growth, Scale, trialing,
+payment-grace and canceled subscriptions, unknown plans/statuses, preserved
+operator/manual/plan assignments and timestamps, active exception precedence,
+and unchanged subscription truth. No applied migration was edited.
+
+Four targeted recovery cases reconstruct the durable database/object-store state
+at a crash boundary, expire the old lease, and invoke the real maintenance/worker
+path against PostgreSQL and local object storage:
+
+| Boundary | Recovery assertion |
+| --- | --- |
+| PDF object stored, item/publication transaction not committed | Retry the unfinished item with a new artifact identity; preserve the earlier published PDF and charge each successful item once. |
+| ZIP write interrupted | Rebuild a valid archive and manifest; do not regenerate successful PDFs or add report usage. |
+| ZIP object stored, ready flag not committed | Publish one replacement bundle; retain the abandoned intent for expiry cleanup. |
+| ZIP ready flag committed, run completion not committed | Reuse that same bundle ID and bytes; do not create a second published ZIP. |
+
+The last case exposed duplicate ZIP creation in `ReportRunner.Complete`; it now
+recognizes a ready bundle for the current revision. All four cases assert one
+published ZIP, two site-file records, two consumed quota entries, zero outstanding
+reservations, expected render attempts, an accurate manifest, and cleanup of
+abandoned objects while preserving published PDFs. These are deterministic
+crash-state recovery tests, not four additional OS process-kill tests. The separate
+fleet test supplies the real worker-process-death evidence.
+
+The production-image run exposed an additional S3-only bug: the AWS SDK's default
+`AutoCloseStream = true` closed the caller-owned temporary report stream after
+upload. Reading its length then raised `ObjectDisposedException`, so a stored PDF
+was reported as failed. The shared S3 adapter now leaves input disposal to its
+caller, matching local/Azure storage and the documented `IObjectStore` contract.
+The MinIO regression checks that the input remains readable after upload.
+
+Verification so far:
+
+- Focused backfill and four crash boundaries: **5 passed**,
+  `/tmp/premise-reporting-upgrade-crash.log`.
+- Reporting workflow, shared file publication, billing and backfill regressions:
+  **39 passed**, `/tmp/premise-reporting-final-regression.log`.
+- S3 adapter and strengthened pre-upgrade subscription fixture: **3 passed**,
+  `/tmp/premise-reporting-s3-upgrade.log`.
+- Architecture: **54 passed**, `/tmp/premise-reporting-final-architecture.log`.
+
+`bash tools/reporting-image.sh IMAGE [OUTPUT]` now qualifies actual single,
+aggregate and 100-site bulk jobs from one OCI image. Its Python helper uses only
+the standard library. A disposable Development API prepares users, 100 sites and
+a session; it is removed before report submission. The image's API and worker
+then run in **Production** with PostgreSQL and the real S3 adapter against MinIO.
+The same session exercises authenticated submission, current read authorization,
+presigned downloads, site-file association and quota settlement. This fixture
+does not verify an external OIDC login or contact unused billing/KMS/SMTP adapters.
+
+The harness verifies non-root processes and application-role DB connections,
+uses a read-only root filesystem, and applies **1 CPU / 768 MiB per application
+process**, with a 256 MiB temporary filesystem. It retains image identity, role
+logs, completed run responses, PDF/ZIP outputs, submission-to-publication timings,
+quota counts and a zero-dead-letter check. Its disposable containers, key volume,
+network and fixture session cookie are removed on exit. CI runs it after the
+existing three-role image smoke and uploads the evidence directory.
+
+The corrected `premise:reporting-qualified` image passed this harness. Image ID:
+`sha256:9d1294062b79a0bf01c6b18add7eed7b2ac56e074c183b8a907a768eb60853fe`.
+The image was built as **Linux amd64** and executed on this **arm64 Mac under
+Docker emulation**; these are local qualification observations, not production
+latency promises or replica-capacity measurements.
+
+| Reference run | PDFs | Submission through completed run and published site files | Download size |
+| --- | ---: | ---: | ---: |
+| Single site, first report on the fresh worker | 1 | 10.216 s | 24,500 bytes |
+| Aggregate of 100 sites | 1, four pages | 1.846 s | 35,062 bytes |
+| Separate reports for 100 sites plus ZIP | 100 | 16.187 s | 2,314,823 bytes |
+
+Timings include queueing, generation, persistence and polling through publication;
+downloads and subsequent per-site listing assertions occur afterward. They do
+not separate rendering from ZIP assembly, and there is only one sample per mode.
+The fresh-worker single result includes first-use costs. No photos or external
+basemap were selected; reports explicitly show the missing-basemap warning.
+
+The run consumed **102 PDFs**, left **0 reservations** and **898 of 1,000**
+available, with **zero dead letters**. Every selected site listed exactly the
+expected PDF for each run, including the shared aggregate file. All 100 bundled
+PDFs were independently reopened with pypdf and matched to their distinct
+manifest site IDs. All four aggregate pages and representative individual pages
+were rendered with Poppler and visually inspected; headers, table continuation,
+page numbers and text were legible. The inspected PDFs contain embedded Liberation
+Sans fonts. Neither a mounted renderer helper nor host-installed fonts supplied
+the production report implementation.
+
+Durable local copies (ignored test output):
+[image metrics](../coverage/reporting-follow-through-2026-09-07/image/metrics.json),
+[single PDF](../coverage/reporting-follow-through-2026-09-07/image/single.pdf),
+[aggregate PDF](../coverage/reporting-follow-through-2026-09-07/image/aggregate.pdf),
+[100-site ZIP](../coverage/reporting-follow-through-2026-09-07/image/bulk-100.zip).
+Logs and image identity are beside these artifacts; CI keeps its own uploaded
+`reporting-image-evidence`. The unsuccessful harness setup and S3 diagnosis remain
+under `/tmp/premise-reporting-image-final*`; they are superseded by the passing
+`/tmp/premise-reporting-image-verified.log`.
+
+The final `bash tools/replica-stack.sh 2 --reporting` rerun also passed **2 tests**
+with a clean wrapper exit. Two API replicas admitted exactly one last-slot request.
+The test then killed worker **7699** during a 100-site run; worker **7700** claimed
+the expired lease and completed all 100 PDFs, their site-file records and the ZIP.
+Previously completed bytes retained their SHA-256 hash, and usage increased by
+exactly 100 with no extra reservations. Recovery took **174.197 seconds including
+the deliberate lease wait**; the ZIP was **2,198,958 bytes**. This timing measures
+failure recovery, not normal generation. The shell's `Killed: 9` line is the
+expected injected failure, and `Terminated: 15` is proxy teardown.
+See the retained [fleet metrics](../coverage/reporting-follow-through-2026-09-07/fleet/metrics.json)
+and `/tmp/premise-reporting-final-fleet.log`.
+
+These results close the requested local production-image, subscription-backfill
+and targeted crash-window gaps. All test-owned containers, networks and key
+volumes were removed. Shell/Python/workflow-YAML syntax checks and `git diff
+--check` passed. External live-basemap credentials/licensing and deployment on the
+chosen target infrastructure remain separate qualifications; no cloud resources,
+commits or pushes were created by this work.
+
+### Security-branch integration — 2026-09-07
+
+The production-image harness now supplies app-role runtime credentials, certificate-wrapped Data Protection keys, explicit production host/webhook settings, verified HTTPS MinIO, and dropped capabilities/no privilege escalation. Migration-owner credentials are confined to the migrate invocation. The temporary CA extends the image's normal trust roots; neither the application nor the host helper disables TLS verification.
+
+On the combined security/performance source, the build, 54 architecture tests and 49 focused integration tests passed. The new combined-image run is **not yet qualified**: image publication hit local disk exhaustion and the Docker daemon stopped answering status requests. The earlier image/fleet evidence remains historical evidence for its named source/image. See [security integration results](security-remediation.md#integration-with-performance-branch--2026-09-07) for the validation boundary and rerun commands.

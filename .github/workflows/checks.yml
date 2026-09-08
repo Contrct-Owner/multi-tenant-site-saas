@@ -218,6 +218,14 @@ jobs:
           name: image-security
           path: coverage/image-security/
           if-no-files-found: error
+      - name: Generate reference reports from the production image
+        run: bash tools/reporting-image.sh premise:ci coverage/reporting-image
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: reporting-image-evidence
+          path: coverage/reporting-image/
+          if-no-files-found: ignore
 
   browser:
     # Critical flows and tenant transitions in Chromium, Firefox, and WebKit, with an axe pass on

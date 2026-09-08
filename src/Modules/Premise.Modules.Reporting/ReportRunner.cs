@@ -238,7 +238,13 @@ public sealed class ReportRunner(
             : succeeded.Length == job.Items.Count ? "Completed"
             : "CompletedWithErrors";
         string? error = null;
-        if (job.Mode == "bulk" && succeeded.Length > 0)
+        // A crash can occur after the ZIP is committed but before the job is finished.
+        // Keep that revision's published bundle instead of producing a second artifact.
+        if (
+            job.Mode == "bulk"
+            && succeeded.Length > 0
+            && !job.Artifacts.Any(x => x.ItemId == null && x.Ready && x.Revision == job.Revision)
+        )
         {
             var artifact = WithKey(
                 new ReportArtifact

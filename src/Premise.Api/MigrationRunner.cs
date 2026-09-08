@@ -53,6 +53,12 @@ public sealed class MigrationRunner(
             await context.Database.MigrateAsync(ct);
         }
 
+        var backfilled = await Premise.Modules.Entitlements.PlanEntitlementBackfill.RunAsync(
+            sp.GetRequiredService<Premise.Modules.Entitlements.Data.EntitlementsDbContext>(),
+            ct
+        );
+        logger.LogInformation("added {Count} missing subscription plan entitlements", backfilled);
+
         // App role provisioning is idempotent and re-runs every migrate, so
         // grants always cover tables the latest migrations just created.
         var password = configuration["Database:AppPassword"] ?? "app_user";

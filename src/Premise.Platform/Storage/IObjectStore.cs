@@ -30,6 +30,8 @@ public interface IObjectStore
     /// <summary>Stored byte length, or null only when absent; provider failures must propagate.</summary>
     ValueTask<long?> GetLengthAsync(string key, CancellationToken ct = default);
     ValueTask<Stream> OpenReadAsync(string key, CancellationToken ct = default);
+
+    /// <summary>Writes bytes without disposing the caller-owned content stream.</summary>
     ValueTask WriteAsync(
         string key,
         Stream content,

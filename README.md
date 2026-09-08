@@ -104,10 +104,11 @@ Checklist fleet navigation and failure behavior:
 [checklist site selection](docs/checklist-site-selection.md).
 
 Site-library report generation, persistent site PDFs, shared site permissions and run history
-for forks (deployment qualification in progress):
+for forks:
 [reporting design and implementation plan](docs/reporting.md)
 (PDFs, maps/photos, bulk ZIPs, console workflow and entitlement quotas;
-workflow and renderer checks passed; full deployment qualification pending;
+workflow, subscription backfill and local Linux production-image checks passed;
+live-provider and target-deployment qualification pending;
 owner: project maintainers; updated 2026-09-07).
 
 ## Layout
