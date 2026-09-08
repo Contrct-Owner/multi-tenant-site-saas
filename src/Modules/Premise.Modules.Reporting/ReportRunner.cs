@@ -20,6 +20,7 @@ namespace Premise.Modules.Reporting;
 public sealed class ReportRunner(
     IServiceScopeFactory scopeFactory,
     ReportLimits limits,
+    TimeProvider time,
     ILogger<ReportRunner> logger
 )
 {
@@ -34,13 +35,13 @@ public sealed class ReportRunner(
             {
                 if (
                     job.State is not (ReportJobState.Queued or ReportJobState.Running)
-                    || job.LeaseUntil > DateTimeOffset.UtcNow
-                    || job.ExpiresAt <= DateTimeOffset.UtcNow
+                    || job.LeaseUntil > time.GetUtcNow()
+                    || job.ExpiresAt <= time.GetUtcNow()
                 )
                     return false;
                 job.State = ReportJobState.Running;
                 job.LeaseOwner = owner;
-                job.LeaseUntil = DateTimeOffset.UtcNow.AddSeconds(limits.ItemTimeoutSeconds + 60);
+                job.LeaseUntil = time.GetUtcNow().AddSeconds(limits.ItemTimeoutSeconds + 60);
                 foreach (var item in job.Items.Where(x => x.State == ReportItemState.Running))
                     item.State = ReportItemState.Queued;
                 await db.SaveChangesAsync(ct);
@@ -76,7 +77,7 @@ public sealed class ReportRunner(
                     ItemId = item.Id,
                     Revision = job.Revision,
                     Key = "",
-                    Name = ReportFileNames.Pdf(item.SiteIds, siteNames, DateTimeOffset.UtcNow),
+                    Name = ReportFileNames.Pdf(item.SiteIds, siteNames, time.GetUtcNow()),
                     ContentType = "application/pdf",
                 };
                 // The object identity is unique per attempt; a stale worker cannot overwrite a newer PDF.
@@ -93,9 +94,8 @@ public sealed class ReportRunner(
                             var row = current.Items.Single(x => x.Id == item.Id);
                             row.State = ReportItemState.Running;
                             row.Attempt++;
-                            current.LeaseUntil = DateTimeOffset.UtcNow.AddSeconds(
-                                limits.ItemTimeoutSeconds + 60
-                            );
+                            current.LeaseUntil = time.GetUtcNow()
+                                .AddSeconds(limits.ItemTimeoutSeconds + 60);
                             db.Artifacts.Add(artifact);
                             await db.SaveChangesAsync(ct);
                             return true;
@@ -137,11 +137,7 @@ public sealed class ReportRunner(
                             artifact,
                             limits.MaxPdfBytes,
                             async stream =>
-                                result = await definition.RenderAsync(
-                                    ReportAccess.Request(job, item.SiteIds),
-                                    stream,
-                                    timeout.Token
-                                ),
+                                result = await Render(definition, job, item, stream, timeout.Token),
                             timeout.Token
                         );
                     }
@@ -192,7 +188,7 @@ public sealed class ReportRunner(
                                 ct
                             );
                             row.ErrorCode = error ?? (result is null ? "generation_failed" : null);
-                            row.GeneratedAt = DateTimeOffset.UtcNow;
+                            row.GeneratedAt = time.GetUtcNow();
                             row.WarningsJson = "[]";
                             row.DependenciesJson = "{}";
                             if (error is null && result is not null)
@@ -250,7 +246,7 @@ public sealed class ReportRunner(
             return new Dictionary<Guid, string>();
         using var scope = Scope(org, region);
         var sites = await scope
-            .ServiceProvider.GetRequiredService<IReportSiteSource>()
+            .ServiceProvider.GetRequiredService<ISiteSource>()
             .SelectAsync(org, new NodeScope.EntireOrg(org), job.SiteIds, job.SiteIds.Length, ct);
         return sites.ToDictionary(x => x.Id, x => x.Name);
     }
@@ -284,7 +280,7 @@ public sealed class ReportRunner(
                     JobId = job.Id,
                     Revision = job.Revision,
                     Key = "",
-                    Name = ReportFileNames.Zip(job.SiteIds.Length, DateTimeOffset.UtcNow),
+                    Name = ReportFileNames.Zip(job.SiteIds.Length, time.GetUtcNow()),
                     ContentType = "application/zip",
                 },
                 region
@@ -298,9 +294,8 @@ public sealed class ReportRunner(
                     {
                         if (!Owns(current, job.Revision, owner))
                             return false;
-                        current.LeaseUntil = DateTimeOffset.UtcNow.AddSeconds(
-                            limits.ItemTimeoutSeconds + 60
-                        );
+                        current.LeaseUntil = time.GetUtcNow()
+                            .AddSeconds(limits.ItemTimeoutSeconds + 60);
                         db.Artifacts.Add(artifact);
                         await db.SaveChangesAsync(ct);
                         return true;
@@ -419,12 +414,46 @@ public sealed class ReportRunner(
                 if (!Owns(current, job.Revision, owner))
                     return false;
                 current.ErrorCode = error;
-                ReportEndpoints.Finish(current, state, limits);
+                ReportEndpoints.Finish(current, state, limits, time.GetUtcNow());
                 await db.SaveChangesAsync(ct);
                 return true;
             },
             ct
         );
+    }
+
+    /// <summary>
+    /// Render under a real deadline. A definition may spend its whole budget
+    /// inside one synchronous library call that never observes the token, so
+    /// awaiting it directly made ItemTimeoutSeconds advisory: the lease
+    /// expired, another worker re-claimed the item, and the same PDF was
+    /// produced twice with two settlements to reconcile. The render runs on
+    /// its own thread and is abandoned when the deadline passes; the bounded
+    /// stream then refuses its remaining writes. A render stuck in pure
+    /// computation still runs to completion on that thread - it cannot be
+    /// killed - but nothing waits for it and nothing it writes is published.
+    /// </summary>
+    private static async Task<IReportDefinition.Output> Render(
+        IReportDefinition definition,
+        ReportJob job,
+        ReportItem item,
+        Stream stream,
+        CancellationToken ct
+    )
+    {
+        var render = Task.Run(
+            () => definition.RenderAsync(ReportAccess.Request(job, item.SiteIds), stream, ct),
+            CancellationToken.None
+        );
+        // An abandoned render faults on its next write; observe it so it is
+        // not reported as an unobserved task exception.
+        _ = render.ContinueWith(
+            static task => task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default
+        );
+        return await render.WaitAsync(ct);
     }
 
     private static bool Owns(ReportJob job, int revision, Guid owner) =>
@@ -491,7 +520,16 @@ public sealed class ReportRunner(
             FileOptions.Asynchronous | FileOptions.DeleteOnClose
         );
         using var bounded = new ReportWriteStream(file, limit);
-        await render(bounded);
+        try
+        {
+            await render(bounded);
+        }
+        finally
+        {
+            // Past this point the render may still be running; its writes must
+            // not reach the file this method is about to close.
+            bounded.Abandon();
+        }
         ct.ThrowIfCancellationRequested();
         if (file.Length == 0)
             throw new IOException("Report output is empty.");

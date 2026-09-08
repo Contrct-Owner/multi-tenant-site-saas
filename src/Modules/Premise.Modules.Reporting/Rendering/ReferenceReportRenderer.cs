@@ -12,7 +12,7 @@ namespace Premise.Modules.Reporting.Rendering;
 public sealed class ReferenceReportRenderer(
     IReportRequester requesters,
     IScopeResolver scopes,
-    IReportSiteSource sites,
+    ISiteSource sites,
     IReportFileSource files,
     IReportOverlaySource overlays,
     IObjectStore storage,
@@ -88,8 +88,7 @@ public sealed class ReferenceReportRenderer(
             {
                 ReportSelection.Organization =>
                     "Organization-wide selection captured at submission.",
-                ReportSelection.Accessible =>
-                    "Accessible sites selection captured at submission.",
+                ReportSelection.Accessible => "Accessible sites selection captured at submission.",
                 _ => "Explicitly selected sites captured at submission.",
             }
         );
@@ -277,8 +276,13 @@ public sealed class ReferenceReportRenderer(
         var image = paragraph.AddImage("base64:" + Convert.ToBase64String(bytes));
         image.LockAspectRatio = true;
         // Bound portrait height as well as width to stay inside the printable page.
-        using var decoded = SkiaSharp.SKImage.FromEncodedData(bytes);
-        image.Width = Unit.FromCentimeter(Math.Min(16, 20d * decoded.Width / decoded.Height));
+        // The header carries the dimensions: decoding every pixel a second time
+        // only to compute an aspect ratio doubled the work for every image.
+        using var stream = new MemoryStream(bytes, writable: false);
+        using var codec =
+            SkiaSharp.SKCodec.Create(stream) ?? throw new InvalidDataException("Invalid image.");
+        var size = codec.Info;
+        image.Width = Unit.FromCentimeter(Math.Min(16, 20d * size.Width / size.Height));
     }
 
     private static Table Table(Section section, double[] widths)

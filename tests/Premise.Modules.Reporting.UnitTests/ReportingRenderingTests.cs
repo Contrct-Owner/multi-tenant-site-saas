@@ -4,7 +4,7 @@ using PdfSharp.Pdf.IO;
 using Premise.Modules.Reporting.Rendering;
 using SkiaSharp;
 
-namespace Premise.IntegrationTests;
+namespace Premise.Modules.Reporting.UnitTests;
 
 public sealed class ReportingRenderingTests
 {

@@ -8,7 +8,7 @@ namespace Premise.Modules.Reporting;
 public sealed class ReportAccess(
     IReportRequester requesters,
     IScopeResolver scopes,
-    IReportSiteSource sites
+    ISiteSource sites
 )
 {
     /// <summary>

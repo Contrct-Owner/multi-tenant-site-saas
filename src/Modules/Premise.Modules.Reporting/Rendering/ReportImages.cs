@@ -10,7 +10,11 @@ public static class ReportImages
     public const int MaxDimension = 10_000;
     public const int OutputDimension = 1600;
 
-    public static async Task<byte[]> ReadAsync(Stream source, CancellationToken ct)
+    public static async Task<byte[]> ReadAsync(
+        Stream source,
+        CancellationToken ct,
+        bool preserveLossless = false
+    )
     {
         using var buffer = new MemoryStream();
         var chunk = new byte[16 * 1024];
@@ -22,10 +26,16 @@ public static class ReportImages
             buffer.Write(chunk, 0, read);
         }
         ct.ThrowIfCancellationRequested();
-        return Normalize(buffer.ToArray());
+        return Normalize(buffer.ToArray(), preserveLossless);
     }
 
-    public static byte[] Normalize(byte[] encoded)
+    /// <param name="preserveLossless">
+    /// Re-encode a PNG source as PNG. Map tiles are flat colour, hard edges and
+    /// small labels - exactly what JPEG blurs - so they keep their format.
+    /// Photographs stay JPEG, where the quality loss is invisible and the size
+    /// difference is not.
+    /// </param>
+    public static byte[] Normalize(byte[] encoded, bool preserveLossless = false)
     {
         if (encoded.Length is 0 or > MaxEncodedBytes)
             throw new InvalidDataException("Image exceeds encoded byte limit.");
@@ -107,7 +117,10 @@ public static class ReportImages
             );
         }
         using var result = SKImage.FromBitmap(normalized);
-        using var data = result.Encode(SKEncodedImageFormat.Jpeg, 85);
+        using var data =
+            preserveLossless && codec.EncodedFormat == SKEncodedImageFormat.Png
+                ? result.Encode(SKEncodedImageFormat.Png, 100)
+                : result.Encode(SKEncodedImageFormat.Jpeg, 85);
         return data.ToArray();
     }
 }

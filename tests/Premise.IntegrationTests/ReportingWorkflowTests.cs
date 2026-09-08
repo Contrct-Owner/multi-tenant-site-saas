@@ -1358,6 +1358,109 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         );
     }
 
+    /// <summary>
+    /// One unreachable object must not starve the sweep. Jobs are taken oldest
+    /// first, so a job whose artifact key cannot be deleted used to throw out of
+    /// the loop and be first again on the next tick: nothing behind it in that
+    /// organization was ever cleaned up.
+    /// </summary>
+    [Fact]
+    public async Task A_job_whose_bytes_cannot_be_deleted_does_not_stall_the_ones_behind_it()
+    {
+        var (client, sites) = await Setup(1);
+        var expired = DateTimeOffset.UtcNow.AddDays(-1);
+        Guid poisoned;
+        Guid following;
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            scope
+                .ServiceProvider.GetRequiredService<TenantContext>()
+                .Set(fixture.OrgA, RegionId.Default);
+            var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
+            var user = await scope
+                .ServiceProvider.GetRequiredService<Premise.Modules.Identity.Data.IdentityDbContext>()
+                .Users.SingleAsync(x => x.Email == ApiFixture.UserA);
+            ReportJob Seed(string key, DateTimeOffset created)
+            {
+                var job = new ReportJob
+                {
+                    OrgId = fixture.OrgA,
+                    RequestedBy = user.Id,
+                    ReportType = "workflow-test",
+                    DefinitionVersion = 1,
+                    Mode = ReportMode.Single,
+                    Selection = ReportSelection.Selected,
+                    OptionsJson = "{}",
+                    SiteIds = sites,
+                    State = ReportJobState.Completed,
+                    CreatedAt = created,
+                    ExpiresAt = expired,
+                    MetadataExpiresAt = expired,
+                };
+                var item = new ReportItem
+                {
+                    OrgId = fixture.OrgA,
+                    JobId = job.Id,
+                    SiteIds = sites,
+                    State = ReportItemState.Failed,
+                };
+                job.Items.Add(item);
+                job.Artifacts.Add(
+                    new ReportArtifact
+                    {
+                        OrgId = fixture.OrgA,
+                        JobId = job.Id,
+                        ItemId = item.Id,
+                        Revision = 0,
+                        Key = key,
+                        Name = "attempt.pdf",
+                        ContentType = "application/pdf",
+                    }
+                );
+                db.Jobs.Add(job);
+                return job;
+            }
+            // The local store refuses a key that escapes its root, so deleting
+            // this artifact's bytes throws where a missing object would not.
+            poisoned = Seed("../escapes-the-store", expired.AddMinutes(-10)).Id;
+            following = Seed(
+                $"{RegionId.Default.Value}/{fixture.OrgA.Value}/reports/clean",
+                expired.AddMinutes(-9)
+            ).Id;
+            await db.SaveChangesAsync();
+        }
+
+        await fixture.PublishForOrgA(new MaintainReports());
+        await ApiFixture.WaitUntilAsync(
+            async () =>
+            {
+                using var scope = fixture.Factory.Services.CreateScope();
+                scope
+                    .ServiceProvider.GetRequiredService<TenantContext>()
+                    .Set(fixture.OrgA, RegionId.Default);
+                var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
+                return !await db.Jobs.AnyAsync(x => x.Id == following);
+            },
+            "the sweep to clear the job behind the poisoned one"
+        );
+
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            scope
+                .ServiceProvider.GetRequiredService<TenantContext>()
+                .Set(fixture.OrgA, RegionId.Default);
+            var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
+            // The job behind it was swept. The poisoned one is retained with its
+            // artifact, so the next tick retries the delete rather than silently
+            // dropping the row - and its revision proves the sweep got as far as
+            // committing the reclaim before the object store refused.
+            Assert.False(await db.Jobs.AnyAsync(x => x.Id == following));
+            var kept = await db.Jobs.SingleAsync(x => x.Id == poisoned);
+            Assert.Equal(1, kept.Revision);
+            Assert.True(await db.Artifacts.AnyAsync(x => x.JobId == poisoned));
+        }
+    }
+
     private async Task<(HttpClient Client, Guid[] Sites)> Setup(int count)
     {
         using var scope = fixture.Factory.Services.CreateScope();

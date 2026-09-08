@@ -90,14 +90,10 @@ public static class ReportEndpoints
             : gate.ToResult();
     }
 
+    // Configuration, not tenant data: no DbContext, so no transaction to own.
     [WolverineGet("/api/reports/basemaps")]
-    [Transactional(
-        typeof(ReportingDbContext),
-        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
-    )]
     [ProducesResponseType(typeof(BasemapResponse[]), 200)]
     public static async Task<IResult> Basemaps(
-        ReportingDbContext db,
         [FromServices] Rendering.ReportBasemaps basemaps,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -112,14 +108,10 @@ public static class ReportEndpoints
             : gate.ToResult();
     }
 
+    // The registry is a startup-built list; the same reasoning as Basemaps.
     [WolverineGet("/api/reports/types")]
-    [Transactional(
-        typeof(ReportingDbContext),
-        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
-    )]
     [ProducesResponseType(typeof(TypeResponse[]), 200)]
     public static async Task<IResult> Types(
-        ReportingDbContext db,
         [FromServices] ReportRegistry registry,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -145,7 +137,7 @@ public static class ReportEndpoints
         [FromServices] ReportRegistry registry,
         [FromServices] ReportLimits limits,
         [FromServices] ReportAccess access,
-        IReportSiteSource sites,
+        ISiteSource sites,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
         [FromServices] ReportQuota quota,
@@ -191,7 +183,10 @@ public static class ReportEndpoints
             await scopes.ScopeForAsync(user, Capabilities.SitesRead, ct),
             await scopes.ScopeForAsync(user, Capabilities.ReportsGenerate, ct)
         );
-        if (request.Selection == ReportSelection.Organization && siteScope is not NodeScope.EntireOrg)
+        if (
+            request.Selection == ReportSelection.Organization
+            && siteScope is not NodeScope.EntireOrg
+        )
             return Results.Forbid();
         var selected = await sites.SelectAsync(
             org,
@@ -204,7 +199,10 @@ public static class ReportEndpoints
             return ApiErrors.BadRequest(
                 $"The selection must contain 1..{limit} sites; it has not been truncated."
             );
-        if (request.Selection == ReportSelection.Selected && selected.Count != request.SiteIds.Length)
+        if (
+            request.Selection == ReportSelection.Selected
+            && selected.Count != request.SiteIds.Length
+        )
             return Results.NotFound();
         var ids = selected.Select(x => x.Id).ToArray();
         var input = new IReportDefinition.Request(
@@ -217,7 +215,7 @@ public static class ReportEndpoints
         if (!await definition.AuthorizeAsync(input, null, ct))
             return Results.Forbid();
         if (!await db.TryTakeAsync(org.Value, ct))
-            return Results.Problem("Report admission is busy; retry.", statusCode: 503);
+            return ApiErrors.Busy("Another report is being admitted. Try again in a moment.");
         if (
             await db.Jobs.CountAsync(
                 x =>
@@ -226,10 +224,7 @@ public static class ReportEndpoints
                 ct
             ) >= limits.MaxQueuedJobsPerOrg
         )
-            return Results.Problem(
-                "The organization already has too many queued reports.",
-                statusCode: 429
-            );
+            return ApiErrors.Status("The organization already has too many queued reports.", 429);
         var job = new ReportJob
         {
             OrgId = org,
@@ -266,7 +261,7 @@ public static class ReportEndpoints
         }
         catch (CapacityBusyException)
         {
-            return Results.Problem("Report quota admission is busy; retry.", statusCode: 503);
+            return ApiErrors.Busy("Another report is being admitted. Try again in a moment.");
         }
         if (!quotaDecision.IsAllowed)
             return GateResults.LimitReached(quotaDecision);
@@ -377,6 +372,7 @@ public static class ReportEndpoints
         [FromServices] ReportLimits limits,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        TimeProvider time,
         CancellationToken ct
     )
     {
@@ -396,7 +392,7 @@ public static class ReportEndpoints
         if (job.State is ReportJobState.Queued or ReportJobState.Running)
         {
             job.Revision++;
-            Finish(job, ReportJobState.Canceled, limits);
+            Finish(job, ReportJobState.Canceled, limits, time.GetUtcNow());
             await ReportQuota.ReleaseAsync(db, org, job.Id, ct);
             foreach (
                 var item in job.Items.Where(x =>
@@ -422,6 +418,7 @@ public static class ReportEndpoints
         [FromServices] ReportQuota quota,
         IEntitlements entitlements,
         IMessageBus bus,
+        TimeProvider time,
         CancellationToken ct
     )
     {
@@ -442,7 +439,7 @@ public static class ReportEndpoints
             return Results.NotFound();
         if (
             job.State is not (ReportJobState.Failed or ReportJobState.CompletedWithErrors)
-            || job.ExpiresAt <= DateTimeOffset.UtcNow
+            || job.ExpiresAt <= time.GetUtcNow()
         )
             return ApiErrors.Conflict(
                 "Only unexpired failed work can be retried. Generate again for a fresh batch."
@@ -450,7 +447,7 @@ public static class ReportEndpoints
         if (registry.Find(job.ReportType, job.DefinitionVersion) is null)
             return ApiErrors.Conflict("Report definition version is unavailable.");
         if (!await db.TryTakeAsync(org.Value, ct))
-            return Results.Problem("Report admission is busy; retry.", statusCode: 503);
+            return ApiErrors.Busy("Another report is being admitted. Try again in a moment.");
         if (
             await db.Jobs.CountAsync(
                 x =>
@@ -459,10 +456,7 @@ public static class ReportEndpoints
                 ct
             ) >= limits.MaxQueuedJobsPerOrg
         )
-            return Results.Problem(
-                "Too many queued reports for this organization.",
-                statusCode: 429
-            );
+            return ApiErrors.Status("Too many queued reports for this organization.", 429);
         EntitlementDecision quotaDecision;
         try
         {
@@ -475,7 +469,7 @@ public static class ReportEndpoints
         }
         catch (CapacityBusyException)
         {
-            return Results.Problem("Report quota admission is busy; retry.", statusCode: 503);
+            return ApiErrors.Busy("Another report is being admitted. Try again in a moment.");
         }
         if (!quotaDecision.IsAllowed)
             return GateResults.LimitReached(quotaDecision);
@@ -510,6 +504,7 @@ public static class ReportEndpoints
         IReportPublishedFiles files,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
+        TimeProvider time,
         CancellationToken ct
     )
     {
@@ -533,7 +528,7 @@ public static class ReportEndpoints
         if (artifact.ItemId is not null || !artifact.Ready || artifact.Revision != job.Revision)
             return Results.NotFound();
         if (
-            job.ExpiresAt <= DateTimeOffset.UtcNow
+            job.ExpiresAt <= time.GetUtcNow()
             || job.ExpiresAt is null
                 && job.State is not (ReportJobState.Queued or ReportJobState.Running)
         )
@@ -570,7 +565,7 @@ public static class ReportEndpoints
         if (!await access.CanReadSitesAsync(org, reader, job.SiteIds, ct))
             return Results.Forbid();
         var ttl = job.ExpiresAt is { } expires
-            ? Math.Min(60, (int)(expires - DateTimeOffset.UtcNow).TotalSeconds)
+            ? Math.Min(60, (int)(expires - time.GetUtcNow()).TotalSeconds)
             : 60;
         if (ttl < 1)
             return Results.NotFound();
@@ -584,10 +579,15 @@ public static class ReportEndpoints
         );
     }
 
-    internal static void Finish(ReportJob job, ReportJobState state, ReportLimits limits)
+    internal static void Finish(
+        ReportJob job,
+        ReportJobState state,
+        ReportLimits limits,
+        DateTimeOffset now
+    )
     {
         job.State = state;
-        job.CompletedAt = DateTimeOffset.UtcNow;
+        job.CompletedAt = now;
         job.ExpiresAt ??= job.CompletedAt.Value.AddDays(limits.ArtifactDays);
         job.MetadataExpiresAt ??= job.CompletedAt.Value.AddDays(
             Math.Max(limits.ArtifactDays, limits.MetadataDays)
@@ -628,9 +628,7 @@ public static class ReportEndpoints
                     x.FilePublished ? x.Id : null
                 ))
                 .ToArray(),
-            job.SiteIds.Where(names.ContainsKey)
-                .Select(x => new SiteRef(x, names[x]))
-                .ToArray(),
+            job.SiteIds.Where(names.ContainsKey).Select(x => new SiteRef(x, names[x])).ToArray(),
             job.RequestedBy == userId
         );
 }

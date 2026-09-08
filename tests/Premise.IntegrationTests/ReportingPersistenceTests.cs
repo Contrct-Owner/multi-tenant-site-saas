@@ -171,7 +171,7 @@ public sealed class ReportingPersistenceTests(ApiFixture fixture) : IClassFixtur
             }
         );
         await db.SaveChangesAsync();
-        var source = scope.ServiceProvider.GetRequiredService<IReportSiteSource>();
+        var source = scope.ServiceProvider.GetRequiredService<ISiteSource>();
         var selected = await source.SelectAsync(
             fixture.OrgA,
             new NodeScope.EntireOrg(fixture.OrgA),
@@ -317,7 +317,7 @@ public sealed class ReportingPersistenceTests(ApiFixture fixture) : IClassFixtur
     public async Task Report_sources_respect_empty_scope_and_refuse_unbounded_date_ranges()
     {
         using var a = Scope(fixture.OrgA);
-        var sites = a.ServiceProvider.GetRequiredService<IReportSiteSource>();
+        var sites = a.ServiceProvider.GetRequiredService<ISiteSource>();
         Assert.Empty(await sites.SelectAsync(fixture.OrgA, NodeScope.Nothing, null, 100));
         Assert.Empty(
             await sites.SelectAsync(fixture.OrgB, new NodeScope.EntireOrg(fixture.OrgB), null, 100)

@@ -28,6 +28,7 @@
     <Project Path="tests/Premise.ArchitectureTests/Premise.ArchitectureTests.csproj" />
     <Project Path="tests/Premise.FleetTests/Premise.FleetTests.csproj" />
     <Project Path="tests/Premise.IntegrationTests/Premise.IntegrationTests.csproj" />
+    <Project Path="tests/Premise.Modules.Reporting.UnitTests/Premise.Modules.Reporting.UnitTests.csproj" />
     <Project Path="tests/Premise.Platform.UnitTests/Premise.Platform.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tools/">

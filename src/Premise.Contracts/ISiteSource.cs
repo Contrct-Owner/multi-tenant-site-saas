@@ -2,8 +2,12 @@ using Premise.Platform.Kernel;
 
 namespace Premise.Contracts;
 
-/// <summary>Tenancy-owned report data. Explicit org and scope are mandatory on every read.</summary>
-public interface IReportSiteSource
+/// <summary>
+/// Tenancy-owned site data for any module that must read sites under a scope -
+/// Reporting names them in its output, Storage authorizes a file by them.
+/// Explicit org and scope are mandatory on every read.
+/// </summary>
+public interface ISiteSource
 {
     /// <summary>Returns at most limit+1 entries so callers can reject, never truncate, an oversized selection.</summary>
     Task<IReadOnlyList<Site>> SelectAsync(

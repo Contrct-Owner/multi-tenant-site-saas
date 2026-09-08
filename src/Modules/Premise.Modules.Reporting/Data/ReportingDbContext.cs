@@ -34,10 +34,7 @@ public sealed class ReportingDbContext(
                 .HasConversion(v => v.ToString().ToLowerInvariant(), s => Parse<ReportMode>(s))
                 .HasMaxLength(20);
             b.Property(x => x.Selection)
-                .HasConversion(
-                    v => v.ToString().ToLowerInvariant(),
-                    s => Parse<ReportSelection>(s)
-                )
+                .HasConversion(v => v.ToString().ToLowerInvariant(), s => Parse<ReportSelection>(s))
                 .HasMaxLength(30);
             b.Property(x => x.State).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.ErrorCode).HasMaxLength(80);

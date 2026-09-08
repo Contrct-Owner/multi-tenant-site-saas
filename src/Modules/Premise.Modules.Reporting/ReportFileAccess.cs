@@ -27,7 +27,10 @@ public sealed class ReportFileAccess(
         var item = await db
             .Items.AsNoTracking()
             .SingleOrDefaultAsync(
-                x => x.OrgId == org && x.Id == artifact.ItemId && x.State == ReportItemState.Succeeded,
+                x =>
+                    x.OrgId == org
+                    && x.Id == artifact.ItemId
+                    && x.State == ReportItemState.Succeeded,
                 ct
             );
         var job = await db

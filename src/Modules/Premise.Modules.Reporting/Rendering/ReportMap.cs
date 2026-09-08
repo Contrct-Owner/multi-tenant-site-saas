@@ -12,7 +12,7 @@ public sealed class ReportMap(ReportBasemaps basemaps)
     public async Task<byte[]> RenderAsync(
         ReportBasemaps.Provider provider,
         int maximumZoom,
-        IReadOnlyList<IReportSiteSource.Site> sites,
+        IReadOnlyList<ISiteSource.Site> sites,
         IReadOnlyList<IReportOverlaySource.Layer> overlays,
         CancellationToken ct
     )

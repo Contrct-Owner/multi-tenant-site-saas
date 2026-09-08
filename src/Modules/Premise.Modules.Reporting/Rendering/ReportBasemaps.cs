@@ -107,7 +107,7 @@ public sealed class ReportBasemaps : IDisposable
         if (response.Content.Headers.ContentLength > ReportImages.MaxEncodedBytes)
             throw new InvalidDataException("Map tile exceeds byte limit.");
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
-        return await ReportImages.ReadAsync(stream, ct);
+        return await ReportImages.ReadAsync(stream, ct, preserveLossless: true);
     }
 
     public static bool IsPublic(IPAddress address)

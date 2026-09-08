@@ -7,7 +7,7 @@ namespace Premise.Modules.Storage;
 
 public sealed class FileAccess(
     IScopeResolver scopes,
-    IReportSiteSource sites,
+    ISiteSource sites,
     IEnumerable<IFileOriginAccess> origins
 )
 {

@@ -27,11 +27,22 @@ public sealed class WorkflowReportDefinition(ConcurrentDictionary<Guid, int> att
 
     public string? ValidateOptions(JsonElement options) => null;
 
+    /// <summary>
+    /// Definition-level refusal, which only this contract can express: the
+    /// dependency argument is null at admission and generation and present at
+    /// download, so "denyAfterGeneration" allows the work and then refuses to
+    /// hand back what it produced.
+    /// </summary>
     public Task<bool> AuthorizeAsync(
         IReportDefinition.Request request,
         JsonElement? dependencies,
         CancellationToken ct
-    ) => Task.FromResult(true);
+    ) =>
+        Task.FromResult(
+            dependencies is null
+                || !request.Options.TryGetProperty("denyAfterGeneration", out var deny)
+                || !deny.GetBoolean()
+        );
 
     public async Task<IReportDefinition.Output> RenderAsync(
         IReportDefinition.Request request,
@@ -49,6 +60,16 @@ public sealed class WorkflowReportDefinition(ConcurrentDictionary<Guid, int> att
             throw new IOException("Test first-attempt failure.");
         if (request.Options.TryGetProperty("hold", out var hold) && hold.GetBoolean())
             await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+        if (request.Options.TryGetProperty("block", out var block) && block.GetBoolean())
+        {
+            // Ignore the token exactly as a synchronous rendering library does,
+            // then try to write anyway. The executor must already have given up.
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+            await destination.WriteAsync(
+                Encoding.UTF8.GetBytes("late bytes"),
+                CancellationToken.None
+            );
+        }
         if (request.Options.TryGetProperty("oversize", out var oversize) && oversize.GetBoolean())
         {
             var chunk = new byte[1024 * 1024];

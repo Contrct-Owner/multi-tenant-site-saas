@@ -6,9 +6,9 @@ using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Tenancy.Sites;
 
-public sealed class ReportSiteSource(TenancyDbContext db) : IReportSiteSource
+public sealed class SiteSource(TenancyDbContext db) : ISiteSource
 {
-    public async Task<IReadOnlyList<IReportSiteSource.Site>> SelectAsync(
+    public async Task<IReadOnlyList<ISiteSource.Site>> SelectAsync(
         OrgId org,
         NodeScope scope,
         Guid[]? ids,
@@ -34,7 +34,7 @@ public sealed class ReportSiteSource(TenancyDbContext db) : IReportSiteSource
             .HierarchyNodes.Where(x => x.OrgId == org && ancestorIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Name, ct);
         return sites
-            .Select(x => new IReportSiteSource.Site(
+            .Select(x => new ISiteSource.Site(
                 x.Id.Value,
                 x.Name,
                 x.Path.ToString(),
@@ -60,7 +60,7 @@ public sealed class ReportSiteSource(TenancyDbContext db) : IReportSiteSource
             .ToArray();
     }
 
-    public async Task<IReadOnlyList<IReportSiteSource.Hours>> HoursAsync(
+    public async Task<IReadOnlyList<ISiteSource.Hours>> HoursAsync(
         OrgId org,
         NodeScope scope,
         Guid[] ids,
@@ -86,7 +86,7 @@ public sealed class ReportSiteSource(TenancyDbContext db) : IReportSiteSource
             )
             .OrderBy(x => x.SiteId)
             .ThenBy(x => x.StartsAtUtc)
-            .Select(x => new IReportSiteSource.Hours(
+            .Select(x => new ISiteSource.Hours(
                 x.SiteId.Value,
                 x.LocalDate,
                 x.StartsAtUtc,
