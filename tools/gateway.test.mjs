@@ -145,6 +145,8 @@ try {
   await until(async () => (await request(0, fixture.token)).status === 429, 'scaling baseline allowance spent');
   scaled = true;
   compose('up', '-d', '--no-deps', '--scale', `api=${originalApiCount + 1}`, '--scale', `gateway=${originalGatewayCount + 1}`, 'api', 'gateway');
+  // A 429 can be served through an old API while the new API is still booting.
+  execFileSync('tools/gateway-stack.sh', ['wait-api'], { stdio: 'inherit' });
   gateways = gatewayUrls();
   assert.equal(gateways.length, originalGatewayCount + 1);
   for (let i = 0; i < gateways.length; i++) {
@@ -173,8 +175,14 @@ try {
   compose('restart', 'gateway');
   gateways = gatewayUrls();
   assert.equal(JSON.parse(compose('exec', '-T', 'redis', 'wget', '-q', '--header=Host: localhost', '-O', '-', 'http://api:8080/livez')).status, 'alive');
-  for (let i = 0; i < gateways.length; i++)
-    assert.equal((await request(i, fixture.token)).status, 503, 'identity transport failure must fail closed');
+  for (let i = 0; i < gateways.length; i++) {
+    let response;
+    await until(async () => {
+      try { response = await request(i, fixture.token); return true; }
+      catch { return false; }
+    }, 'fault-injected gateway listener ready', 30000);
+    assert.equal(response.status, 503, 'identity transport failure must fail closed');
+  }
   writeFileSync(bootstrapPath, originalBootstrap);
   compose('restart', 'gateway');
   gateways = gatewayUrls();

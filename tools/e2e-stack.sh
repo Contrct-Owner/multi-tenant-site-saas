@@ -27,6 +27,7 @@ echo "Stack logs: $log_dir"
 cleanup() {
   status=$?
   set +e
+  rm -f "$log_dir/public.key" "$log_dir/public.crt"
   if [ "$status" -ne 0 ]; then
     # Capture before teardown so connection-reset noise cannot obscure the
     # actual failure. Playwright clears test-results at startup: copy only now.
@@ -74,13 +75,17 @@ pnpm --filter @premise/console build
 PREMISE_API="http://localhost:$api_port" pnpm --filter @premise/public build
 PREMISE_API="http://localhost:$api_port" pnpm --filter @premise/console exec vite preview --host 127.0.0.1 --port "$web_port" > "$log_dir/console.log" 2>&1 &
 web_pid=$!
-PREMISE_API="http://localhost:$api_port" pnpm --filter @premise/public start --host 127.0.0.1 --port "$public_port" > "$log_dir/public.log" 2>&1 &
+# Exercise production Secure cookies over TLS: WebKit correctly refuses them over HTTP localhost.
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=acme-dev.localhost' \
+  -keyout "$log_dir/public.key" -out "$log_dir/public.crt" > /dev/null 2>&1
+PREMISE_API="http://localhost:$api_port" pnpm --filter @premise/public start --host 127.0.0.1 --port "$public_port" \
+  --tls --cert "$log_dir/public.crt" --key "$log_dir/public.key" > "$log_dir/public.log" 2>&1 &
 public_pid=$!
 for _ in $(seq 1 60); do curl -fsS "http://localhost:$web_port/" >/dev/null 2>&1 && break; sleep 1; done
-for _ in $(seq 1 60); do curl -fsS "http://acme-dev.localhost:$public_port/" >/dev/null 2>&1 && break; sleep 1; done
-curl -fsS "http://acme-dev.localhost:$public_port/" >/dev/null || { echo "public app never became ready"; tail -50 "$log_dir/public.log"; exit 1; }
+for _ in $(seq 1 60); do curl -kfsS "https://acme-dev.localhost:$public_port/" >/dev/null 2>&1 && break; sleep 1; done
+curl -kfsS "https://acme-dev.localhost:$public_port/" >/dev/null || { echo "public app never became ready"; tail -50 "$log_dir/public.log"; exit 1; }
 if [ "${E2E_LOADING_BASELINE:-0}" = 1 ]; then
-  E2E_CONSOLE="http://localhost:$web_port" E2E_PUBLIC="http://acme-dev.localhost:$public_port" pnpm --filter @premise/e2e exec node loading-baseline.mjs
+  E2E_CONSOLE="http://localhost:$web_port" E2E_PUBLIC="https://acme-dev.localhost:$public_port" pnpm --filter @premise/e2e exec node loading-baseline.mjs
 else
-  E2E_CONSOLE="http://localhost:$web_port" E2E_PUBLIC="http://acme-dev.localhost:$public_port" pnpm test:e2e "$@"
+  E2E_CONSOLE="http://localhost:$web_port" E2E_PUBLIC="https://acme-dev.localhost:$public_port" pnpm test:e2e "$@"
 fi

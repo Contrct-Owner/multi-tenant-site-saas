@@ -38,6 +38,20 @@ PY
   dotnet publish "$root/src/Premise.Api" -c Release --os linux --arch "$architecture" -p:PublishProfile=DefaultContainer -p:ContainerImageTag=gateway-dev -v q
 fi
 compose=(docker compose --env-file "$runtime/.env" -f "$root/deploy/gateway/compose.yaml")
+wait_apis() {
+  local containers container ip ready
+  containers=$("${compose[@]}" ps -a -q api)
+  [ -n "$containers" ] || { echo "no API replicas" >&2; return 1; }
+  for container in $containers; do
+    ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container")
+    ready=false
+    for _ in $(seq 1 120); do
+      if "${compose[@]}" exec -T redis wget -q -T 2 --header="Host: localhost" -O /dev/null "http://$ip:8080/healthz" 2>/dev/null; then ready=true; break; fi
+      sleep 1
+    done
+    [ "$ready" = true ] || { echo "API $container did not become ready" >&2; exit 1; }
+  done
+}
 case "$action" in
   up)
     # This local runner uses a drained upgrade: the retirement migration must
@@ -55,18 +69,11 @@ case "$action" in
     done
     [ "$ready" = true ] || { echo "gateway did not become ready; inspect tools/gateway-stack.sh compose logs" >&2; exit 1; }
     "${compose[@]}" up -d --scale api="$api_count" --scale gateway="$gateway_count"
-    for container in $("${compose[@]}" ps -q api); do
-      ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container")
-      ready=false
-      for _ in $(seq 1 120); do
-        if "${compose[@]}" exec -T redis wget -q --header="Host: localhost" -O /dev/null "http://$ip:8080/healthz" 2>/dev/null; then ready=true; break; fi
-        sleep 1
-      done
-      [ "$ready" = true ] || { echo "API $container did not become ready" >&2; exit 1; }
-    done
+    wait_apis
     for index in $(seq 1 "$gateway_count"); do printf 'Gateway %s: http://%s\n' "$index" "$("${compose[@]}" port --index "$index" gateway 8080)"; done
     ;;
+  wait-api) wait_apis ;;
   down) "${compose[@]}" down ;;
   compose) "${compose[@]}" "$@" ;;
-  *) echo "usage: $0 up [api replicas] [gateway replicas] | down | compose ..." >&2; exit 1;;
+  *) echo "usage: $0 up [api replicas] [gateway replicas] | wait-api | down | compose ..." >&2; exit 1;;
 esac
