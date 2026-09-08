@@ -1,3 +1,5 @@
+> Remediation work is tracked separately in [docs/security-remediation.md](docs/security-remediation.md). The findings below preserve the original assessment evidence.
+
 # Premise security assessment
 
 **Review date:** 2026-09-07. **Repository:** `/Users/jarod/coding/location-saas`.

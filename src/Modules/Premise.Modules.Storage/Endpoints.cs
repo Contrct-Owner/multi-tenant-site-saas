@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Storage.Data;
 using Premise.Platform.Data;
+using Premise.Platform.Entitlements;
 using Premise.Platform.Kernel;
 using Premise.Platform.Storage;
 using Wolverine;
@@ -63,6 +64,29 @@ public static class FileEndpoints
         if (request.SizeBytes is <= 0 or > MaxUploadBytes)
             return ApiErrors.BadRequest($"size must be 1..{MaxUploadBytes} bytes");
 
+        if (
+            string.IsNullOrWhiteSpace(request.Name)
+            || request.Name.Length > 300
+            || string.IsNullOrWhiteSpace(request.ContentType)
+            || request.ContentType.Length > 100
+        )
+            return ApiErrors.BadRequest("invalid file name or content type");
+        if (!await CapacityReservations.TryLockAsync(db, org, "storage.upload", ct))
+            return ApiErrors.Conflict("another upload is being admitted; retry");
+        var outstanding = db.Files.Where(f =>
+            f.Status == FileStatus.PendingUpload
+            || f.Status == FileStatus.Uploaded
+            || f.Status == FileStatus.Quarantined
+        );
+        if (
+            await outstanding.CountAsync(ct) >= 20
+            || (await outstanding.SumAsync(f => (long?)f.MaxBytes, ct) ?? 0) + request.SizeBytes
+                > 500L * 1024 * 1024
+        )
+            return ApiErrors.Status(
+                "outstanding upload budget exceeded",
+                StatusCodes.Status429TooManyRequests
+            );
         var id = Guid.CreateVersion7();
         // tenant- and region-scoped key layout (ADR 19/35)
         var key = $"{RegionId.Default.Value}/{org.Value}/files/{id}";
@@ -79,12 +103,14 @@ public static class FileEndpoints
         db.Files.Add(file);
         await db.SaveChangesAsync(ct);
 
-        var ticket = await store.CreateUploadTicketAsync(
-            key,
-            request.ContentType,
-            request.SizeBytes,
-            ct
-        );
+        var ticket = store.SupportsBoundedUpload
+            ? await store.CreateUploadTicketAsync(key, request.ContentType, request.SizeBytes, ct)
+            : new UploadTicket(
+                $"/api/files/{id}/content",
+                "PUT",
+                new Dictionary<string, string> { ["Content-Type"] = request.ContentType },
+                file.CreatedAt.AddMinutes(15)
+            );
         return Results.Ok(new CreateFileResponse(id, ticket));
     }
 
@@ -117,10 +143,16 @@ public static class FileEndpoints
         if (length is null or 0)
             return ApiErrors.BadRequest("no bytes were uploaded for this ticket");
         if (length > file.MaxBytes)
+        {
+            // Retain the inaccessible object until the ticket expires, then sweep it.
+            // Deleting now would let the still-live create-only ticket upload again.
+            file.Status = FileStatus.Quarantined;
+            await db.SaveChangesAsync(ct);
             return ApiErrors.Status(
                 $"uploaded object exceeds the declared {file.MaxBytes} bytes",
                 StatusCodes.Status413PayloadTooLarge
             );
+        }
 
         file.Status = FileStatus.Uploaded;
         await db.SaveChangesAsync(ct);
@@ -154,7 +186,11 @@ public static class FileEndpoints
             return new GateOutcome.Forbidden(Capabilities.FilesRead).ToResult();
         var query = trash is true
             ? db.Files.Where(f => f.Status == FileStatus.Deleted)
-            : db.Files.Where(f => f.Status != FileStatus.Erased && f.Status != FileStatus.Deleted);
+            : db.Files.Where(f =>
+                f.Status != FileStatus.Erased
+                && f.Status != FileStatus.Deleted
+                && f.DeletedAt == null
+            );
         if (!string.IsNullOrWhiteSpace(q))
             query = query.Where(f => EF.Functions.ILike(f.Name, $"%{q.Trim()}%"));
         if (siteId is { } selectedSite)
@@ -273,10 +309,21 @@ public static class FileEndpoints
         if (file.LegalHold)
             return ApiErrors.Conflict("file is under legal hold");
 
-        // only CLEAN content earns the restore window; anything else
-        // (quarantined, never-scanned) erases immediately - a trash
-        // round-trip must never launder a quarantined file back to Clean
-        if (file.Status != FileStatus.Clean)
+        // Only Clean content earns a restore window. Fresh direct cloud tickets
+        // retain inaccessible bytes until expiry so deletion cannot revive them.
+        if (
+            file.Status != FileStatus.Clean
+            && store.SupportsBoundedUpload
+            && store is not LocalObjectStore
+            && file.CreatedAt.AddMinutes(15) > DateTimeOffset.UtcNow
+        )
+        {
+            // Keep the create-only cloud ticket occupied and charged to admission
+            // until expiry; deleting its object now would permit a fresh upload.
+            file.Status = FileStatus.Quarantined;
+            file.DeletedAt = DateTimeOffset.UtcNow;
+        }
+        else if (file.Status != FileStatus.Clean)
         {
             await store.DeleteAsync(file.Key, ct);
             if (file.PreviewKey is { } previewKey)
@@ -293,7 +340,7 @@ public static class FileEndpoints
 
         await bus.PublishAsync(
             new Premise.Contracts.RecordDomainAudit(
-                file.Status == FileStatus.Deleted ? "file.deleted" : "file.erased",
+                file.Status != FileStatus.Erased ? "file.deleted" : "file.erased",
                 System.Text.Json.JsonSerializer.Serialize(new { file.Id, file.Name })
             ),
             new DeliveryOptions { TenantId = file.OrgId.Value.ToString() }

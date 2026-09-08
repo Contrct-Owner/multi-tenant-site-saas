@@ -28,7 +28,9 @@ public sealed class GuestSessionMiddleware(RequestDelegate next, IHostEnvironmen
                     // same policy as the session cookie: Secure whenever the
                     // (forwarded-header-resolved) request is HTTPS, and a
                     // hard floor in Production
-                    Secure = context.Request.IsHttps || environment.IsProduction(),
+                    Secure =
+                        context.Request.IsHttps
+                        || (!environment.IsDevelopment() && !environment.IsEnvironment("Testing")),
                     MaxAge = TimeSpan.FromDays(30),
                     IsEssential = true,
                 }

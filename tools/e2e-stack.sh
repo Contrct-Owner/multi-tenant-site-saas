@@ -46,7 +46,7 @@ cleanup() {
 trap cleanup EXIT
 docker rm -f e2e-pg >/dev/null 2>&1 || true
 source "$root/tools/postgres-image.sh"
-docker run -d --name e2e-pg -p "$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" >/dev/null
+docker run -d --name e2e-pg -p "127.0.0.1:$pg_port:5432" -e POSTGRES_PASSWORD=owner -e POSTGRES_DB=premise "$PREMISE_POSTGRES_IMAGE" >/dev/null
 # Over TCP, not the socket: the image's first-time init runs a temporary
 # server on the socket alone (PostGIS extension scripts take seconds), so a
 # socket check says "ready" before the real server is up (ADR 50).

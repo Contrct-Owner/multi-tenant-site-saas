@@ -46,14 +46,13 @@ public static class SyncDueConnectorsHandler
         var due = scheduled
             .Where(c =>
                 c.LastSyncedAt is null
-                || c.LastSyncedAt.Value.AddHours(c.SyncIntervalHours!.Value) <= now
+                || c.SyncIntervalHours is > 0 and <= 8760
+                    && c.LastSyncedAt.Value.AddHours(c.SyncIntervalHours.Value) <= now
             )
             .Select(c => c.Id);
         foreach (var connectorId in due)
-            await bus.PublishAsync(
-                new SyncSiteConnector(connectorId),
-                new DeliveryOptions { TenantId = org.Value.ToString() }
-            );
+            if (!await ConnectorQueue.EnqueueAsync(db, org, connectorId, bus, ct))
+                break;
     }
 }
 

@@ -143,7 +143,7 @@ public interface IOrgDataExporter
 }
 
 /// <summary>Assemble the org's export archive (handled by Storage; tenant on the envelope).</summary>
-public sealed record ExportOrgData(Guid RequestedBy);
+public sealed record ExportOrgData(Guid RequestedBy, Guid? AdmissionId = null);
 
 /// <summary>
 /// Org deletion fan-out, one command per owning module so each Wolverine

@@ -42,7 +42,7 @@ public class GeoSearchTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         // the public host resolves the org (ADR 7): guest + forwarded host
         var guest = fixture.GuestClient();
-        guest.DefaultRequestHeaders.Add("X-Forwarded-Host", "org-a.localhost");
+        guest.DefaultRequestHeaders.Host = "org-a.localhost";
         var near = (
             await guest.GetFromJsonAsync<JsonElement>(
                 "/public/sites?near=42.3601,-71.0589" // downtown Boston

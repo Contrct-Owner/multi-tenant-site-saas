@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Checklists.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
 
@@ -29,7 +30,7 @@ public sealed class ChecklistsExporter(ChecklistsDbContext db) : IOrgDataExporte
                 t.ScopePath,
                 t.CreatedAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         var checks = await db
             .Checks.IgnoreQueryFilters()
             .Where(c => c.OrgId == org)
@@ -41,7 +42,7 @@ public sealed class ChecklistsExporter(ChecklistsDbContext db) : IOrgDataExporte
                 c.ItemIndex,
                 c.CheckedAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         return JsonSerializer.Serialize(
             new { templates, checks },
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }

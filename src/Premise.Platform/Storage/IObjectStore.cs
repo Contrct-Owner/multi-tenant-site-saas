@@ -10,6 +10,9 @@ namespace Premise.Platform.Storage;
 /// </summary>
 public interface IObjectStore
 {
+    /// <summary>False uses the authenticated bounded upload relay instead of an unbounded provider ticket.</summary>
+    bool SupportsBoundedUpload => false;
+
     /// <summary>
     /// Short-lived create-only upload instruction. Clients must send every ticket header.
     /// maxBytes is a hint where the provider supports it; completion MUST verify stored length.

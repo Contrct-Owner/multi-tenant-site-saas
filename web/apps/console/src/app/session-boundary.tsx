@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api, ApiError, resetSessionContext, SESSION_CONTEXT_CHANGED, SESSION_CONTEXT_OBSERVED } from '@premise/api';
+import { clearPrivateCache } from './persisted';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 type Transition = (change: () => Promise<unknown>) => Promise<void>;
@@ -52,6 +53,7 @@ export function SessionBoundary({ children }: { children: ReactNode }) {
       // Even an unsuccessful response may have changed the cookie. Resolve /me
       // afresh instead of restoring cached tenant data under an uncertain session.
       client.clear();
+      clearPrivateCache();
       const uncertain = writes.map((mutation) => mutation.state.error)
         .find((cause) => cause instanceof ApiError && cause.outcomeUnknown);
       setError([transitionError, uncertain?.message].filter(Boolean).join(' ') || undefined);
@@ -65,6 +67,7 @@ export function SessionBoundary({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    clearPrivateCache();
     const probe = new AbortController();
     const updates = new BroadcastChannel('premise-session');
     channel.current = updates;

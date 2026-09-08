@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Reporting.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 
 namespace Premise.Modules.Reporting;
@@ -26,7 +27,7 @@ public sealed class ReportingExporter(ReportingDbContext db) : IOrgDataExporter
                     x.CompletedAt,
                     x.ExpiresAt,
                 })
-                .ToListAsync(ct),
+                .ToBoundedExportListAsync(ct),
             JsonSerializerOptions.Web
         );
 }

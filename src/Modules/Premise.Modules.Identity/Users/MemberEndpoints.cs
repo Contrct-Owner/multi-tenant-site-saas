@@ -76,6 +76,9 @@ public static class MemberEndpoints
             );
 
         await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);
+        await db
+            .GrantExceptions.Where(e => e.OrgId == org && e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
         db.Memberships.Remove(membership);
         await db.SaveChangesAsync(ct);
 
@@ -325,6 +328,9 @@ public static class MemberEndpoints
 
         // deletion tier 3 (ADR 25): the membership ends; audit is the record
         await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);
+        await db
+            .GrantExceptions.Where(e => e.OrgId == org && e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
         db.Memberships.Remove(membership);
         await db.SaveChangesAsync(ct);
 

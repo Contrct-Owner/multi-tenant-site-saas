@@ -33,7 +33,10 @@ public static class FileReadEndpoint
         // list page, and expose neither bytes nor storage keys before scanning.
         var file = await db
             .Files.Where(f =>
-                f.Id == id && f.Status != FileStatus.Deleted && f.Status != FileStatus.Erased
+                f.Id == id
+                && f.Status != FileStatus.Deleted
+                && f.Status != FileStatus.Erased
+                && f.DeletedAt == null
             )
             .SingleOrDefaultAsync(ct);
         return
