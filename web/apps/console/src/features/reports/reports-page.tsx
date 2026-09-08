@@ -131,6 +131,7 @@ function Reports({ runId }: { runId?: string }) {
         {runs}
       </div>
     );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -148,7 +149,7 @@ function Reports({ runId }: { runId?: string }) {
 
 function ReportDetails({ id, quota }: { id: string; quota?: Quota }) {
   const { data: me } = useMe();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const heading = useRef<HTMLDivElement>(null);
   const report = useQuery({
     queryKey: ['reports', id],
     queryFn: ({ signal }) => reportsApi.get(id, signal),
@@ -191,16 +192,27 @@ function ReportDetails({ id, quota }: { id: string; quota?: Quota }) {
   const failed = job?.items.filter((item) => item.state === 'Failed') ?? [];
   const bundle = job?.artifacts.find((x) => x.contentType === 'application/zip');
   const siteName = (siteId: string) =>
-    job?.sites.find((s) => s.id === siteId)?.name ?? 'Site you cannot see';
+    job?.sites.find((s) => s.id === siteId)?.name ?? 'Site unavailable';
+
+  const subject =
+    job === undefined
+      ? undefined
+      : job.sites.length === 1
+        ? job.sites[0]!.name
+        : `${job.sites.length} sites`;
 
   return (
-    <Panel
-      title={
-        <h2 ref={heading} tabIndex={-1}>
-          Report run
-        </h2>
-      }
-    >
+    <div className="space-y-4">
+      {/* Focus lands here after the dialog navigates; the ring is deliberate. */}
+      <div ref={heading} tabIndex={-1}>
+        <PageHeader
+          title="Report run"
+          description={
+            subject && `${subject} · ${job!.reportType} · ${fmtDateTime(job!.createdAt)}`
+          }
+        />
+      </div>
+      <Panel title="Progress and results">
       {report.isPending && <p role="status">Loading report…</p>}
       {report.error && <p role="alert">{report.error.message}</p>}
       {job && (
@@ -209,11 +221,9 @@ function ReportDetails({ id, quota }: { id: string; quota?: Quota }) {
             {job.state} · {job.items.filter((i) => i.state === 'Succeeded').length} of{' '}
             {job.items.length} PDFs ready
           </p>
-          <p className="text-sm">
-            {job.sites.length === 1 ? job.sites[0]!.name : `${job.sites.length} sites`} ·{' '}
-            {fmtDateTime(job.createdAt)}
-            {bundle && job.expiresAt && ` · ZIP expires ${fmtDateTime(job.expiresAt)}`}
-          </p>
+          {bundle && job.expiresAt && (
+            <p className="text-sm">ZIP expires {fmtDateTime(job.expiresAt)}</p>
+          )}
           {job.errorCode && <p role="alert">{job.errorCode}</p>}
           {modify && active(job.state) && (
             <Button disabled={cancel.isPending} onClick={() => cancel.mutate()}>
@@ -279,6 +289,7 @@ function ReportDetails({ id, quota }: { id: string; quota?: Quota }) {
           )}
         </div>
       )}
-    </Panel>
+      </Panel>
+    </div>
   );
 }

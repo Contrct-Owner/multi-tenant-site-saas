@@ -31,10 +31,25 @@ export class ApiError extends Error {
     public readonly body: unknown,
     cause?: unknown,
     public readonly outcomeUnknown = false,
+    /** Seconds the server asked the caller to wait, from Retry-After. */
+    public readonly retryAfterSeconds?: number,
   ) {
     super(apiErrorMessage(status, body), { cause });
     this.name = 'ApiError';
   }
+}
+
+/**
+ * A refusal the server itself says is transient. It must name a Retry-After: a
+ * bare 503 can come from something in front of the API, after the work was
+ * already done, and repeating a write on that guess is how a request lands twice.
+ */
+export function isTransient(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    error.status === 503 &&
+    error.retryAfterSeconds !== undefined
+  );
 }
 
 export type ApiProblem = {
@@ -116,6 +131,7 @@ function apiErrorMessage(status: number, body: unknown): string {
   if (status === 401) return 'Sign in required';
   if (status === 403) return 'Permission denied';
   if (status === 409) return 'The request conflicts with a newer change';
+  if (status === 503) return 'The server is busy. Please try again.';
   return `API ${status}`;
 }
 
@@ -274,7 +290,19 @@ async function request<T>(
       window.dispatchEvent(new CustomEvent(SESSION_CONTEXT_OBSERVED, { detail: observed }));
     }
   }
-  if (!response.ok) throw new ApiError(response.status, parsed);
+  if (!response.ok) {
+    // Number(null) is 0, which would have made every bare 503 look like the
+    // server had asked for an immediate retry.
+    const header = response.headers.get('Retry-After');
+    const after = header === null || header.trim() === '' ? Number.NaN : Number(header);
+    throw new ApiError(
+      response.status,
+      parsed,
+      undefined,
+      false,
+      Number.isFinite(after) && after >= 0 ? after : undefined,
+    );
+  }
   return parsed as T;
 }
 
