@@ -10,11 +10,11 @@ public sealed class ReportJob : IOrgScoped
     public required Guid RequestedBy { get; init; }
     public required string ReportType { get; init; }
     public required int DefinitionVersion { get; init; }
-    public required string Mode { get; init; }
-    public required string Selection { get; init; }
+    public required ReportMode Mode { get; init; }
+    public required ReportSelection Selection { get; init; }
     public required string OptionsJson { get; init; }
     public required Guid[] SiteIds { get; init; }
-    public string State { get; set; } = "Queued";
+    public ReportJobState State { get; set; } = ReportJobState.Queued;
     public string? ErrorCode { get; set; }
     public int Revision { get; set; }
     public Guid? LeaseOwner { get; set; }

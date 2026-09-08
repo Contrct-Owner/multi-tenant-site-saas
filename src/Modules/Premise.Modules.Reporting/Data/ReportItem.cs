@@ -9,7 +9,7 @@ public sealed class ReportItem : IOrgScoped
     public required OrgId OrgId { get; init; }
     public required Guid JobId { get; init; }
     public required Guid[] SiteIds { get; init; }
-    public string State { get; set; } = "Queued";
+    public ReportItemState State { get; set; } = ReportItemState.Queued;
     public int Attempt { get; set; }
     public DateTimeOffset? GeneratedAt { get; set; }
     public string? ErrorCode { get; set; }

@@ -22,7 +22,7 @@ public interface IReportDefinition
         OrgId Org,
         Guid UserId,
         Guid[] SiteIds,
-        string Selection,
+        ReportSelection Selection,
         JsonElement Options
     );
 

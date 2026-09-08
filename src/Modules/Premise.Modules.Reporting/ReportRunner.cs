@@ -33,16 +33,16 @@ public sealed class ReportRunner(
             async (db, job) =>
             {
                 if (
-                    job.State is not ("Queued" or "Running")
+                    job.State is not (ReportJobState.Queued or ReportJobState.Running)
                     || job.LeaseUntil > DateTimeOffset.UtcNow
                     || job.ExpiresAt <= DateTimeOffset.UtcNow
                 )
                     return false;
-                job.State = "Running";
+                job.State = ReportJobState.Running;
                 job.LeaseOwner = owner;
                 job.LeaseUntil = DateTimeOffset.UtcNow.AddSeconds(limits.ItemTimeoutSeconds + 60);
-                foreach (var item in job.Items.Where(x => x.State == "Running"))
-                    item.State = "Queued";
+                foreach (var item in job.Items.Where(x => x.State == ReportItemState.Running))
+                    item.State = ReportItemState.Queued;
                 await db.SaveChangesAsync(ct);
                 return true;
             },
@@ -50,6 +50,7 @@ public sealed class ReportRunner(
         );
         if (!claim)
             return;
+        var siteNames = await SiteNames(org, region, id, ct);
         logger.LogInformation(
             "Report {JobId} claimed by process {ProcessId}",
             id,
@@ -60,12 +61,12 @@ public sealed class ReportRunner(
             while (true)
             {
                 var job = await Read(org, region, id, ct);
-                if (job is null || job.State != "Running" || job.LeaseOwner != owner)
+                if (job is null || job.State != ReportJobState.Running || job.LeaseOwner != owner)
                     return;
-                var item = job.Items.FirstOrDefault(x => x.State == "Queued");
+                var item = job.Items.FirstOrDefault(x => x.State == ReportItemState.Queued);
                 if (item is null)
                 {
-                    await Complete(job, owner, region, ct);
+                    await Complete(job, owner, region, siteNames, ct);
                     return;
                 }
                 var artifact = new ReportArtifact
@@ -75,7 +76,7 @@ public sealed class ReportRunner(
                     ItemId = item.Id,
                     Revision = job.Revision,
                     Key = "",
-                    Name = $"report-{item.Id:N}.pdf",
+                    Name = ReportFileNames.Pdf(item.SiteIds, siteNames, DateTimeOffset.UtcNow),
                     ContentType = "application/pdf",
                 };
                 // The object identity is unique per attempt; a stale worker cannot overwrite a newer PDF.
@@ -90,7 +91,7 @@ public sealed class ReportRunner(
                             if (!Owns(current, job.Revision, owner))
                                 return false;
                             var row = current.Items.Single(x => x.Id == item.Id);
-                            row.State = "Running";
+                            row.State = ReportItemState.Running;
                             row.Attempt++;
                             current.LeaseUntil = DateTimeOffset.UtcNow.AddSeconds(
                                 limits.ItemTimeoutSeconds + 60
@@ -180,12 +181,14 @@ public sealed class ReportRunner(
                                 return false;
                             var row = current.Items.Single(x => x.Id == item.Id);
                             row.State =
-                                error is null && result is not null ? "Succeeded" : "Failed";
+                                error is null && result is not null
+                                    ? ReportItemState.Succeeded
+                                    : ReportItemState.Failed;
                             await ReportQuota.SettleAsync(
                                 db,
                                 org,
                                 item.Id,
-                                row.State == "Succeeded",
+                                row.State == ReportItemState.Succeeded,
                                 ct
                             );
                             row.ErrorCode = error ?? (result is null ? "generation_failed" : null);
@@ -230,18 +233,46 @@ public sealed class ReportRunner(
         }
     }
 
-    private async Task Complete(ReportJob job, Guid owner, RegionId region, CancellationToken ct)
+    /// <summary>
+    /// Every site in the run, named once. Organization scope is correct here: the
+    /// requester's access was checked at admission and is rechecked per item before
+    /// rendering, and these names only ever reach files those same sites own.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, string>> SiteNames(
+        OrgId org,
+        RegionId region,
+        Guid id,
+        CancellationToken ct
+    )
     {
-        var succeeded = job.Items.Where(x => x.State == "Succeeded").ToArray();
+        var job = await Read(org, region, id, ct);
+        if (job is null || job.SiteIds.Length == 0)
+            return new Dictionary<Guid, string>();
+        using var scope = Scope(org, region);
+        var sites = await scope
+            .ServiceProvider.GetRequiredService<IReportSiteSource>()
+            .SelectAsync(org, new NodeScope.EntireOrg(org), job.SiteIds, job.SiteIds.Length, ct);
+        return sites.ToDictionary(x => x.Id, x => x.Name);
+    }
+
+    private async Task Complete(
+        ReportJob job,
+        Guid owner,
+        RegionId region,
+        IReadOnlyDictionary<Guid, string> siteNames,
+        CancellationToken ct
+    )
+    {
+        var succeeded = job.Items.Where(x => x.State == ReportItemState.Succeeded).ToArray();
         var state =
-            succeeded.Length == 0 ? "Failed"
-            : succeeded.Length == job.Items.Count ? "Completed"
-            : "CompletedWithErrors";
+            succeeded.Length == 0 ? ReportJobState.Failed
+            : succeeded.Length == job.Items.Count ? ReportJobState.Completed
+            : ReportJobState.CompletedWithErrors;
         string? error = null;
         // A crash can occur after the ZIP is committed but before the job is finished.
         // Keep that revision's published bundle instead of producing a second artifact.
         if (
-            job.Mode == "bulk"
+            job.Mode == ReportMode.Bulk
             && succeeded.Length > 0
             && !job.Artifacts.Any(x => x.ItemId == null && x.Ready && x.Revision == job.Revision)
         )
@@ -253,7 +284,7 @@ public sealed class ReportRunner(
                     JobId = job.Id,
                     Revision = job.Revision,
                     Key = "",
-                    Name = $"reports-{job.Id:N}.zip",
+                    Name = ReportFileNames.Zip(job.SiteIds.Length, DateTimeOffset.UtcNow),
                     ContentType = "application/zip",
                 },
                 region
@@ -296,6 +327,7 @@ public sealed class ReportRunner(
                             ZipArchiveMode.Create,
                             leaveOpen: true
                         );
+                        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         foreach (var item in succeeded)
                         {
                             var pdf = job.Artifacts.Single(x => x.ItemId == item.Id && x.Ready);
@@ -304,7 +336,7 @@ public sealed class ReportRunner(
                                 timeout.Token
                             );
                             await using var entry = zip.CreateEntry(
-                                    pdf.Name,
+                                    ReportFileNames.Unique(taken, pdf.Name),
                                     CompressionLevel.Fastest
                                 )
                                 .Open();
@@ -323,6 +355,13 @@ public sealed class ReportRunner(
                                 {
                                     x.Id,
                                     x.SiteIds,
+                                    // Named, so a manifest read outside the console
+                                    // still says which site each PDF covers.
+                                    sites = x.SiteIds.Select(s => new
+                                    {
+                                        id = s,
+                                        name = siteNames.GetValueOrDefault(s),
+                                    }),
                                     x.State,
                                     x.ErrorCode,
                                     x.GeneratedAt,
@@ -357,7 +396,7 @@ public sealed class ReportRunner(
             }
             catch (Exception e)
             {
-                state = "Failed";
+                state = ReportJobState.Failed;
                 error = "bundle_failed";
                 logger.LogWarning(
                     "Report {JobId} bundle failed ({ErrorType})",
@@ -389,7 +428,7 @@ public sealed class ReportRunner(
     }
 
     private static bool Owns(ReportJob job, int revision, Guid owner) =>
-        job.State == "Running" && job.Revision == revision && job.LeaseOwner == owner;
+        job.State == ReportJobState.Running && job.Revision == revision && job.LeaseOwner == owner;
 
     private async Task WatchCancellation(
         OrgId org,
@@ -405,7 +444,7 @@ public sealed class ReportRunner(
             while (await timer.WaitForNextTickAsync(stop.Token))
             {
                 var job = await Read(org, region, id, stop.Token);
-                if (job is null || job.State != "Running" || job.LeaseOwner != owner)
+                if (job is null || job.State != ReportJobState.Running || job.LeaseOwner != owner)
                 {
                     await stop.CancelAsync();
                     return;

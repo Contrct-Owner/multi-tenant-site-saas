@@ -68,7 +68,7 @@ export function FileLibrary({ siteId }: { siteId?: string }) {
             <div className="font-medium">{row.original.name}</div>
             <div className="text-xs text-muted-foreground">{row.original.contentType}</div>
             {row.original.origin === 'report' && row.original.originId &&
-              <Link to="/reports/$runId" params={{ runId: row.original.originId }} className="text-sm underline">Report run {row.original.originId}</Link>}
+              <Link to="/reports/$runId" params={{ runId: row.original.originId }} className="text-sm underline">Report run</Link>}
           </div>
         ),
       },

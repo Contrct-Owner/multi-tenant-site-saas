@@ -86,8 +86,10 @@ public sealed class ReferenceReportRenderer(
         section.AddParagraph(
             request.Selection switch
             {
-                "organization" => "Organization-wide selection captured at submission.",
-                "accessible" => "Accessible sites selection captured at submission.",
+                ReportSelection.Organization =>
+                    "Organization-wide selection captured at submission.",
+                ReportSelection.Accessible =>
+                    "Accessible sites selection captured at submission.",
                 _ => "Explicitly selected sites captured at submission.",
             }
         );

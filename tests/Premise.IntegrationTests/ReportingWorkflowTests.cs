@@ -276,11 +276,11 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
                 RequestedBy = failed.RequestedBy,
                 ReportType = "workflow-test",
                 DefinitionVersion = 1,
-                Mode = "single",
-                Selection = "selected",
+                Mode = ReportMode.Single,
+                Selection = ReportSelection.Selected,
                 OptionsJson = "{}",
                 SiteIds = sites,
-                State = "Running",
+                State = ReportJobState.Running,
                 LeaseOwner = Guid.CreateVersion7(),
                 LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(5),
             })
@@ -399,9 +399,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
             await spatial.SaveChangesAsync();
             Assert.Equal(
                 HttpStatusCode.NotFound,
-                (
-                    await client.GetAsync($"/api/reports/{id}/artifacts/{artifact}/download")
-                ).StatusCode
+                (await client.GetAsync($"/api/files/{artifact}/download")).StatusCode
             );
             var rejected = await client.PostAsJsonAsync(
                 "/api/reports",
@@ -654,7 +652,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         Assert.DoesNotContain("Photograph", item.WarningsJson);
         Assert.Equal(
             HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/reports/{id}/artifacts/{artifact}/download")).StatusCode
+            (await client.GetAsync($"/api/files/{artifact}/download")).StatusCode
         );
         // Site/file management still works when a captured photo is no longer readable.
         (await client.DeleteAsync($"/api/files/{artifact}")).EnsureSuccessStatusCode();
@@ -760,11 +758,11 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
                 RequestedBy = user.Id,
                 ReportType = "workflow-test",
                 DefinitionVersion = 1,
-                Mode = "single",
-                Selection = "selected",
+                Mode = ReportMode.Single,
+                Selection = ReportSelection.Selected,
                 OptionsJson = "{}",
                 SiteIds = sites,
-                State = "Running",
+                State = ReportJobState.Running,
                 LeaseOwner = Guid.NewGuid(),
                 LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(-1),
             };
@@ -775,7 +773,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
                     OrgId = fixture.OrgA,
                     JobId = id,
                     SiteIds = sites,
-                    State = "Running",
+                    State = ReportItemState.Running,
                 }
             );
             var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
@@ -827,7 +825,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
             orphanKey = zip.Key;
             // Reconstruct the durable database/object-store snapshot left by a hard
             // crash at each boundary. No graceful-shutdown cleanup is invoked.
-            job.State = "Running";
+            job.State = ReportJobState.Running;
             job.CompletedAt = null;
             job.ExpiresAt = null;
             job.MetadataExpiresAt = null;
@@ -837,7 +835,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
             {
                 var pdf = job.Artifacts.Single(x => x.ItemId != null && x.Id != firstPdf);
                 var item = job.Items.Single(x => x.Id == pdf.ItemId);
-                item.State = "Running";
+                item.State = ReportItemState.Running;
                 item.GeneratedAt = null;
                 item.DependenciesJson = "{}";
                 pdf.Ready = false;
@@ -971,7 +969,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         (await client.DeleteAsync($"/api/files/{fileId}")).EnsureSuccessStatusCode();
         Assert.Equal(
             HttpStatusCode.NotFound,
-            (await client.GetAsync($"/api/reports/{id}/artifacts/{fileId}/download")).StatusCode
+            (await client.GetAsync($"/api/files/{fileId}/download")).StatusCode
         );
         (await client.PostAsync($"/api/files/{fileId}/restore", null)).EnsureSuccessStatusCode();
         Assert.Equal(bytes, await Download(client, id, fileId));
@@ -1008,9 +1006,7 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
                 .ExecuteUpdateAsync(set => set.SetProperty(x => x.ScopePath, "unrelated"));
             Assert.Equal(
                 HttpStatusCode.NotFound,
-                (
-                    await client.GetAsync($"/api/reports/{id}/artifacts/{artifact}/download")
-                ).StatusCode
+                (await client.GetAsync($"/api/files/{artifact}/download")).StatusCode
             );
         }
         finally
@@ -1179,7 +1175,6 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
                     $"/api/files/{aggregateFile}",
                     $"/api/files/{aggregateFile}/download",
                     $"/api/reports/{runId}",
-                    $"/api/reports/{runId}/artifacts/{aggregateFile}/download",
                 }
             )
                 Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync(endpoint)).StatusCode);
@@ -1295,6 +1290,74 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         Assert.True(await reports.Jobs.AnyAsync(x => x.Id == runId));
     }
 
+    /// <summary>
+    /// The run answers in names, and one route owns each artifact. A published PDF
+    /// is a site file: the reporting route 404s for it rather than redirecting, so
+    /// a client that trusts the OpenAPI response shape cannot be surprised by a 302.
+    /// </summary>
+    [Fact]
+    public async Task Run_names_its_sites_and_serves_only_its_own_bundle()
+    {
+        var (client, sites) = await Setup(2);
+        var id = await Submit(client, sites, new { });
+        var job = await Wait(client, id, "Completed");
+
+        var named = job.GetProperty("sites").EnumerateArray().ToArray();
+        Assert.Equal(
+            sites.OrderBy(x => x).ToArray(),
+            named.Select(x => x.GetProperty("id").GetGuid()).OrderBy(x => x).ToArray()
+        );
+        Assert.All(named, x => Assert.Equal("Workflow site", x.GetProperty("name").GetString()));
+
+        var artifacts = job.GetProperty("artifacts").EnumerateArray().ToArray();
+        var pdf = artifacts.First(x =>
+            x.GetProperty("contentType").GetString() == "application/pdf"
+        );
+        var pdfId = pdf.GetProperty("id").GetGuid();
+        var name = pdf.GetProperty("name").GetString();
+        Assert.StartsWith("Workflow site report ", name);
+        Assert.DoesNotContain(pdfId.ToString("N"), name);
+        Assert.Equal(pdfId, pdf.GetProperty("fileId").GetGuid());
+
+        // No redirect: the client follows them, so a 302 to the file route would
+        // surface here as the file route's 200.
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/reports/{id}/artifacts/{pdfId}/download")).StatusCode
+        );
+        var file = await client.GetFromJsonAsync<JsonElement>($"/api/files/{pdfId}/download");
+        Assert.NotEmpty(await client.GetByteArrayAsync(file.GetProperty("url").GetString()));
+
+        // The bundle belongs to the run, and its entries carry the same names.
+        var bundle = artifacts.Single(x =>
+            x.GetProperty("contentType").GetString() == "application/zip"
+        );
+        Assert.Equal(JsonValueKind.Null, bundle.GetProperty("fileId").ValueKind);
+        var zipId = bundle.GetProperty("id").GetGuid();
+        var link = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/reports/{id}/artifacts/{zipId}/download"
+        );
+        using var archive = new ZipArchive(
+            new MemoryStream(await client.GetByteArrayAsync(link.GetProperty("url").GetString()))
+        );
+        var entries = archive.Entries.Select(x => x.FullName).ToArray();
+        // Two sites share a name; the bundle still extracts unambiguously.
+        Assert.Equal(entries.Length, entries.Distinct().Count());
+        Assert.Equal(2, entries.Count(x => x.StartsWith("Workflow site report ")));
+        Assert.Contains("manifest.json", entries);
+        using var manifest = JsonDocument.Parse(
+            new StreamReader(archive.GetEntry("manifest.json")!.Open()).ReadToEnd()
+        );
+        Assert.All(
+            manifest.RootElement.GetProperty("items").EnumerateArray(),
+            x =>
+                Assert.All(
+                    x.GetProperty("sites").EnumerateArray(),
+                    s => Assert.Equal("Workflow site", s.GetProperty("name").GetString())
+                )
+        );
+    }
+
     private async Task<(HttpClient Client, Guid[] Sites)> Setup(int count)
     {
         using var scope = fixture.Factory.Services.CreateScope();
@@ -1362,11 +1425,22 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         return job;
     }
 
+    /// <summary>
+    /// A published PDF is an ordinary site file and is downloaded from Storage;
+    /// only the run's own bundle comes from the reporting route. The run says
+    /// which is which through the artifact's fileId.
+    /// </summary>
     private static async Task<byte[]> Download(HttpClient client, Guid job, Guid artifact)
     {
-        var link = await client.GetFromJsonAsync<JsonElement>(
-            $"/api/reports/{job}/artifacts/{artifact}/download"
-        );
+        var run = await client.GetFromJsonAsync<JsonElement>($"/api/reports/{job}");
+        var row = run.GetProperty("artifacts")
+            .EnumerateArray()
+            .Single(x => x.GetProperty("id").GetGuid() == artifact);
+        var route =
+            row.GetProperty("fileId").ValueKind == JsonValueKind.Null
+                ? $"/api/reports/{job}/artifacts/{artifact}/download"
+                : $"/api/files/{artifact}/download";
+        var link = await client.GetFromJsonAsync<JsonElement>(route);
         return await client.GetByteArrayAsync(link.GetProperty("url").GetString());
     }
 

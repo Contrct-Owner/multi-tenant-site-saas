@@ -69,7 +69,40 @@ export function apiProblem(value: unknown): ApiProblem | undefined {
   return candidate as ApiProblem;
 }
 
+/**
+ * Gate 1's single 402 body (GateResults). A plan limit is an upsell, not a
+ * failure, so callers can offer the plan instead of only reporting an error.
+ * `limit`/`current` are absent when the plan omits the feature entirely.
+ */
+export type ApiPlanLimit = {
+  code: string;
+  limit?: number;
+  current?: number;
+};
+
+export function apiPlanLimit(
+  status: number,
+  body: unknown,
+): ApiPlanLimit | undefined {
+  if (status !== 402 || typeof body !== 'object' || body === null)
+    return undefined;
+  const candidate = body as Record<string, unknown>;
+  if (typeof candidate.code !== 'string') return undefined;
+  const limit = candidate.limit;
+  const current = candidate.current;
+  return {
+    code: candidate.code,
+    limit: typeof limit === 'number' ? limit : undefined,
+    current: typeof current === 'number' ? current : undefined,
+  };
+}
+
 function apiErrorMessage(status: number, body: unknown): string {
+  const plan = apiPlanLimit(status, body);
+  if (plan)
+    return plan.limit === undefined
+      ? 'Your plan does not include this feature'
+      : `Plan limit reached: ${plan.current ?? plan.limit} of ${plan.limit} used`;
   const problem = apiProblem(body);
   if (problem?.error) return problem.error;
   const validation = problem?.errors

@@ -28,7 +28,9 @@ test('reports capture a site, produce a downloadable PDF, and remain accessible 
   await page.getByRole('button', { name: 'Generate report', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Generate site reports' });
   await expect(dialog.getByText(name, { exact: true })).toBeVisible();
-  await expect(dialog.getByText('1000 PDFs available this UTC month', { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText('This run will use 1 of 1000 PDFs available this UTC month.', { exact: true }),
+  ).toBeVisible();
   await dialog.getByRole('combobox', { name: 'Report type', exact: true }).focus();
   await page.keyboard.press('Shift+Tab');
   await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
@@ -45,17 +47,19 @@ test('reports capture a site, produce a downloadable PDF, and remain accessible 
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('report-completed.png'), fullPage: true });
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download PDF 1', exact: true }).click();
+  // The PDF is named for its site, not for its position in the run.
+  const pdfButton = page.getByRole('button', { name: new RegExp(`^Download ${name} report `) });
+  await pdfButton.click();
   const file = await download;
   expect(await file.failure()).toBeNull();
   await file.saveAs(testInfo.outputPath('site-report.pdf'));
   const runUrl = page.url();
   await page.reload();
-  await expect(page.getByRole('heading', { name: /Report run / })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Download PDF 1' })).toBeVisible();
-  await page.getByRole('link', { name: /^Site [0-9a-f-]+$/ }).click();
+  await expect(page.getByRole('heading', { name: 'Report run' })).toBeVisible();
+  await expect(pdfButton).toBeVisible();
+  await page.getByRole('link', { name, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Site files', exact: true })).toBeVisible();
-  const runLink = page.getByRole('link', { name: /^Report run / });
+  const runLink = page.getByRole('link', { name: 'Report run', exact: true });
   await expect(runLink).toBeVisible();
   const fileRow = page.getByRole('row').filter({ has: runLink });
   const siteDownload = page.waitForEvent('download');
@@ -65,6 +69,6 @@ test('reports capture a site, produce a downloadable PDF, and remain accessible 
   await runLink.click();
   await expect(page).toHaveURL(runUrl);
   await page.goto('/files');
-  await page.getByRole('link', { name: /^Report run / }).click();
+  await page.getByRole('link', { name: 'Report run', exact: true }).click();
   await expect(page).toHaveURL(runUrl);
 });

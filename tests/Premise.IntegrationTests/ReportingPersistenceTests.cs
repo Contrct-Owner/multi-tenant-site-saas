@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Premise.Contracts;
+using Premise.Modules.Reporting;
 using Premise.Modules.Reporting.Data;
 using Premise.Platform.Kernel;
 
@@ -240,8 +241,8 @@ public sealed class ReportingPersistenceTests(ApiFixture fixture) : IClassFixtur
             RequestedBy = Guid.NewGuid(),
             ReportType = "site",
             DefinitionVersion = 1,
-            Mode = "single",
-            Selection = "selected",
+            Mode = ReportMode.Single,
+            Selection = ReportSelection.Selected,
             SiteIds = [Guid.NewGuid()],
             OptionsJson = "{}",
         };

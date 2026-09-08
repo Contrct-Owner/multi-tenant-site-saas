@@ -19,19 +19,22 @@ public static class ReportEndpoints
 {
     public sealed record SubmitRequest(
         string ReportType,
-        string Mode,
-        string Selection,
+        ReportMode Mode,
+        ReportSelection Selection,
         Guid[] SiteIds,
         JsonElement Options
     );
 
-    public sealed record AcceptedResponse(Guid Id, string State);
+    /// <summary>A site the reader may see, so a run never has to be read as raw ids.</summary>
+    public sealed record SiteRef(Guid Id, string Name);
+
+    public sealed record AcceptedResponse(Guid Id, ReportJobState State);
 
     public sealed record TypeResponse(string Id, string Name, int Version, bool Aggregate);
 
     public sealed record ItemResponse(
         Guid Id,
-        string State,
+        ReportItemState State,
         string? ErrorCode,
         DateTimeOffset? GeneratedAt,
         int Attempt,
@@ -51,14 +54,15 @@ public static class ReportEndpoints
     public sealed record JobResponse(
         Guid Id,
         string ReportType,
-        string Mode,
-        string Selection,
-        string State,
+        ReportMode Mode,
+        ReportSelection Selection,
+        ReportJobState State,
         string? ErrorCode,
         DateTimeOffset CreatedAt,
         DateTimeOffset? ExpiresAt,
         ItemResponse[] Items,
         ArtifactResponse[] Artifacts,
+        SiteRef[] Sites,
         bool CanModify
     );
 
@@ -156,13 +160,11 @@ public static class ReportEndpoints
         if (!await entitlements.HasAsync(org, EntitlementCatalog.ReportsEnabled, ct))
             return GateResults.FeatureOff(EntitlementCatalog.ReportsEnabled);
         var definition = registry.Find(request.ReportType);
-        if (
-            definition is null
-            || request.Mode is not ("single" or "bulk" or "aggregate")
-            || definition.Aggregate != (request.Mode == "aggregate")
-            || request.Selection is not ("selected" or "accessible" or "organization")
-        )
-            return ApiErrors.BadRequest("Unknown report type, mode or selection.");
+        // Mode and selection are enums: an unknown value never reaches here.
+        if (definition is null || definition.Aggregate != (request.Mode == ReportMode.Aggregate))
+            return ApiErrors.BadRequest(
+                "Unknown report type, or a mode that report type does not produce."
+            );
         if (
             request.Options.ValueKind != JsonValueKind.Object
             || System.Text.Encoding.UTF8.GetByteCount(request.Options.GetRawText()) > 16384
@@ -172,10 +174,12 @@ public static class ReportEndpoints
             return ApiErrors.BadRequest(error);
         if (!await access.CanGenerateAsync(org, user.UserId, ct))
             return Results.Forbid();
-        var limit =
-            request.Mode == "single" ? 1
-            : request.Mode == "aggregate" ? limits.MaxAggregateSites
-            : limits.MaxBatchItems;
+        var limit = request.Mode switch
+        {
+            ReportMode.Single => 1,
+            ReportMode.Aggregate => limits.MaxAggregateSites,
+            _ => limits.MaxBatchItems,
+        };
         if (
             request.SiteIds is null
             || request.SiteIds.Length > limit
@@ -187,12 +191,12 @@ public static class ReportEndpoints
             await scopes.ScopeForAsync(user, Capabilities.SitesRead, ct),
             await scopes.ScopeForAsync(user, Capabilities.ReportsGenerate, ct)
         );
-        if (request.Selection == "organization" && siteScope is not NodeScope.EntireOrg)
+        if (request.Selection == ReportSelection.Organization && siteScope is not NodeScope.EntireOrg)
             return Results.Forbid();
         var selected = await sites.SelectAsync(
             org,
             siteScope,
-            request.Selection == "selected" ? request.SiteIds : null,
+            request.Selection == ReportSelection.Selected ? request.SiteIds : null,
             limit,
             ct
         );
@@ -200,7 +204,7 @@ public static class ReportEndpoints
             return ApiErrors.BadRequest(
                 $"The selection must contain 1..{limit} sites; it has not been truncated."
             );
-        if (request.Selection == "selected" && selected.Count != request.SiteIds.Length)
+        if (request.Selection == ReportSelection.Selected && selected.Count != request.SiteIds.Length)
             return Results.NotFound();
         var ids = selected.Select(x => x.Id).ToArray();
         var input = new IReportDefinition.Request(
@@ -216,7 +220,9 @@ public static class ReportEndpoints
             return Results.Problem("Report admission is busy; retry.", statusCode: 503);
         if (
             await db.Jobs.CountAsync(
-                x => x.OrgId == org && (x.State == "Queued" || x.State == "Running"),
+                x =>
+                    x.OrgId == org
+                    && (x.State == ReportJobState.Queued || x.State == ReportJobState.Running),
                 ct
             ) >= limits.MaxQueuedJobsPerOrg
         )
@@ -236,7 +242,9 @@ public static class ReportEndpoints
             OptionsJson = request.Options.GetRawText(),
         };
         foreach (
-            var group in request.Mode == "aggregate" ? new[] { ids } : ids.Select(x => new[] { x })
+            var group in request.Mode == ReportMode.Aggregate
+                ? new[] { ids }
+                : ids.Select(x => new[] { x })
         )
             job.Items.Add(
                 new ReportItem
@@ -298,6 +306,9 @@ public static class ReportEndpoints
         var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.FilesRead, ct);
         if (gate is not GateOutcome.Allowed { Principal: Principal.User user, Org: var org })
             return gate.ToResult();
+        var reader = await access.ReaderAsync(org, user.UserId, ct);
+        if (reader is null)
+            return Results.Ok(Array.Empty<JobResponse>());
         var jobs = await db
             .Jobs.AsNoTracking()
             .Include(x => x.Items)
@@ -305,11 +316,20 @@ public static class ReportEndpoints
             .OrderByDescending(x => x.CreatedAt)
             .Take(50)
             .ToListAsync(ct);
-        var visible = new List<JobResponse>();
+        // One visibility query for the whole page: resolving the reader and its
+        // sites per job turned a 50-run listing into hundreds of queries.
+        var names = await access.VisibleSitesAsync(
+            org,
+            reader,
+            jobs.SelectMany(x => x.SiteIds).Distinct().ToArray(),
+            ct
+        );
+        var visible = names.Keys.ToHashSet();
+        var result = new List<JobResponse>();
         foreach (var job in jobs)
-            if (await access.CanReadJobAsync(job, user.UserId, registry, ct))
-                visible.Add(View(job, user.UserId));
-        return Results.Ok(visible.ToArray());
+            if (await access.CanReadJobAsync(job, reader, visible, registry, ct))
+                result.Add(View(job, user.UserId, names));
+        return Results.Ok(result.ToArray());
     }
 
     [Transactional(
@@ -337,9 +357,15 @@ public static class ReportEndpoints
             .Include(x => x.Artifacts)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.OrgId == org && x.Id == id, ct);
-        return job is null || !await access.CanReadJobAsync(job, user.UserId, registry, ct)
-            ? Results.NotFound()
-            : Results.Ok(View(job, user.UserId));
+        if (job is null)
+            return Results.NotFound();
+        var reader = await access.ReaderAsync(org, user.UserId, ct);
+        if (reader is null)
+            return Results.NotFound();
+        var names = await access.VisibleSitesAsync(org, reader, job.SiteIds, ct);
+        return await access.CanReadJobAsync(job, reader, names.Keys.ToHashSet(), registry, ct)
+            ? Results.Ok(View(job, user.UserId, names))
+            : Results.NotFound();
     }
 
     [Transactional(typeof(ReportingDbContext))]
@@ -367,13 +393,17 @@ public static class ReportEndpoints
             );
         if (job is null)
             return Results.NotFound();
-        if (job.State is "Queued" or "Running")
+        if (job.State is ReportJobState.Queued or ReportJobState.Running)
         {
             job.Revision++;
-            Finish(job, "Canceled", limits);
+            Finish(job, ReportJobState.Canceled, limits);
             await ReportQuota.ReleaseAsync(db, org, job.Id, ct);
-            foreach (var item in job.Items.Where(x => x.State is "Queued" or "Running"))
-                item.State = "Canceled";
+            foreach (
+                var item in job.Items.Where(x =>
+                    x.State is ReportItemState.Queued or ReportItemState.Running
+                )
+            )
+                item.State = ReportItemState.Canceled;
             await db.SaveChangesAsync(ct);
         }
         return Results.Ok(new AcceptedResponse(job.Id, job.State));
@@ -411,7 +441,7 @@ public static class ReportEndpoints
         if (job is null)
             return Results.NotFound();
         if (
-            job.State is not ("Failed" or "CompletedWithErrors")
+            job.State is not (ReportJobState.Failed or ReportJobState.CompletedWithErrors)
             || job.ExpiresAt <= DateTimeOffset.UtcNow
         )
             return ApiErrors.Conflict(
@@ -423,7 +453,9 @@ public static class ReportEndpoints
             return Results.Problem("Report admission is busy; retry.", statusCode: 503);
         if (
             await db.Jobs.CountAsync(
-                x => x.OrgId == org && (x.State == "Queued" || x.State == "Running"),
+                x =>
+                    x.OrgId == org
+                    && (x.State == ReportJobState.Queued || x.State == ReportJobState.Running),
                 ct
             ) >= limits.MaxQueuedJobsPerOrg
         )
@@ -437,7 +469,7 @@ public static class ReportEndpoints
             quotaDecision = await quota.ReserveAsync(
                 org,
                 job.Id,
-                job.Items.Where(x => x.State == "Failed").Select(x => x.Id).ToArray(),
+                job.Items.Where(x => x.State == ReportItemState.Failed).Select(x => x.Id).ToArray(),
                 ct
             );
         }
@@ -447,12 +479,12 @@ public static class ReportEndpoints
         }
         if (!quotaDecision.IsAllowed)
             return GateResults.LimitReached(quotaDecision);
-        foreach (var item in job.Items.Where(x => x.State == "Failed"))
+        foreach (var item in job.Items.Where(x => x.State == ReportItemState.Failed))
         {
-            item.State = "Queued";
+            item.State = ReportItemState.Queued;
             item.ErrorCode = null;
         }
-        job.State = "Queued";
+        job.State = ReportJobState.Queued;
         job.ErrorCode = null;
         job.Revision++;
         job.LeaseOwner = null;
@@ -490,33 +522,34 @@ public static class ReportEndpoints
             .Include(x => x.Artifacts)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.OrgId == org && x.Id == id, ct);
-        var artifact = job?.Artifacts.SingleOrDefault(x =>
-            x.Id == artifactId && x.Ready && (x.ItemId != null || x.Revision == job.Revision)
-        );
-        if (job is null || artifact is null || job.State == "Purging")
+        var artifact = job?.Artifacts.SingleOrDefault(x => x.Id == artifactId);
+        if (job is null || artifact is null || job.State == ReportJobState.Purging)
             return Results.NotFound();
-        if (artifact.ItemId is not null)
-            return artifact.FilePublished
-                ? Results.Redirect($"/api/files/{artifact.Id}/download")
-                : Results.NotFound();
+        // A generated PDF becomes an ordinary site file (ADR 56). Storage owns its
+        // authorization, trash, holds and TTL, so it is served from
+        // /api/files/{fileId}/download and never signed a second time here. The run
+        // hands clients that id as ArtifactResponse.FileId. This route serves the
+        // run's own bundle. 404 rather than a redirect: one route, one response shape.
+        if (artifact.ItemId is not null || !artifact.Ready || artifact.Revision != job.Revision)
+            return Results.NotFound();
         if (
             job.ExpiresAt <= DateTimeOffset.UtcNow
-            || job.ExpiresAt is null && job.State is not ("Queued" or "Running")
+            || job.ExpiresAt is null
+                && job.State is not (ReportJobState.Queued or ReportJobState.Running)
         )
             return Results.NotFound();
         var definition = registry.Find(job.ReportType, job.DefinitionVersion);
         if (definition is null)
             return Results.Forbid();
-        var items = (
-            artifact.ItemId is { } itemId
-                ? job.Items.Where(x => x.Id == itemId && x.State == "Succeeded")
-                : job.Items.Where(x => x.State == "Succeeded")
-        ).ToArray();
+        var reader = await access.ReaderAsync(org, user.UserId, ct);
+        if (reader is null)
+            return Results.Forbid();
+        var items = job.Items.Where(x => x.State == ReportItemState.Succeeded).ToArray();
         if (items.Length == 0)
             return Results.NotFound();
         foreach (var item in items)
             if (
-                !await access.CanReadSitesAsync(org, user.UserId, item.SiteIds, ct)
+                !await access.CanReadSitesAsync(org, reader, item.SiteIds, ct)
                 || !await definition.AuthorizeAsync(
                     ReportAccess.Request(job, item.SiteIds) with
                     {
@@ -534,7 +567,7 @@ public static class ReportEndpoints
             .ToArray();
         if (!await files.AreCleanAsync(org, pdfs, ct))
             return Results.NotFound();
-        if (!await access.CanReadSitesAsync(org, user.UserId, job.SiteIds, ct))
+        if (!await access.CanReadSitesAsync(org, reader, job.SiteIds, ct))
             return Results.Forbid();
         var ttl = job.ExpiresAt is { } expires
             ? Math.Min(60, (int)(expires - DateTimeOffset.UtcNow).TotalSeconds)
@@ -551,7 +584,7 @@ public static class ReportEndpoints
         );
     }
 
-    internal static void Finish(ReportJob job, string state, ReportLimits limits)
+    internal static void Finish(ReportJob job, ReportJobState state, ReportLimits limits)
     {
         job.State = state;
         job.CompletedAt = DateTimeOffset.UtcNow;
@@ -561,7 +594,11 @@ public static class ReportEndpoints
         );
     }
 
-    private static JobResponse View(ReportJob job, Guid userId) =>
+    private static JobResponse View(
+        ReportJob job,
+        Guid userId,
+        IReadOnlyDictionary<Guid, string> names
+    ) =>
         new(
             job.Id,
             job.ReportType,
@@ -590,6 +627,9 @@ public static class ReportEndpoints
                     x.Bytes,
                     x.FilePublished ? x.Id : null
                 ))
+                .ToArray(),
+            job.SiteIds.Where(names.ContainsKey)
+                .Select(x => new SiteRef(x, names[x]))
                 .ToArray(),
             job.RequestedBy == userId
         );

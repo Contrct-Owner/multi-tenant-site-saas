@@ -26,7 +26,7 @@ public static class PurgeOrgReportingHandler
             .Jobs.Where(x => x.OrgId == org)
             .ExecuteUpdateAsync(
                 set =>
-                    set.SetProperty(x => x.State, "Purging")
+                    set.SetProperty(x => x.State, ReportJobState.Purging)
                         .SetProperty(x => x.Revision, x => x.Revision + 1)
                         .SetProperty(x => x.ExpiresAt, now)
                         .SetProperty(x => x.MetadataExpiresAt, now),

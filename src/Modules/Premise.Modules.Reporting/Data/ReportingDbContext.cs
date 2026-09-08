@@ -16,6 +16,9 @@ public sealed class ReportingDbContext(
 
     public DbSet<ReportQuotaEntry> QuotaEntries => Set<ReportQuotaEntry>();
 
+    private static T Parse<T>(string value)
+        where T : struct, Enum => Enum.Parse<T>(value, ignoreCase: true);
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ReportJob>(b =>
@@ -25,9 +28,18 @@ public sealed class ReportingDbContext(
             b.HasAlternateKey(x => new { x.OrgId, x.Id });
             b.Property(x => x.Id).ValueGeneratedNever();
             b.Property(x => x.ReportType).HasMaxLength(80);
-            b.Property(x => x.Mode).HasMaxLength(20);
-            b.Property(x => x.Selection).HasMaxLength(30);
-            b.Property(x => x.State).HasMaxLength(30);
+            // The columns predate the enums and keep their exact text. Mode and
+            // Selection are stored lowercase, which is also their JSON name.
+            b.Property(x => x.Mode)
+                .HasConversion(v => v.ToString().ToLowerInvariant(), s => Parse<ReportMode>(s))
+                .HasMaxLength(20);
+            b.Property(x => x.Selection)
+                .HasConversion(
+                    v => v.ToString().ToLowerInvariant(),
+                    s => Parse<ReportSelection>(s)
+                )
+                .HasMaxLength(30);
+            b.Property(x => x.State).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.ErrorCode).HasMaxLength(80);
             b.Property(x => x.OptionsJson).HasColumnType("jsonb");
             b.Property(x => x.Revision).IsConcurrencyToken();
@@ -60,7 +72,7 @@ public sealed class ReportingDbContext(
             b.ToTable("items");
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).ValueGeneratedNever();
-            b.Property(x => x.State).HasMaxLength(30);
+            b.Property(x => x.State).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.ErrorCode).HasMaxLength(80);
             b.Property(x => x.WarningsJson).HasColumnType("jsonb");
             b.Property(x => x.DependenciesJson).HasColumnType("jsonb");

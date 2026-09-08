@@ -6348,7 +6348,7 @@
             "format": "uuid"
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportJobState"
           }
         }
       },
@@ -8255,7 +8255,7 @@
             "format": "uuid"
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportItemState"
           },
           "errorCode": {
             "type": [
@@ -8302,6 +8302,7 @@
           "expiresAt",
           "items",
           "artifacts",
+          "sites",
           "canModify"
         ],
         "type": "object",
@@ -8314,13 +8315,13 @@
             "type": "string"
           },
           "mode": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportMode"
           },
           "selection": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportSelection"
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportJobState"
           },
           "errorCode": {
             "type": [
@@ -8349,6 +8350,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ArtifactResponse"
+            }
+          },
+          "sites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteRef"
             }
           },
           "canModify": {
@@ -9395,6 +9402,41 @@
           }
         }
       },
+      "ReportItemState": {
+        "enum": [
+          "Queued",
+          "Running",
+          "Succeeded",
+          "Failed",
+          "Canceled"
+        ]
+      },
+      "ReportJobState": {
+        "enum": [
+          "Queued",
+          "Running",
+          "Completed",
+          "CompletedWithErrors",
+          "Failed",
+          "Canceled",
+          "Expired",
+          "Purging"
+        ]
+      },
+      "ReportMode": {
+        "enum": [
+          "single",
+          "bulk",
+          "aggregate"
+        ]
+      },
+      "ReportSelection": {
+        "enum": [
+          "selected",
+          "accessible",
+          "organization"
+        ]
+      },
       "RoleCreatedResponse": {
         "required": [
           "id"
@@ -9703,6 +9745,22 @@
           }
         }
       },
+      "SiteRef": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "SiteResponse": {
         "required": [
           "id",
@@ -9986,10 +10044,10 @@
             "type": "string"
           },
           "mode": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportMode"
           },
           "selection": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReportSelection"
           },
           "siteIds": {
             "type": "array",

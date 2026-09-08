@@ -35,9 +35,9 @@ public static class MaintainReportsHandler
             .Where(x =>
                 x.OrgId == org
                 && (
-                    x.State == "Queued"
-                    || x.State == "Running"
-                    || x.State == "Purging"
+                    x.State == ReportJobState.Queued
+                    || x.State == ReportJobState.Running
+                    || x.State == ReportJobState.Purging
                     || x.Artifacts.Any(a => a.Ready && a.ItemId != null && !a.FilePublished)
                     || x.ExpiresAt <= now && x.Artifacts.Any(a => !a.Ready || a.ItemId == null)
                     || x.MetadataExpiresAt <= now
@@ -51,7 +51,7 @@ public static class MaintainReportsHandler
         {
             if (job.LeaseUntil > now)
             {
-                if (job.State == "Purging")
+                if (job.State == ReportJobState.Purging)
                     await bus.PublishAsync(
                         new MaintainReports(),
                         new DeliveryOptions
@@ -62,7 +62,7 @@ public static class MaintainReportsHandler
                     );
                 continue;
             }
-            if (job.State != "Purging")
+            if (job.State != ReportJobState.Purging)
             {
                 // Reconciliation also publishes pre-upgrade PDFs and repairs a missing acknowledgement.
                 var pending = await db
@@ -98,7 +98,7 @@ public static class MaintainReportsHandler
                 }
                 if (job.ExpiresAt is null || job.ExpiresAt > now)
                 {
-                    if (job.State is "Queued" or "Running")
+                    if (job.State is ReportJobState.Queued or ReportJobState.Running)
                         await bus.PublishForOrgAsync(org, new GenerateReport(job.Id));
                     continue;
                 }
@@ -113,8 +113,8 @@ public static class MaintainReportsHandler
                 if (current is null || current.LeaseUntil > DateTimeOffset.UtcNow)
                     continue;
                 await ReportQuota.ReleaseAsync(db, org, job.Id, ct);
-                if (current.State is "Running" or "Queued")
-                    current.State = "Expired";
+                if (current.State is ReportJobState.Running or ReportJobState.Queued)
+                    current.State = ReportJobState.Expired;
                 current.Revision++;
                 current.LeaseOwner = null;
                 current.LeaseUntil = null;
@@ -125,7 +125,7 @@ public static class MaintainReportsHandler
                 .Artifacts.Where(x =>
                     x.OrgId == org
                     && x.JobId == job.Id
-                    && (job.State == "Purging" || !x.Ready || x.ItemId == null)
+                    && (job.State == ReportJobState.Purging || !x.Ready || x.ItemId == null)
                 )
                 .ToListAsync(ct);
             foreach (var artifact in artifacts)

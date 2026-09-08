@@ -27,7 +27,7 @@ public sealed class ReportFileAccess(
         var item = await db
             .Items.AsNoTracking()
             .SingleOrDefaultAsync(
-                x => x.OrgId == org && x.Id == artifact.ItemId && x.State == "Succeeded",
+                x => x.OrgId == org && x.Id == artifact.ItemId && x.State == ReportItemState.Succeeded,
                 ct
             );
         var job = await db
@@ -36,7 +36,7 @@ public sealed class ReportFileAccess(
         if (
             item is null
             || job is null
-            || job.State == "Purging"
+            || job.State == ReportJobState.Purging
             || !await access.CanReadSitesAsync(org, userId, item.SiteIds, ct)
         )
             return false;

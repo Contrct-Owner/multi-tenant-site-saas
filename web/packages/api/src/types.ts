@@ -3126,7 +3126,7 @@ export interface components {
         AcceptedResponse: {
             /** Format: uuid */
             id: string;
-            state: string;
+            state: components["schemas"]["ReportJobState"];
         };
         AddClosureRequest: {
             /** Format: date */
@@ -3633,7 +3633,7 @@ export interface components {
         ItemResponse: {
             /** Format: uuid */
             id: string;
-            state: string;
+            state: components["schemas"]["ReportItemState"];
             errorCode: null | string;
             /** Format: date-time */
             generatedAt: null | string;
@@ -3646,9 +3646,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             reportType: string;
-            mode: string;
-            selection: string;
-            state: string;
+            mode: components["schemas"]["ReportMode"];
+            selection: components["schemas"]["ReportSelection"];
+            state: components["schemas"]["ReportJobState"];
             errorCode: null | string;
             /** Format: date-time */
             createdAt: string;
@@ -3656,6 +3656,7 @@ export interface components {
             expiresAt: null | string;
             items: components["schemas"]["ItemResponse"][];
             artifacts: components["schemas"]["ArtifactResponse"][];
+            sites: components["schemas"]["SiteRef"][];
             canModify: boolean;
         };
         JsonElement: unknown;
@@ -3926,6 +3927,14 @@ export interface components {
         RenameOrgRequest: {
             name: string;
         };
+        /** @enum {unknown} */
+        ReportItemState: "Queued" | "Running" | "Succeeded" | "Failed" | "Canceled";
+        /** @enum {unknown} */
+        ReportJobState: "Queued" | "Running" | "Completed" | "CompletedWithErrors" | "Failed" | "Canceled" | "Expired" | "Purging";
+        /** @enum {unknown} */
+        ReportMode: "single" | "bulk" | "aggregate";
+        /** @enum {unknown} */
+        ReportSelection: "selected" | "accessible" | "organization";
         RoleCreatedResponse: {
             /** Format: uuid */
             id: string;
@@ -4015,6 +4024,11 @@ export interface components {
             /** @default false */
             totalIsLowerBound: boolean;
         };
+        SiteRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         SiteResponse: {
             /** Format: uuid */
             id: string;
@@ -4089,8 +4103,8 @@ export interface components {
         };
         SubmitRequest: {
             reportType: string;
-            mode: string;
-            selection: string;
+            mode: components["schemas"]["ReportMode"];
+            selection: components["schemas"]["ReportSelection"];
             siteIds: string[];
             options: components["schemas"]["JsonElement"];
         };
