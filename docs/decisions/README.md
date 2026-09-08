@@ -72,3 +72,4 @@ confirmation on edits under this directory.
 - [0053. The tenant variable is transaction state, and the message store has its own connection](0053-tenant-is-transaction-state.md)
 - [0054. Gateway enforcement of operational fairness](0054-gateway-operational-fairness.md) — supersedes request-rate policy in 30 and 52; implementation in progress
 - [0055. Business capacity is reserved with durable acceptance](0055-business-capacity-reservations.md)
+- [0056. Reporting: the template owns execution and delivery, forks own content](0056-reporting-execution-and-delivery.md)

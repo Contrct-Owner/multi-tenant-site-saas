@@ -40,4 +40,4 @@ when packaging or moving this dependency into the application. See the
 The proof uses production font resolution and image normalization (SkiaSharp
 3.119.4, MIT). It still uses synthetic layouts and data, so it does not prove
 the production definitions or authorization. See the
-[reporting implementation plan](../../docs/reporting.md).
+[reporting authoring guide](../../docs/reporting.md).
