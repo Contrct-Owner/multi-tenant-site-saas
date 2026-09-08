@@ -148,11 +148,16 @@ try {
   gateways = gatewayUrls();
   assert.equal(gateways.length, originalGatewayCount + 1);
   for (let i = 0; i < gateways.length; i++) {
+    let decision;
     await until(async () => {
-      try { return /^[1-9]\d*$/.test((await request(i, fixture.token)).retry); }
-      catch { return false; }
+      try {
+        decision = await request(i, fixture.token);
+        // A new gateway can still discover an unready identity endpoint. Keep
+        // the first actual limiter decision; a 200 with quota metadata must fail
+        // below, rather than consuming a renewed allowance until it reaches 429.
+        return decision.status !== 503 && /^[1-9]\d*$/.test(decision.retry);
+      } catch { return false; }
     }, 'scaled gateway connected', 30000);
-    const decision = await request(i, fixture.token);
     summary.scalingDecisions ??= [];
     summary.scalingDecisions.push({ gateway: i, status: decision.status, retry: decision.retry });
     assert.equal(decision.status, 429, 'scaling must not renew a spent tenant allowance');
