@@ -58,23 +58,44 @@ Export admission is shared across audit, self-service organization and operator-
 
 ## Verification
 
-Verification is in progress. Results and logs are retained under the ignored `coverage/security/` directory in this worktree; CI retains image evidence as an artifact.
+Verification completed on September 7, 2026 (America/Chicago). Results and logs are retained under the ignored `coverage/security/` directory in this worktree; CI retains image evidence as an artifact.
 
 | Check | Result |
 |---|---|
 | `dotnet build Premise.slnx --no-restore --disable-build-servers -m:1` | Passed, zero warnings/errors. |
 | Architecture tests | 54 passed. |
 | Platform unit tests | 68 passed. |
-| Integration tests, serial collections | Final result pending. |
+| Integration tests, serial collections | Full run: 433 passed, two failed, one optional scale benchmark skipped. Both failures were corrected; all 22 affected security/session/lifecycle tests passed on rerun, including one added user-deletion case. Combined: 436 distinct passing cases, one existing optional skip, no unresolved failures. |
 | Frontend tests | 99 passed (65 console, 34 public). |
 | Frontend typecheck, build and lint | Passed. |
 | Built public app in Chromium | Passed: hydration, literal malicious tooltip text, no injected image/script, nonce CSP without violations, embeddable map and private sitemap. Synthetic local upstream; no production service contacted. |
 | CI gate tests | Passed, including 45 negative cases. |
 | Infrastructure source checks / renderer / shell syntax | Passed: 33 immutable action pins, five loopback publications, secret separation, network/pod policy validation and scanner failure propagation. |
 | `dotnet csharpier check .` | Passed. Two unformatted migrations inherited from the baseline are explicitly ignored to preserve their bytes; other migrations remain checked. |
-| Current image: three-role smoke / vulnerability scan | Final result pending. |
+| Current image: three-role smoke / vulnerability scan | Passed: migrate, worker and API from the same .NET 10.0.11 image, non-root with read-only root, dropped capabilities and bounded scratch. Trivy HIGH/CRITICAL gate passed; six lower-priority OS advisories remain, detailed below. |
+
+The two full-run failures exposed a scoped hierarchy predicate that EF could not translate and an operator handler parameter prohibited by Wolverine's service-location policy. The fixes use the existing ltree-array query and target-tenant operator patterns; test expectations were preserved. The final affected rerun covered `DataPlaneAuthorizationTests`, `SecurityRemediationTests`, `DirectorySyncTests` and `LifecycleTests`; the entire integration suite was not repeated after these two localized corrections.
 
 Tests use real PostgreSQL, MinIO and Azurite for persistence/storage behavior. The serial test settings disable parallel collections and cap test threads at one to reduce local Docker resource pressure following the crash. The developer SDK/shared runtime is still 10.0.102/10.0.2; servicing the machine installation remains an operator task.
+
+## Current image evidence and upstream advisories
+
+The final source was built and pre-generated in Release, published locally as `premise:security-remediation`, then verified with `tools/smoke-image.sh` and `tools/scan-image.sh`. No image was published to an external registry. The local image identity is `sha256:b9a3f29128bfe29ae6b3bcde4f8d5ecac206a55083da0801b4738690fd0b3fef` (Ubuntu 24.04, .NET and ASP.NET 10.0.11). The worker completed a durable cleanup and retained the unexpired control record; API and worker readiness/liveness passed.
+
+Trivy 0.69.3 scanned this image on September 7 at 19:27 CDT using database version 2, updated September 7 at 19:06 UTC. The CycloneDX SBOM contains 203 components, including 102 NuGet packages. The scan covered OS packages, the application dependency manifest and both shared framework manifests. There were zero HIGH/CRITICAL results under the scanner's Ubuntu severity selection and no NuGet advisories reported. Trivy warned about multiple project roots in the application manifest; its SBOM nevertheless includes the application NuGet dependency inventory. This is scanner evidence, not proof of complete vulnerability coverage.
+
+The all-severity scan records six unique OS advisories: three MEDIUM and three LOW by Ubuntu priority, across nine package findings. Other vendors/CVSS may rate them differently: ICU's CVSS is High while Ubuntu prioritizes its command-line-tool exposure as Low. No `FixedVersion` is listed for these installed packages. The following items remain open upstream; none was suppressed with an ignore rule.
+
+| Advisory / Ubuntu priority | Installed package(s) | Description, applicability and resolution |
+|---|---|---|
+| [CVE-2026-18374](https://ubuntu.com/security/CVE-2026-18374), Medium | `libc6`, `libc-bin` 2.39-0ubuntu8.8 | Heap overflow requires attacker-controlled `fopen` mode/`,ccs=` input. Ubuntu marks Noble as needing evaluation. No direct application `fopen` call was found; native dependency reachability is not established. Keep mode inputs fixed, follow the vendor evaluation and rebuild/rescan when a supported fix lands. |
+| [CVE-2026-18477](https://ubuntu.com/security/CVE-2026-18477), Medium | `tar` 1.35+dfsg-3ubuntu0.4 | Incremental restore rename handling can write outside the destination with local attacker participation. Ubuntu deferred a fix pending upstream patches. Application exports use managed ZIP APIs and no application tar invocation was found. Avoid untrusted tar restore inside the runtime image; rebuild on vendor fix or separately validate a supported minimal base without tar. |
+| [CVE-2026-18508](https://ubuntu.com/security/CVE-2026-18508), Medium | `tar` 1.35+dfsg-3ubuntu0.4 | Crafted hardlinks can escape `--one-top-level` extraction boundaries. Same application exposure and vendor-fix status as above; do not extract untrusted tar archives in the runtime, and replace/rescan the base once fixed. |
+| [CVE-2025-5222](https://ubuntu.com/security/CVE-2025-5222), Low | `libicu74` 74.2-1ubuntu3.1 | Buffer overflow in ICU's `genrb` command-line tool. Ubuntu lists Noble as vulnerable; `genrb` was not found on the image command path and no application invocation exists. Retain ICU for runtime globalization, avoid adding the affected tooling, and rebuild when the supported package fix is available. |
+| [CVE-2024-56433](https://ubuntu.com/security/CVE-2024-56433), Low | `login`, `passwd` 1:4.13+dfsg1-4ubuntu3.2 | Subordinate UID ranges may collide with network user IDs. Fix is deferred. Runtime uses a fixed non-root account, no privilege escalation and no application account provisioning; `newuidmap` was not found on its command path. Verify host/NFS UID allocation separately and update the base when fixed. |
+| [CVE-2026-40228](https://ubuntu.com/security/CVE-2026-40228), Low | `libsystemd0`, `libudev1` 255.4-1ubuntu8.17 | journald wall forwarding can emit malicious terminal escape sequences. Fix is deferred. Serving containers run the .NET process, not a systemd/journald service; the application does not invoke it. Keep that runtime model, review host journald separately and rebuild when fixed. |
+
+Evidence files are in `coverage/security/image/`: `image-id.txt`, `runtime-versions.txt`, `scanner-version.txt`, `sbom.cdx.json`, `vulnerabilities.json` (gate), and `all-vulnerabilities.json`. CI retains the SBOM and gate output for each newly built artifact. Promote by the verified image identity and repeat the scan at promotion; advisory databases and mutable base tags change over time. The runtime OS advisories and machine SDK servicing remain follow-up work, rather than being marked fixed by a passing severity gate.
 
 ## Deployment acceptance
 

@@ -149,14 +149,15 @@ public static class HierarchyEndpoints
         if (hierarchy is null)
             return Results.NotFound();
         var entireOrg = scope is NodeScope.EntireOrg;
-        var paths = scope is NodeScope.Subtrees subtrees ? subtrees.Paths.ToArray() : [];
+        var paths = scope is NodeScope.Subtrees subtrees
+            ? subtrees.Paths.Select(p => new LTree(p)).ToArray()
+            : [];
         var nodes = await db
             .HierarchyNodes.Where(n => n.HierarchyId == hierarchy.Id)
             .Where(n =>
                 entireOrg
-                || paths.Any(p =>
-                    n.Path.IsDescendantOf(new LTree(p)) || n.Path.IsAncestorOf(new LTree(p))
-                )
+                || paths.Any(p => n.Path.IsDescendantOf(p))
+                || paths.Any(p => n.Path.IsAncestorOf(p))
             )
             .OrderBy(n => n.Path)
             .Select(n => new NodeResponse(n.Id, n.ParentId, n.Name, n.Depth, n.Path.ToString()))
