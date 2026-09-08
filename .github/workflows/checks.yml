@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 tests/ci-gate.test.py
           python3 tests/infrastructure-security.test.py
+          python3 tests/reporting-image.test.py
           python3 deploy/digitalocean/render.py --check
       - name: Wolverine codegen (catches fails-at-first-request wiring at CI time)
         run: dotnet run --project src/Premise.Api -c Release --no-build -- codegen write

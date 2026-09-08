@@ -18,10 +18,12 @@ const originalGatewayCount = gateways.length;
 const originalApiCount = containers().filter(row => row.Service === 'api').length;
 let scaled = false;
 assert(gateways.length >= 2, 'requires at least two gateway replicas');
-const fixture = JSON.parse(readFileSync('coverage/gateway/fixture.local.json', 'utf8'));
-const policyPath = 'coverage/gateway/runtime/ratelimit/config/policy.yaml';
+const outputDir = process.env.GATEWAY_OUTPUT ?? 'coverage/gateway';
+const runtime = process.env.GATEWAY_RUNTIME ?? `${outputDir}/runtime`;
+const fixture = JSON.parse(readFileSync(process.env.FLEET_BENCH_FIXTURE ?? `${outputDir}/fixture.local.json`, 'utf8'));
+const policyPath = `${runtime}/ratelimit/config/policy.yaml`;
 const originalPolicy = readFileSync(policyPath, 'utf8');
-const bootstrapPath = 'coverage/gateway/runtime/envoy.yaml';
+const bootstrapPath = `${runtime}/envoy.yaml`;
 const originalBootstrap = readFileSync(bootstrapPath, 'utf8');
 let identityFault = false;
 const summary = { startedAt: new Date().toISOString(), passed: false, gateways, controls: [] };
@@ -165,7 +167,7 @@ try {
   writeFileSync(bootstrapPath, brokenIdentity);
   compose('restart', 'gateway');
   gateways = gatewayUrls();
-  assert.equal(JSON.parse(compose('exec', '-T', 'redis', 'wget', '-q', '-O', '-', 'http://api:8080/livez')).status, 'alive');
+  assert.equal(JSON.parse(compose('exec', '-T', 'redis', 'wget', '-q', '--header=Host: localhost', '-O', '-', 'http://api:8080/livez')).status, 'alive');
   for (let i = 0; i < gateways.length; i++)
     assert.equal((await request(i, fixture.token)).status, 503, 'identity transport failure must fail closed');
   writeFileSync(bootstrapPath, originalBootstrap);
@@ -205,5 +207,5 @@ try {
   }
   compose('start', 'redis', 'ratelimit');
   if (scaled) compose('up', '-d', '--no-deps', '--scale', `api=${originalApiCount}`, '--scale', `gateway=${originalGatewayCount}`, 'api', 'gateway');
-  writeFileSync('coverage/gateway/fairness-results.json', JSON.stringify(summary, null, 2));
+  writeFileSync(`${outputDir}/fairness-results.json`, JSON.stringify(summary, null, 2));
 }

@@ -2,7 +2,7 @@
 # Portable local reference: up [api replicas] [gateway replicas], down, or compose ...
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-runtime="$root/coverage/gateway/runtime"
+runtime="${GATEWAY_RUNTIME:-$root/coverage/gateway/runtime}"
 source "$root/tools/postgres-image.sh"
 export PREMISE_POSTGRES_IMAGE
 action=${1:-up}; shift || true
@@ -59,7 +59,7 @@ case "$action" in
       ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container")
       ready=false
       for _ in $(seq 1 120); do
-        if "${compose[@]}" exec -T redis wget -q -O /dev/null "http://$ip:8080/healthz" 2>/dev/null; then ready=true; break; fi
+        if "${compose[@]}" exec -T redis wget -q --header="Host: localhost" -O /dev/null "http://$ip:8080/healthz" 2>/dev/null; then ready=true; break; fi
         sleep 1
       done
       [ "$ready" = true ] || { echo "API $container did not become ready" >&2; exit 1; }

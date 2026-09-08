@@ -179,8 +179,9 @@ public sealed class ReportingFleetTests(Fleet fleet) : IClassFixture<Fleet>
             },
             "report has a completed PDF before process death"
         );
-        var artifactId = job.GetProperty("artifacts")[0].GetProperty("id").GetGuid();
-        var original = SHA256.HashData(await Download(artifactId));
+        var originalArtifact = job.GetProperty("artifacts")[0];
+        var artifactId = originalArtifact.GetProperty("id").GetGuid();
+        var original = SHA256.HashData(await Download(originalArtifact));
         // Match the actual claim to a PID started and recorded by this harness.
         // The submitting API is only a publisher and must remain alive.
         var claimLogs = string.Join(
@@ -217,7 +218,16 @@ public sealed class ReportingFleetTests(Fleet fleet) : IClassFixture<Fleet>
             "100 reports recover after process death",
             TimeSpan.FromMinutes(5)
         );
-        Assert.Equal(original, SHA256.HashData(await Download(artifactId)));
+        Assert.Equal(
+            original,
+            SHA256.HashData(
+                await Download(
+                    job.GetProperty("artifacts")
+                        .EnumerateArray()
+                        .Single(x => x.GetProperty("id").GetGuid() == artifactId)
+                )
+            )
+        );
         var quotaAfter = await Fleet.JsonAsync(await alice.GetAsync("/api/reports/quota"));
         Assert.Equal(
             quotaBefore.GetProperty("consumed").GetInt64() + 100,
@@ -263,10 +273,7 @@ public sealed class ReportingFleetTests(Fleet fleet) : IClassFixture<Fleet>
             }
         );
         var bytes = await Download(
-            artifacts
-                .Single(a => a.GetProperty("contentType").GetString() == "application/zip")
-                .GetProperty("id")
-                .GetGuid()
+            artifacts.Single(a => a.GetProperty("contentType").GetString() == "application/zip")
         );
         using var zip = new ZipArchive(new MemoryStream(bytes));
         Assert.Equal(101, zip.Entries.Count);
@@ -293,11 +300,13 @@ public sealed class ReportingFleetTests(Fleet fleet) : IClassFixture<Fleet>
             )
         );
 
-        async Task<byte[]> Download(Guid artifact)
+        async Task<byte[]> Download(JsonElement artifact)
         {
-            var link = await Fleet.JsonAsync(
-                await alice.GetAsync($"/api/reports/{jobId}/artifacts/{artifact}/download")
-            );
+            var path =
+                artifact.GetProperty("contentType").GetString() == "application/pdf"
+                    ? $"/api/files/{artifact.GetProperty("fileId").GetGuid()}/download"
+                    : $"/api/reports/{jobId}/artifacts/{artifact.GetProperty("id").GetGuid()}/download";
+            var link = await Fleet.JsonAsync(await alice.GetAsync(path));
             return await alice.GetByteArrayAsync(link.GetProperty("url").GetString());
         }
     }

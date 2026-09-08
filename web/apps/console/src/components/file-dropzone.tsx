@@ -1,6 +1,6 @@
 import { Button, cn, Progress, useFileUpload } from '@premise/ui';
 import { UploadCloud } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 /**
  * One way to hand the console a file: ReUI's file-upload hook behind a
@@ -30,6 +30,7 @@ export function FileDropzone({
   buttonLabel?: string;
   className?: string;
 }) {
+  const labelId = useId();
   const [{ isDragging, errors }, { handleDragEnter, handleDragLeave, handleDragOver, handleDrop, openFileDialog, getInputProps }] =
     useFileUpload({
       accept,
@@ -53,9 +54,9 @@ export function FileDropzone({
         className,
       )}
     >
-      <input {...getInputProps()} className="sr-only" />
+      <input {...getInputProps()} aria-labelledby={labelId} className="sr-only" />
       <UploadCloud className="size-5 text-muted-foreground" aria-hidden />
-      <p className="text-sm">{label}</p>
+      <p id={labelId} className="text-sm">{label}</p>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       <Button type="button" size="sm" variant="outline" disabled={busy} onClick={openFileDialog}>
         {buttonLabel}
