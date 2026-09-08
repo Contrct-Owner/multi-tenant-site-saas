@@ -7,6 +7,7 @@
 # or the load baseline for the scaling table. Tears everything down.
 #
 #   tools/replica-stack.sh [replicas]                 # fleet suite (default 2)
+#   tools/replica-stack.sh 2 --reporting              # dedicated 100-PDF process-death recovery
 #   tools/replica-stack.sh [replicas] --bench [s] [c] # load baseline, s seconds x c concurrency
 #   ... --capacity                                  # k6 arrival-rate run (RATE, CAPACITY_SECONDS, ROUTES env)
 #   ... --workers N                                 # hold workers constant while scaling APIs
@@ -22,6 +23,7 @@ workers=$replicas
 mode=suite; seconds=15; concurrency=32; pgbouncer=""; pg_cpus=${FLEET_PG_CPUS:-2}
 while [ $# -gt 0 ]; do
   case "$1" in
+    --reporting) mode=reporting; shift ;;
     --capacity) mode=capacity; shift ;;
     --workers) workers=$2; shift 2 ;;
     --bench) mode=bench; shift; [ $# -gt 0 ] && [[ "$1" != --* ]] && { seconds=$1; shift; }; [ $# -gt 0 ] && [[ "$1" != --* ]] && { concurrency=$1; shift; } ;;
@@ -30,6 +32,12 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1"; exit 1 ;;
   esac
 done
+
+test_args=()
+if [ "$mode" = reporting ]; then
+  export PREMISE_REPORTING_FLEET=1
+  test_args=(--filter FullyQualifiedName~ReportingFleetTests)
+fi
 
 case "$workers" in ''|*[!0-9]*) echo "workers must be a non-negative integer"; exit 1;; esac
 [ "$replicas" -ge 1 ] || { echo "replicas must be positive"; exit 1; }
@@ -108,6 +116,7 @@ wait_ready() { # name port
   for _ in $(seq 1 120); do curl -fsS "http://127.0.0.1:$2/healthz" 2>/dev/null | grep -q '"status":"ok"' && return 0; sleep 1; done
   echo "$1 never became ready"; tail -40 "$log_dir/$1.log"; exit 1
 }
+app_env+=("Logging__LogLevel__Premise.Modules.Reporting.ReportRunner=Information")
 upstreams=()
 api_pids=()
 for i in $(seq 1 "$replicas"); do
@@ -145,6 +154,8 @@ else
   PREMISE_FLEET_URL="http://127.0.0.1:$proxy_port" \
   PREMISE_FLEET_PG="$owner_cs" \
   PREMISE_FLEET_REPLICAS="$replicas" \
+  PREMISE_FLEET_REPORT_LOG_DIR="$log_dir" \
+  PREMISE_FLEET_WORKER_PIDS="$(IFS=,; echo "${worker_pids[*]}")" \
   PREMISE_FLEET_WORKER_PORTS="$(seq -s, "$worker_base" $((worker_base + workers - 1)))" \
-  dotnet test tests/Premise.FleetTests -c Release --logger "console;verbosity=normal"
+  dotnet test tests/Premise.FleetTests -c Release --logger "console;verbosity=normal" ${test_args[@]+"${test_args[@]}"}
 fi

@@ -760,6 +760,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports_quota
+         * @description GET_api_reports_quota
+         */
+        get: operations["GET_api_reports_quota"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/basemaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports_basemaps
+         * @description GET_api_reports_basemaps
+         */
+        get: operations["GET_api_reports_basemaps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports_types
+         * @description GET_api_reports_types
+         */
+        get: operations["GET_api_reports_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports
+         * @description GET_api_reports
+         */
+        get: operations["GET_api_reports"];
+        put?: never;
+        /**
+         * POST_api_reports
+         * @description POST_api_reports
+         */
+        post: operations["POST_api_reports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports_id
+         * @description GET_api_reports_id
+         */
+        get: operations["GET_api_reports_id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_reports_id_cancel
+         * @description POST_api_reports_id_cancel
+         */
+        post: operations["POST_api_reports_id_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST_api_reports_id_retry
+         * @description POST_api_reports_id_retry
+         */
+        post: operations["POST_api_reports_id_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/{id}/artifacts/{artifactId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET_api_reports_id_artifacts_artifactId_download
+         * @description GET_api_reports_id_artifacts_artifactId_download
+         */
+        get: operations["GET_api_reports_id_artifacts_artifactId_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/overlays": {
         parameters: {
             query?: never;
@@ -2959,6 +3123,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptedResponse: {
+            /** Format: uuid */
+            id: string;
+            state: string;
+        };
         AddClosureRequest: {
             /** Format: date */
             date: string;
@@ -2993,6 +3162,18 @@ export interface components {
             id: string;
             secret: string;
             prefix: string;
+        };
+        ArtifactResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            itemId: null | string;
+            name: string;
+            contentType: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: uuid */
+            fileId: null | string;
         };
         AssignRoleRequest: {
             /** Format: uuid */
@@ -3064,6 +3245,10 @@ export interface components {
         };
         BasemapListResponse: {
             basemaps: components["schemas"]["Basemap"][];
+        };
+        BasemapResponse: {
+            id: string;
+            attribution: string;
         };
         BasemapSetting: {
             id: string;
@@ -3314,6 +3499,11 @@ export interface components {
             /** Format: int32 */
             expiresInSeconds: number;
         };
+        DownloadResponse: {
+            url: string;
+            /** Format: int32 */
+            expiresInSeconds: number;
+        };
         EntitlementExceptionCreatedResponse: {
             code: string;
             /** Format: date-time */
@@ -3329,7 +3519,7 @@ export interface components {
         FileListResponse: {
             items: components["schemas"]["FileSummary"][];
             /** Format: int32 */
-            total: number;
+            total: null | number;
             /** Format: int32 */
             nextOffset: null | number;
         };
@@ -3345,6 +3535,10 @@ export interface components {
             hasPreview: boolean;
             /** Format: date-time */
             createdAt: string;
+            siteIds: string[];
+            origin: null | string;
+            /** Format: uuid */
+            originId: null | string;
         };
         GrantExceptionResponse: {
             /** Format: uuid */
@@ -3435,6 +3629,34 @@ export interface components {
         IResult: Record<string, never>;
         IssueContactLinkRequest: {
             email: string;
+        };
+        ItemResponse: {
+            /** Format: uuid */
+            id: string;
+            state: string;
+            errorCode: null | string;
+            /** Format: date-time */
+            generatedAt: null | string;
+            /** Format: int32 */
+            attempt: number;
+            siteIds: string[];
+            warnings: string[];
+        };
+        JobResponse: {
+            /** Format: uuid */
+            id: string;
+            reportType: string;
+            mode: string;
+            selection: string;
+            state: string;
+            errorCode: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: null | string;
+            items: components["schemas"]["ItemResponse"][];
+            artifacts: components["schemas"]["ArtifactResponse"][];
+            canModify: boolean;
         };
         JsonElement: unknown;
         ListingHours: {
@@ -3852,6 +4074,26 @@ export interface components {
             /** Format: uuid */
             fileId: string;
         };
+        Status: {
+            enabled: boolean;
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            consumed: number;
+            /** Format: int64 */
+            reserved: number;
+            /** Format: int64 */
+            remaining: number;
+            /** Format: date */
+            periodMonth: string;
+        };
+        SubmitRequest: {
+            reportType: string;
+            mode: string;
+            selection: string;
+            siteIds: string[];
+            options: components["schemas"]["JsonElement"];
+        };
         SuppressionResponse: {
             /** Format: uuid */
             id: string;
@@ -3863,6 +4105,13 @@ export interface components {
         SwitchOrgRequest: {
             /** Format: uuid */
             orgId: string;
+        };
+        TypeResponse: {
+            id: string;
+            name: string;
+            /** Format: int32 */
+            version: number;
+            aggregate: boolean;
         };
         UpdateConnectorRequest: {
             name: string;
@@ -5489,6 +5738,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports_quota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Status"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports_basemaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BasemapResponse"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports_types: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypeResponse"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_reports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_reports_id_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    POST_api_reports_id_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    GET_api_reports_id_artifacts_artifactId_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                artifactId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadResponse"];
                 };
             };
             /** @description Not Found */
@@ -7446,6 +7969,7 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 trash?: boolean;
+                siteId?: string;
             };
             header?: never;
             path?: never;

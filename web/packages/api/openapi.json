@@ -1974,6 +1974,346 @@
         }
       }
     },
+    "/api/reports/quota": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports_quota",
+        "description": "GET_api_reports_quota",
+        "operationId": "GET_api_reports_quota",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/basemaps": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports_basemaps",
+        "description": "GET_api_reports_basemaps",
+        "operationId": "GET_api_reports_basemaps",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BasemapResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/types": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports_types",
+        "description": "GET_api_reports_types",
+        "operationId": "GET_api_reports_types",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TypeResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "POST_api_reports",
+        "description": "POST_api_reports",
+        "operationId": "POST_api_reports",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports",
+        "description": "GET_api_reports",
+        "operationId": "GET_api_reports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JobResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{id}": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports_id",
+        "description": "GET_api_reports_id",
+        "operationId": "GET_api_reports_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "POST_api_reports_id_cancel",
+        "description": "POST_api_reports_id_cancel",
+        "operationId": "POST_api_reports_id_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{id}/retry": {
+      "post": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "POST_api_reports_id_retry",
+        "description": "POST_api_reports_id_retry",
+        "operationId": "POST_api_reports_id_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{id}/artifacts/{artifactId}/download": {
+      "get": {
+        "tags": [
+          "Premise.Modules.Reporting.ReportEndpoints"
+        ],
+        "summary": "GET_api_reports_id_artifacts_artifactId_download",
+        "description": "GET_api_reports_id_artifacts_artifactId_download",
+        "operationId": "GET_api_reports_id_artifacts_artifactId_download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "artifactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/overlays": {
       "get": {
         "tags": [
@@ -4470,6 +4810,14 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "siteId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -5988,6 +6336,22 @@
   },
   "components": {
     "schemas": {
+      "AcceptedResponse": {
+        "required": [
+          "id",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
       "AddClosureRequest": {
         "required": [
           "date"
@@ -6108,6 +6472,48 @@
           },
           "prefix": {
             "type": "string"
+          }
+        }
+      },
+      "ArtifactResponse": {
+        "required": [
+          "id",
+          "itemId",
+          "name",
+          "contentType",
+          "bytes",
+          "fileId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "bytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "fileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -6391,6 +6797,21 @@
             "items": {
               "$ref": "#/components/schemas/Basemap"
             }
+          }
+        }
+      },
+      "BasemapResponse": {
+        "required": [
+          "id",
+          "attribution"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
           }
         }
       },
@@ -7336,6 +7757,23 @@
           }
         }
       },
+      "DownloadResponse": {
+        "required": [
+          "url",
+          "expiresInSeconds"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "EntitlementExceptionCreatedResponse": {
         "required": [
           "code",
@@ -7396,7 +7834,10 @@
           },
           "total": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "nextOffset": {
@@ -7418,7 +7859,10 @@
           "deletedAt",
           "legalHold",
           "hasPreview",
-          "createdAt"
+          "createdAt",
+          "siteIds",
+          "origin",
+          "originId"
         ],
         "type": "object",
         "properties": {
@@ -7451,6 +7895,26 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "origin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "originId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7771,6 +8235,124 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "ItemResponse": {
+        "required": [
+          "id",
+          "state",
+          "errorCode",
+          "generatedAt",
+          "attempt",
+          "siteIds",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "JobResponse": {
+        "required": [
+          "id",
+          "reportType",
+          "mode",
+          "selection",
+          "state",
+          "errorCode",
+          "createdAt",
+          "expiresAt",
+          "items",
+          "artifacts",
+          "canModify"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportType": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemResponse"
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactResponse"
+            }
+          },
+          "canModify": {
+            "type": "boolean"
           }
         }
       },
@@ -9350,6 +9932,77 @@
           }
         }
       },
+      "Status": {
+        "required": [
+          "enabled",
+          "limit",
+          "consumed",
+          "reserved",
+          "remaining",
+          "periodMonth"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "consumed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "reserved": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "periodMonth": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "SubmitRequest": {
+        "required": [
+          "reportType",
+          "mode",
+          "selection",
+          "siteIds",
+          "options"
+        ],
+        "type": "object",
+        "properties": {
+          "reportType": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "options": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        }
+      },
       "SuppressionResponse": {
         "required": [
           "id",
@@ -9384,6 +10037,31 @@
           "orgId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "TypeResponse": {
+        "required": [
+          "id",
+          "name",
+          "version",
+          "aggregate"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "aggregate": {
+            "type": "boolean"
           }
         }
       },
@@ -9757,6 +10435,9 @@
     },
     {
       "name": "Premise.Modules.Tenancy.Hierarchy.HierarchyEndpoints"
+    },
+    {
+      "name": "Premise.Modules.Reporting.ReportEndpoints"
     },
     {
       "name": "Premise.Modules.Spatial.Overlays.OverlayEndpoints"

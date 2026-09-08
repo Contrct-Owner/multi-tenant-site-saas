@@ -59,7 +59,10 @@ public class S3AdapterTests(MinioFixture fixture) : IClassFixture<MinioFixture>
         Assert.Null(await fixture.Store.GetLengthAsync(key));
         await fixture.Store.WriteAsync(key, new MemoryStream(), "text/plain");
         Assert.Equal(0L, await fixture.Store.GetLengthAsync(key));
-        await fixture.Store.WriteAsync(key, new MemoryStream("preview"u8.ToArray()), "text/plain");
+        using var content = new MemoryStream("preview"u8.ToArray());
+        await fixture.Store.WriteAsync(key, content, "text/plain");
+        Assert.True(content.CanRead); // reporting reads Length after upload; callers own disposal
+        Assert.Equal(7, content.Length);
         Assert.Equal(7L, await fixture.Store.GetLengthAsync(key));
         await using (var stream = await fixture.Store.OpenReadAsync(key))
         using (var reader = new StreamReader(stream))

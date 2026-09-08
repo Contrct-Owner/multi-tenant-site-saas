@@ -131,6 +131,7 @@ public sealed class S3ObjectStore : IObjectStore
                 BucketName = _bucket,
                 Key = key,
                 InputStream = content,
+                AutoCloseStream = false,
                 ContentType = contentType,
             },
             ct

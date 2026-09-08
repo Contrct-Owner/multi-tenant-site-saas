@@ -6,6 +6,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Premise.Api;
 using Premise.Modules.Audit;
+using Premise.Modules.Reporting;
 using Premise.Modules.Checklists;
 using Premise.Modules.Entitlements;
 using Premise.Modules.Identity;
@@ -160,6 +161,7 @@ builder.Services.AddAuditModule(runBackgroundWork: role == "worker");
 builder.Services.AddStorageModule(runBackgroundWork: role == "worker");
 builder.Services.AddIngestModule(runBackgroundWork: role == "worker");
 builder.Services.AddChecklistsModule();
+builder.Services.AddReportingModule(runBackgroundWork: role == "worker");
 builder.Services.AddSpatialModule();
 
 // Platform infra context (idempotency, ADR 29; sweep leases)
@@ -302,7 +304,8 @@ builder.UseWolverine(opts =>
         builder.Configuration.GetConnectionString("premise-messaging")
         ?? builder.Configuration.GetConnectionString("premise")
         ?? throw new InvalidOperationException("Missing connection string 'premise'.");
-    opts.PersistMessagesWithPostgresql(cs, "wolverine");
+    opts.UsePostgresqlPersistenceAndTransport(cs, "wolverine", transportSchema: "wolverine")
+        .AutoProvision();
     // the migrate role owns DDL, not messaging: never let it provision or
     // touch the envelope schema as the OWNER (the app role must own it)
     if (role == "migrate")
@@ -316,6 +319,10 @@ builder.UseWolverine(opts =>
     if (builder.Environment.IsProduction())
         opts.CodeGeneration.TypeLoadMode = JasperFx.CodeGeneration.TypeLoadMode.Auto;
     opts.Policies.UseDurableLocalQueues();
+    opts.PublishMessage<Premise.Modules.Reporting.GenerateReport>().ToPostgresqlQueue("reports");
+    // Integration hosts combine roles; deployed APIs only publish report work.
+    if (role == "worker" || builder.Environment.IsEnvironment("Testing"))
+        opts.ListenToPostgresqlQueue("reports").MaximumParallelMessages(1);
     opts.OnException<Premise.Platform.Entitlements.CapacityBusyException>()
         .RetryWithCooldown(
             TimeSpan.FromMilliseconds(20),
@@ -325,6 +332,7 @@ builder.UseWolverine(opts =>
         .Then.ScheduleRetryIndefinitely(TimeSpan.FromSeconds(1))
         .WithFullJitter();
     opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(ReportingModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(SpatialModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(IdentityModule).Assembly);
     opts.Discovery.IncludeAssembly(typeof(EntitlementsModule).Assembly);

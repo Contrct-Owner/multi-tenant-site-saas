@@ -182,6 +182,14 @@ jobs:
           docker image inspect premise:ci --format 'user={{.Config.User}} ports={{.Config.ExposedPorts}}'
       - name: Smoke the three roles from the image
         run: tools/smoke-image.sh premise:ci
+      - name: Generate reference reports from the production image
+        run: bash tools/reporting-image.sh premise:ci coverage/reporting-image
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporting-image-evidence
+          path: coverage/reporting-image/
+          if-no-files-found: ignore
 
   browser:
     # Critical flows and tenant transitions in Chromium, Firefox, and WebKit, with an axe pass on

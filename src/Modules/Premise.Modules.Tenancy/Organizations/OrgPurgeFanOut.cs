@@ -22,6 +22,7 @@ public static class OrgPurgeFanOut
         await bus.PublishForOrgAsync(org, new PurgeOrgWebhooks());
         await bus.PublishForOrgAsync(org, new PurgeOrgChecklists());
         await bus.PublishForOrgAsync(org, new PurgeOrgSpatial());
+        await bus.PublishForOrgAsync(org, new PurgeOrgReporting());
         await bus.PublishForOrgAsync(org, new OrganizationDeleted(org, externalId));
     }
 }

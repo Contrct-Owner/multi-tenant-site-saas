@@ -19,6 +19,7 @@ if [ "$selected_project" = false ]; then
   exit 0
 fi
 pg_port=${E2E_PG_PORT:-55432}; api_port=${E2E_API_PORT:-5293}
+worker_port=${E2E_WORKER_PORT:-5294}
 web_port=${E2E_WEB_PORT:-5173}; public_port=${E2E_PUBLIC_PORT:-5174}
 cs="Host=localhost;Port=$pg_port;Database=premise;Username=postgres;Password=owner"
 log_dir=$(mktemp -d "${TMPDIR:-/tmp}/premise-e2e.XXXXXX")
@@ -36,6 +37,7 @@ cleanup() {
     echo "Failure diagnostics: $diagnostics"
   fi
   [ -n "${api_pid:-}" ] && kill "$api_pid" 2>/dev/null || true
+  [ -n "${worker_pid:-}" ] && kill "$worker_pid" 2>/dev/null || true
   [ -n "${web_pid:-}" ] && kill "$web_pid" 2>/dev/null || true
   [ -n "${public_pid:-}" ] && kill "$public_pid" 2>/dev/null || true
   docker rm -f e2e-pg >/dev/null 2>&1 || true
@@ -53,14 +55,19 @@ for _ in $(seq 1 60); do docker exec e2e-pg pg_isready -h 127.0.0.1 -U postgres 
 cd "$root"
 dotnet build src/Premise.Api -c Release -nologo -v q
 export ASPNETCORE_ENVIRONMENT=Development ConnectionStrings__premise="$cs" Secrets__LocalMasterKey="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-ROLE=migrate ASPNETCORE_URLS="http://127.0.0.1:0" dotnet run --project src/Premise.Api -c Release --no-build
+ROLE=migrate ASPNETCORE_URLS="http://127.0.0.1:0" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile
 export ROLE=api Auth__Provider=local Database__AppUser=app_user Database__AppPassword=app_user
 export Storage__LocalRoot="${TMPDIR:-/tmp}/premise-e2e-store"
 export ASPNETCORE_URLS="http://localhost:$api_port"
-dotnet run --project src/Premise.Api -c Release --no-build > "$log_dir/api.log" 2>&1 &
+dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/api.log" 2>&1 &
 api_pid=$!
 for _ in $(seq 1 120); do curl -fsS "http://localhost:$api_port/healthz" >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS "http://localhost:$api_port/healthz" | grep -q '"status":"ok"' || { echo "api never became ready"; tail -50 "$log_dir/api.log"; exit 1; }
+
+ROLE=worker ASPNETCORE_URLS="http://127.0.0.1:$worker_port" dotnet run --project src/Premise.Api -c Release --no-build --no-launch-profile > "$log_dir/worker.log" 2>&1 &
+worker_pid=$!
+for _ in $(seq 1 120); do curl -fsS "http://127.0.0.1:$worker_port/healthz" >/dev/null 2>&1 && break; sleep 1; done
+curl -fsS "http://127.0.0.1:$worker_port/healthz" | grep -q '"role":"worker"' || { echo "worker never became ready"; tail -50 "$log_dir/worker.log"; exit 1; }
 
 cd "$root/web"
 pnpm --filter @premise/console build

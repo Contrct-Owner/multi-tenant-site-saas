@@ -8,6 +8,12 @@ afterEach(() => {
 });
 
 describe('API response normalization', () => {
+  it('passes a caller-owned idempotency key through to report submission', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: 'report', state: 'Queued' }));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.post('/api/reports', { reportType: 'site', mode: 'single', selection: 'selected', siteIds: [], options: {} }, { idempotencyKey: 'stable-report-key' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/reports', expect.objectContaining({ headers: expect.objectContaining({ 'Idempotency-Key': 'stable-report-key' }) }));
+  });
   it('refuses browser session bootstrap without the context precondition header', async () => {
     vi.stubGlobal('window', new EventTarget());
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ tier: 'guest' })));
