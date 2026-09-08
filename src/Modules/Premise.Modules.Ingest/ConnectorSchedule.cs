@@ -51,8 +51,8 @@ public static class SyncDueConnectorsHandler
             )
             .Select(c => c.Id);
         foreach (var connectorId in due)
-            if (!await ConnectorQueue.EnqueueAsync(db, org, connectorId, bus, ct))
-                break;
+            // A pending connector must not block other due work; admission still caps the queue.
+            await ConnectorQueue.EnqueueAsync(db, org, connectorId, bus, ct);
     }
 }
 

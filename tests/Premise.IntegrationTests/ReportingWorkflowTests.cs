@@ -674,6 +674,99 @@ public sealed class ReportingWorkflowTests(ReportingWorkflowFixture fixture)
         );
     }
 
+    [Fact]
+    public async Task Attached_photographs_require_current_access_to_their_own_sites()
+    {
+        var (client, sites) = await Setup(2);
+        using var scope = fixture.Factory.Services.CreateScope();
+        scope
+            .ServiceProvider.GetRequiredService<TenantContext>()
+            .Set(fixture.OrgA, RegionId.Default);
+        var identity =
+            scope.ServiceProvider.GetRequiredService<Premise.Modules.Identity.Data.IdentityDbContext>();
+        var user = await identity.Users.SingleAsync(x => x.Email == ApiFixture.UserA);
+        var membershipIds = identity
+            .Memberships.Where(x => x.OrgId == fixture.OrgA && x.UserId == user.Id)
+            .Select(x => x.Id);
+        var assignments = await identity
+            .MembershipRoles.Where(x => membershipIds.Contains(x.MembershipId))
+            .AsNoTracking()
+            .ToListAsync();
+        var storage =
+            scope.ServiceProvider.GetRequiredService<Premise.Modules.Storage.Data.StorageDbContext>();
+        var photoId = Guid.CreateVersion7();
+        var photo = new Premise.Modules.Storage.Data.FileObject
+        {
+            Id = photoId,
+            OrgId = fixture.OrgA,
+            Key = $"reports-test/{fixture.OrgA.Value}/{photoId}.png",
+            Name = "Site B photograph",
+            ContentType = "image/png",
+            MaxBytes = 1024 * 1024,
+            CreatedBy = user.Id,
+            Status = Premise.Modules.Storage.Data.FileStatus.Clean,
+            SiteIds = [sites[1]],
+        };
+        storage.Files.Add(photo);
+        await storage.SaveChangesAsync();
+        using var bitmap = new SkiaSharp.SKBitmap(80, 40);
+        bitmap.Erase(SkiaSharp.SKColors.CornflowerBlue);
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        await scope
+            .ServiceProvider.GetRequiredService<Premise.Platform.Storage.IObjectStore>()
+            .WriteAsync(photo.Key, new MemoryStream(encoded.ToArray()), "image/png");
+        var request = new
+        {
+            reportType = "site",
+            mode = "single",
+            selection = "selected",
+            siteIds = new[] { sites[0] },
+            options = new { photos = new Dictionary<Guid, Guid[]> { [sites[0]] = [photoId] } },
+        };
+        var response = await client.PostAsJsonAsync("/api/reports", request);
+        response.EnsureSuccessStatusCode();
+        var id = (await response.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id")
+            .GetGuid();
+        var ready = await Wait(client, id, "Completed");
+        var artifact = Assert
+            .Single(ready.GetProperty("artifacts").EnumerateArray())
+            .GetProperty("id")
+            .GetGuid();
+        Assert.NotEmpty(await Download(client, id, artifact));
+        var siteAPath = (
+            await scope
+                .ServiceProvider.GetRequiredService<TenancyDbContext>()
+                .Sites.SingleAsync(x => x.Id == new SiteId(sites[0]))
+        ).Path.ToString();
+        try
+        {
+            await identity
+                .MembershipRoles.Where(x => membershipIds.Contains(x.MembershipId))
+                .ExecuteUpdateAsync(set => set.SetProperty(x => x.ScopePath, siteAPath));
+            // The report's site remains visible, but its captured photograph belongs to site B.
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PostAsJsonAsync("/api/reports", request)).StatusCode
+            );
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                (await client.GetAsync($"/api/files/{artifact}/download")).StatusCode
+            );
+        }
+        finally
+        {
+            foreach (var assignment in assignments)
+                await identity
+                    .MembershipRoles.Where(x => x.Id == assignment.Id)
+                    .ExecuteUpdateAsync(set =>
+                        set.SetProperty(x => x.ScopePath, assignment.ScopePath)
+                    );
+        }
+        Assert.NotEmpty(await Download(client, id, artifact));
+    }
+
     [Theory]
     [InlineData("site", "single", 1)]
     [InlineData("sites-summary", "aggregate", 2)]

@@ -131,3 +131,18 @@ Validation of the consolidated source passed:
 The full integration suite and production-image qualification were not repeated for this consolidation. Docker responsiveness and disk capacity have recovered; the earlier image publication failure is historical. A newly built consolidated image still needs the existing CI image qualification before promotion.
 
 Verification logs are retained in the original checkout under `coverage/security-consolidation/`; earlier evidence was moved from the retired security worktree to `coverage/security/`. Other local branch tips are preserved as tags under `archive/local-branches/2026-09-07/`, with the original names and commits recorded in `coverage/security-consolidation/archived-branches.json`. Only `feat/performance-optimizations` remains as a local branch after consolidation. Remote branches are unchanged.
+
+## Review corrections — 2026-09-07
+
+The review against `origin/main` identified four regressions. All four are corrected:
+
+| Finding | Implemented resolution |
+|---|---|
+| BOM-prefixed CSV uploads lose the first column | Retain bounded byte reads, then use BOM-aware `StreamReader` decoding. UTF-8 inputs with and without a BOM retain their external IDs. |
+| Report photo picker cannot find supported uploads | File creation accepts an optional authorized `siteId`; the site Files view supports uploads and refreshes report photo choices. Existing organization uploads keep their behavior. |
+| A pending connector blocks later scheduled work | Attempt every due connector; existing atomic admission continues to enforce the queue cap and reject duplicate/manual pending syncs. |
+| Undefined report enum values expand work unexpectedly | Reject undefined modes and selections before selecting sites, creating jobs or reserving quota, including numeric and quoted numeric inputs. |
+
+Site attachment checks require both site-read and file-manage scope, including for reserved archive filenames. The upload relay rechecks current file authority. Reference reports recheck the attached photographs' own sites against site-read and file-read scope at admission, generation and download. Losing access to a photograph's site also removes access to PDFs containing it. The [reporting guide](reporting.md#site-photographs) documents this behavior.
+
+Validation passed: final solution build with zero warnings/errors; 62 selected integration tests, followed by nine final authorization tests after tightening the archive-name guard; 56 architecture tests; 23 Reporting unit tests; 110 frontend tests; API snapshot/client generation, frontend typecheck/lint, formatting and whitespace checks. The integration runs overlap and are not a count of 71 distinct tests. Logs and TRX results are retained under `coverage/review-fixes/`. The full integration suite and production-image qualification were not repeated for these localized corrections.

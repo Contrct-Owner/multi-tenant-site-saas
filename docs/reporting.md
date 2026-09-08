@@ -59,6 +59,20 @@ item costs one quota unit, including an aggregate; a fork does not record anothe
 usage event from `RenderAsync`. Retries and duplicate delivery retain the item's
 identity, which prevents successful PDFs from being charged again.
 
+## Site photographs
+
+Upload photographs from a site's Files view. File creation accepts an optional
+`siteId`; attachment requires both site-read and file-manage scope on that site.
+The existing ticket, scan and completion flow applies, and the report picker
+shows that site's clean JPEG/PNG files. Omitting `siteId` retains organization
+uploads for existing integrations.
+
+Reference reports recheck every attached photograph's site against current
+site-read and file-read scope at admission, generation and download, including
+photographs attached to a site other than the report's subject. Losing that
+access prevents downloading PDFs that contain the photograph. Custom definitions
+must enforce equivalent checks on their own dependencies.
+
 ## Versioning a definition
 
 The registry holds one version per ID. Jobs pin that version; replacing it with a

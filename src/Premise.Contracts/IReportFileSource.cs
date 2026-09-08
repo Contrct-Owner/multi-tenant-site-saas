@@ -7,5 +7,5 @@ public interface IReportFileSource
 {
     Task<IReadOnlyList<File>> ReadAsync(OrgId org, Guid[] ids, CancellationToken ct = default);
 
-    public sealed record File(Guid Id, string Key, string Name, string ContentType);
+    public sealed record File(Guid Id, string Key, string Name, string ContentType, Guid[] SiteIds);
 }

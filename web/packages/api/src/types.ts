@@ -3417,6 +3417,8 @@ export interface components {
             contentType: string;
             /** Format: int64 */
             sizeBytes: number;
+            /** Format: uuid */
+            siteId?: null | string;
         };
         CreateFileResponse: {
             /** Format: uuid */

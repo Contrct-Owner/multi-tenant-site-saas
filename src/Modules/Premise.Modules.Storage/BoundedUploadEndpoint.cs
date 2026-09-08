@@ -24,6 +24,7 @@ public static class BoundedUploadEndpoint
         Guid id,
         HttpContext http,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IObjectStore store,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -57,6 +58,8 @@ public static class BoundedUploadEndpoint
                 || file.Status != FileStatus.PendingUpload
                 || file.CreatedAt.AddMinutes(15) <= DateTimeOffset.UtcNow
             )
+                return Results.NotFound();
+            if (!await access.AllowsAsync(file, user, Capabilities.FilesManage, ct))
                 return Results.NotFound();
             if (await store.GetLengthAsync(file.Key, ct) is not null)
                 return ApiErrors.Conflict("this upload ticket was already used");

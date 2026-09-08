@@ -8,6 +8,7 @@ public sealed class ReferenceReportAccess(
     IReportRequester requesters,
     IScopeResolver scopes,
     IReportFileSource files,
+    ISiteSource sites,
     IReportOverlaySource overlays
 )
 {
@@ -33,6 +34,21 @@ public sealed class ReferenceReportAccess(
             var found = await files.ReadAsync(request.Org, used.PhotoIds, ct);
             if (found.Count != used.PhotoIds.Length)
                 return false;
+            var siteIds = found.SelectMany(x => x.SiteIds).Distinct().ToArray();
+            if (siteIds.Length > 1000)
+                return false;
+            if (siteIds.Length > 0)
+            {
+                var scope = ReportAccess.Intersect(
+                    await scopes.ScopeForAsync(user, Capabilities.SitesRead, ct),
+                    await scopes.ScopeForAsync(user, Capabilities.FilesRead, ct)
+                );
+                if (
+                    (await sites.SelectAsync(request.Org, scope, siteIds, siteIds.Length, ct)).Count
+                    != siteIds.Length
+                )
+                    return false;
+            }
         }
         if (used.OverlayIds.Length > 0)
         {

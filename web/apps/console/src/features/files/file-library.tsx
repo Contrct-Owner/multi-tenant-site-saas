@@ -26,11 +26,14 @@ export function FileLibrary({ siteId }: { siteId?: string }) {
       last.nextOffset ?? undefined,
   });
   const files = filesQuery.data?.pages.flatMap((p) => p.items);
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['files'] });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['files'] });
+    if (siteId) void queryClient.invalidateQueries({ queryKey: ['reports', 'photos', siteId] });
+  };
 
   const upload = useMutation({
     mutationFn: (file: File) =>
-      uploadFile(file, file.type || 'application/octet-stream', setPhase),
+      uploadFile(file, file.type || 'application/octet-stream', setPhase, siteId),
     onSettled: () => {
       setPhase('');
       refresh();
@@ -141,7 +144,7 @@ export function FileLibrary({ siteId }: { siteId?: string }) {
           </Button>
         </>}
       />
-      {manage && !trash && !siteId && (
+      {manage && !trash && (
         <FileDropzone
           onFile={(file) => upload.mutate(file)}
           busy={upload.isPending}
@@ -160,7 +163,7 @@ export function FileLibrary({ siteId }: { siteId?: string }) {
         getRowId={(f) => f.id}
         isLoading={files === undefined}
         loadingMessage="Loading…"
-        emptyMessage={`No files yet.${manage && !siteId ? ' Upload one to get started.' : ''}`}
+        emptyMessage={`No files yet.${manage ? ' Upload one to get started.' : ''}`}
         onFetchMore={() => void filesQuery.fetchNextPage()}
         hasMore={filesQuery.hasNextPage}
         isFetchingMore={filesQuery.isFetchingNextPage}

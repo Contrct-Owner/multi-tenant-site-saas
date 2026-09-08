@@ -109,9 +109,10 @@ public static class IngestEndpoints
         try
         {
             await using var stream = await store.OpenReadAsync(file.Key, ct);
-            var text = System.Text.Encoding.UTF8.GetString(
-                await BoundedRead.ReadAsync(stream, IngestLimits.MaxBytes, ct)
+            using var reader = new StreamReader(
+                new MemoryStream(await BoundedRead.ReadAsync(stream, IngestLimits.MaxBytes, ct))
             );
+            var text = await reader.ReadToEndAsync(ct);
             var rows = CsvParser.Parse(text).Select(CsvParser.ToSourceRow).ToList();
             if (rows.Count == 0)
                 return ApiErrors.BadRequest("no data rows found");

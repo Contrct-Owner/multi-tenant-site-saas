@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,45 @@ namespace Premise.IntegrationTests;
 public class ReportingBoundsTests(ReportingBoundsFixture fixture)
     : IClassFixture<ReportingBoundsFixture>
 {
+    [Theory]
+    [InlineData("99", "\"selected\"")]
+    [InlineData("\"99\"", "\"selected\"")]
+    [InlineData("\"bulk\"", "99")]
+    [InlineData("\"bulk\"", "\"99\"")]
+    public async Task Undefined_enums_are_rejected_before_creating_jobs_or_reserving_quota(
+        string mode,
+        string selection
+    )
+    {
+        var (client, sites) = await Setup(1);
+        using var scope = fixture.Factory.Services.CreateScope();
+        scope
+            .ServiceProvider.GetRequiredService<TenantContext>()
+            .Set(fixture.OrgA, RegionId.Default);
+        var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
+        var jobsBefore = await db.Jobs.CountAsync();
+        var quotaBefore = await db.QuotaEntries.CountAsync();
+        var response = await client.PostAsJsonAsync(
+            "/api/reports",
+            new
+            {
+                reportType = "workflow-test",
+                mode = JsonSerializer.Deserialize<JsonElement>(mode),
+                selection = JsonSerializer.Deserialize<JsonElement>(selection),
+                siteIds = sites,
+                options = new { },
+            }
+        );
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "Unknown report mode or selection.",
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(jobsBefore, await db.Jobs.CountAsync());
+        Assert.Equal(quotaBefore, await db.QuotaEntries.CountAsync());
+    }
+
     /// <summary>
     /// A render that never observes cancellation is still bounded. Awaiting one
     /// directly made the item budget advisory: the lease expired while a

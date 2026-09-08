@@ -33,7 +33,12 @@ public sealed record FileListResponse(
     int? NextOffset
 );
 
-public sealed record CreateFileRequest(string Name, string ContentType, long SizeBytes);
+public sealed record CreateFileRequest(
+    string Name,
+    string ContentType,
+    long SizeBytes,
+    Guid? SiteId = null
+);
 
 public sealed record SetHoldRequest(bool Hold);
 
@@ -51,6 +56,7 @@ public static class FileEndpoints
     public static async Task<IResult> Create(
         CreateFileRequest request,
         StorageDbContext db,
+        [FromServices] FileAccess access,
         IObjectStore store,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
@@ -71,6 +77,25 @@ public static class FileEndpoints
             || request.ContentType.Length > 100
         )
             return ApiErrors.BadRequest("invalid file name or content type");
+        var id = Guid.CreateVersion7();
+        // tenant- and region-scoped key layout (ADR 19/35)
+        var key = $"{RegionId.Default.Value}/{org.Value}/files/{id}";
+        var file = new FileObject
+        {
+            Id = id,
+            OrgId = org,
+            Key = key,
+            Name = request.Name,
+            ContentType = request.ContentType,
+            MaxBytes = request.SizeBytes,
+            CreatedBy = userId,
+            SiteIds = request.SiteId is { } siteId ? [siteId] : [],
+        };
+        if (
+            request.SiteId is not null
+            && !await access.AllowsAsync(file, principal, Capabilities.FilesManage, ct)
+        )
+            return Results.NotFound();
         if (!await CapacityReservations.TryLockAsync(db, org, "storage.upload", ct))
             return ApiErrors.Conflict("another upload is being admitted; retry");
         var outstanding = db.Files.Where(f =>
@@ -87,19 +112,6 @@ public static class FileEndpoints
                 "outstanding upload budget exceeded",
                 StatusCodes.Status429TooManyRequests
             );
-        var id = Guid.CreateVersion7();
-        // tenant- and region-scoped key layout (ADR 19/35)
-        var key = $"{RegionId.Default.Value}/{org.Value}/files/{id}";
-        var file = new FileObject
-        {
-            Id = id,
-            OrgId = org,
-            Key = key,
-            Name = request.Name,
-            ContentType = request.ContentType,
-            MaxBytes = request.SizeBytes,
-            CreatedBy = userId,
-        };
         db.Files.Add(file);
         await db.SaveChangesAsync(ct);
 

@@ -4,6 +4,9 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Premise.Modules.Ingest.Data;
+using Premise.Platform.Entitlements;
 
 namespace Premise.IntegrationTests;
 
@@ -181,6 +184,28 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
             );
         }
         Assert.NotEmpty(closures);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Upload_decodes_UTF8_with_or_without_a_BOM(bool includeBom)
+    {
+        var (client, _, _) = await Setup();
+        var externalId = $"bom-{includeBom}";
+        var csv =
+            (includeBom ? "\uFEFF" : "")
+            + $"external_id,name,time_zone,node,status\n{externalId},BOM Site,America/Chicago,IngestEast,open";
+        var batch = await Stage(client, await UploadCsv(client, csv));
+        Assert.Equal(1, batch.GetProperty("counts").GetProperty("create").GetInt32());
+        Assert.Equal(0, batch.GetProperty("counts").GetProperty("invalid").GetInt32());
+        var preview = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/ingest/batches/{batch.GetProperty("batchId").GetGuid()}"
+        );
+        Assert.Equal(
+            externalId,
+            preview.GetProperty("rows")[0].GetProperty("externalId").GetString()
+        );
     }
 
     [Fact]
@@ -487,6 +512,44 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         await stub.StartAsync();
         try
         {
+            // Represent a delayed/dead-lettered sync: its durable reservation remains,
+            // but there is no active request to complete it during this sweep.
+            var pending = await client.PostAsJsonAsync(
+                "/api/connectors",
+                new
+                {
+                    name = "aaa-pending-conn",
+                    url = $"{stub.Urls.First()}/sites",
+                    apiKey = "k",
+                    syncIntervalHours = 1,
+                }
+            );
+            pending.EnsureSuccessStatusCode();
+            var pendingId = (await pending.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("id")
+                .GetGuid();
+            await using var db = (IngestDbContext)
+                ApiFixture.CreateCatalogContext(
+                    Premise.Api.ModuleCatalog.AllWithPlatform.Single(m => m.Schema == "ingest"),
+                    fixture.PostgresConnectionString
+                );
+            await using (var transaction = await db.Database.BeginTransactionAsync())
+            {
+                await CapacityReservations.ReserveAsync(
+                    db,
+                    fixture.OrgA,
+                    Premise.Modules.Ingest.ConnectorQueue.Code,
+                    Guid.CreateVersion7(),
+                    [pendingId],
+                    CancellationToken.None
+                );
+                await transaction.CommitAsync();
+            }
+            Assert.Equal(
+                HttpStatusCode.TooManyRequests,
+                (await client.PostAsync($"/api/connectors/{pendingId}/sync", null)).StatusCode
+            );
+
             foreach (
                 var (name, interval) in new (string, int?)[]
                 {
@@ -532,6 +595,20 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                     .GetString()
             );
 
+            Assert.DoesNotContain(
+                batches.EnumerateArray(),
+                b => b.GetProperty("source").GetString() == "aaa-pending-conn"
+            );
+            Assert.Equal(
+                1,
+                await CapacityReservations.PendingAsync(
+                    db,
+                    fixture.OrgA,
+                    Premise.Modules.Ingest.ConnectorQueue.Code,
+                    CancellationToken.None
+                )
+            );
+
             // ...the manual one is untouched
             Assert.DoesNotContain(
                 batches.EnumerateArray(),
@@ -546,6 +623,10 @@ public class IngestTests(ApiFixture fixture) : IClassFixture<ApiFixture>
                 (await client.GetFromJsonAsync<JsonElement>("/api/ingest/batches"))
                     .EnumerateArray()
                     .Count(b => b.GetProperty("source").GetString() == "scheduled-conn")
+            );
+            Assert.Equal(
+                HttpStatusCode.NoContent,
+                (await client.DeleteAsync($"/api/connectors/{pendingId}")).StatusCode
             );
         }
         finally

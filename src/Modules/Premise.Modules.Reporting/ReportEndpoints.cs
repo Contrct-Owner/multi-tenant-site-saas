@@ -151,8 +151,9 @@ public static class ReportEndpoints
             return gate.ToResult();
         if (!await entitlements.HasAsync(org, EntitlementCatalog.ReportsEnabled, ct))
             return GateResults.FeatureOff(EntitlementCatalog.ReportsEnabled);
+        if (!Enum.IsDefined(request.Mode) || !Enum.IsDefined(request.Selection))
+            return ApiErrors.BadRequest("Unknown report mode or selection.");
         var definition = registry.Find(request.ReportType);
-        // Mode and selection are enums: an unknown value never reaches here.
         if (definition is null || definition.Aggregate != (request.Mode == ReportMode.Aggregate))
             return ApiErrors.BadRequest(
                 "Unknown report type, or a mode that report type does not produce."

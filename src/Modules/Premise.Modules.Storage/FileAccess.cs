@@ -32,10 +32,6 @@ public sealed class FileAccess(
                 Capabilities.AuditRead,
             _ => null,
         };
-        if (source is not null)
-            return principal is Principal.User { ActiveOrg: { } org }
-                && org == file.OrgId
-                && await scopes.ScopeForAsync(principal, source, ct) is NodeScope.EntireOrg;
         if (file.SiteIds.Length > 0)
         {
             var siteScope = await scopes.ScopeForAsync(principal, Capabilities.SitesRead, ct);
@@ -57,6 +53,10 @@ public sealed class FileAccess(
             if (readable.Count != file.SiteIds.Length || allowed.Count != file.SiteIds.Length)
                 return false;
         }
+        if (source is not null)
+            return principal is Principal.User { ActiveOrg: { } org }
+                && org == file.OrgId
+                && await scopes.ScopeForAsync(principal, source, ct) is NodeScope.EntireOrg;
         // Managing the file does not expose its bytes. A removed source resource
         // or retired renderer must not prevent an authorized site/file manager
         // from placing a hold, trashing, or restoring the persistent file.

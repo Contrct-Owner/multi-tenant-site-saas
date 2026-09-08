@@ -23,7 +23,7 @@ public sealed class ReportFileSource(StorageDbContext db) : IReportFileSource
                 && x.Status == FileStatus.Clean
                 && x.Origin == null
             )
-            .Select(x => new IReportFileSource.File(x.Id, x.Key, x.Name, x.ContentType))
+            .Select(x => new IReportFileSource.File(x.Id, x.Key, x.Name, x.ContentType, x.SiteIds))
             .ToListAsync(ct);
     }
 }
