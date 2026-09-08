@@ -1,5 +1,9 @@
 # Scaling out: what two and four replicas prove
 
+> Historical measurements and fleet scenarios. The [2026-09-07 assessment](performance-and-scalability-assessment.md)
+> qualifies their scope: flat throughput on a shared host does not isolate the
+> bottleneck, and the fleet suite does not establish sustained even distribution.
+
 The production topology (`docs/production.md`) runs the api and worker roles
 as replicas behind a load balancer. This page is the evidence that they can:
 which per-process state was made fleet-safe, the suite that proves it, and
@@ -7,7 +11,11 @@ the load table at one, two and four replicas on one host.
 
 ## What had to change (2026-09-06, ADR 52)
 
-| State | Before | Now |
+The next table records the historical SQL-counter design. [ADR 54](decisions/0054-gateway-operational-fairness.md)
+now replaces request-rate counters and the quota cache with gateway operational
+fairness. Its current implementation and checks are in [gateway fairness](gateway-fairness.md).
+
+| State | Before | As tested on 2026-09-06 |
 |---|---|---|
 | Org / user / API-key rate limit | In-memory fixed window per process: N replicas gave N times the quota | One `platform.rate_windows` row per (partition, minute), upserted per request; fails open |
 | Org quota cache | Five-minute per-process cache; a quota change reached one replica | Fifteen seconds; every replica learns a change by expiry |
@@ -25,12 +33,14 @@ runs `tests/Premise.FleetTests` through the proxy:
 |---|---|
 | One session is answered by every replica | Sessions are database state; the proxy spreads a cookie's requests and every replica answers it |
 | An idempotency key holds across replicas | The same key sent to different replicas creates one site; a mid-flight retry is a 409 |
-| An org quota is one number across replicas | After a quota change, a fresh window lets the quota through fleet-wide, and every replica refuses on the shared counter (at most one stale request per replica while its cache expires) |
 | Each sweep runs once per period across workers | With N workers ticking, `platform.sweep_runs` holds one claim per (sweep, period) |
 | Messages survive the death of the replica that took them | A 400-row ingest batch is committed, the replica that answered is killed with SIGKILL, and the survivors apply every row from the durable queue |
 
 Every case skips when `PREMISE_FLEET_URL` is unset, so `dotnet test` over
 the solution never needs the stack.
+
+The former SQL quota case was retired with ADR 54. The gateway suite verifies
+tenant fairness separately, including multiple credentials and gateway replicas.
 
 ## Load at one, two and four replicas
 
@@ -57,15 +67,11 @@ Zero errors on every row at every size. (`members` is left out: it is a
 humans-only endpoint and the bench signs in with an API key, so every call
 is a correct 403.)
 
-What the table says on this host: the api is not the bottleneck. Every
-data-bearing target sits at 600-700 requests per second whether one, two or
-four replicas serve it, because all of them share one Postgres and one set
-of cores; adding replicas adds a little proxy and scheduling cost and no
-throughput. That is the expected shape for a single machine and it is the
-result that matters for the design: the replicas are interchangeable, the
-shared state is shared, and the ceiling is the database. On a real
-deployment the replicas get their own cores and the same table shows
-whether Postgres or the api saturates first.
+These results show flat or lower throughput as replicas are added on one host.
+They do not isolate API CPU, database CPU or waits, generator/proxy overhead,
+or shared-host contention. The fleet suite separately exercises shared-state
+correctness. Additional independent compute and resource measurements are needed
+to establish which component limits capacity and whether API replicas increase it.
 
 The first four-replica run failed on something else: eight processes
 against the Postgres image's default hundred connections exhausted the
@@ -74,9 +80,9 @@ failed open as designed. The stack now sizes `max_connections` and gives
 each process its share of the pool - the budget `docs/production.md` asks
 operators for, found the hard way.
 
-Read it as: throughput that grows with replicas is CPU-bound in the api and
-scales out; throughput that does not is bound by Postgres or by the host,
-and the next conversation is about the database, not more replicas.
+Throughput scaling must be tested with controlled per-replica resources and
+an independently capable generator. Flat throughput alone does not identify the
+component that should be optimized next.
 
 ## What the database does per request
 
@@ -116,10 +122,10 @@ connections in use at the end of the run.
 | public sites (paged) | 656 · 39 / 91 · 57 | 627 · 50 / 97 · 162 | 633 · 48 / 105 · 79 |
 | public sites near | 440 · 80 / 151 · 57 | 400 · 85 / 147 · 163 | 397 · 84 / 151 · 80 |
 
-Zero errors on every row. On one laptop the throughput is flat across
-replicas because every process shares the same cores; that is the host,
-not the design, and it is the same shape as before the fix, only higher.
-The column that changes is the last: through the bouncer the four replicas
+Zero errors on every row. Throughput remains broadly similar across these
+configurations; the tables do not establish an overall speedup from the fix
+or isolate the remaining bottleneck. The occupancy column shows a clearer change:
+through the bouncer the four replicas
 hold 73 to 80 server connections where direct connections hold 140 to 163,
 with every process asking for a pool of a hundred. That is transaction
 pooling doing what it is for, and the fleet suite passes five of five

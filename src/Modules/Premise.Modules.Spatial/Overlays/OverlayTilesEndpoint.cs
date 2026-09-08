@@ -25,7 +25,10 @@ public static class OverlayTilesEndpoint
     private const int Extent = 4096;
     private const int Buffer = 64;
 
-    [Transactional(typeof(SpatialDbContext))]
+    [Transactional(
+        typeof(SpatialDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/tiles/overlays/{id}/{z}/{x}/{y}")]
     [ProducesResponseType(
         typeof(byte[]),

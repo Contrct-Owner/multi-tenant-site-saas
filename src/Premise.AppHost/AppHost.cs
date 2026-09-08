@@ -55,13 +55,11 @@ var pgbouncer = pooled
         .WaitFor(postgresServer)
     : null;
 
-// the app roles' connection string through the pooler (the reference to
-// postgres above still drives waiting; this key wins for the string itself)
-ReferenceExpression? pooledConnection = pgbouncer is null
-    ? null
-    : ReferenceExpression.Create(
-        $"Host={pgbouncer.GetEndpoint("tcp").Property(EndpointProperty.Host)};Port={pgbouncer.GetEndpoint("tcp").Property(EndpointProperty.Port)};Database=premise;Username=postgres;Password={postgresServer.Resource.PasswordParameter}"
-    );
+// Runtime roles never receive the owner connection string, even in development.
+var databaseEndpoint = pgbouncer?.GetEndpoint("tcp") ?? postgresServer.GetEndpoint("tcp");
+var appConnection = ReferenceExpression.Create(
+    $"Host={databaseEndpoint.Property(EndpointProperty.Host)};Port={databaseEndpoint.Property(EndpointProperty.Port)};Database=premise;Username=app_user;Password=app_user"
+);
 
 var workos = localAuth
     ? null
@@ -92,15 +90,13 @@ var migrate = builder
 
 var apiBuilder = builder
     .AddProject<Projects.Premise_Api>("api")
-    .WithReference(postgres)
+    .WithEnvironment("ConnectionStrings__premise", appConnection)
     .WaitForCompletion(migrate)
     .WithEnvironment("ROLE", "api")
     .WithEnvironment("Database__AppUser", "app_user")
     .WithEnvironment("Database__AppPassword", "app_user");
-if (pgbouncer is not null && pooledConnection is not null)
-    apiBuilder = apiBuilder
-        .WaitFor(pgbouncer)
-        .WithEnvironment("ConnectionStrings__premise", pooledConnection);
+if (pgbouncer is not null)
+    apiBuilder = apiBuilder.WaitFor(pgbouncer);
 
 if (workos is not null && workosEndpoint is not null)
     apiBuilder = apiBuilder
@@ -136,14 +132,12 @@ var workerBuilder = builder
     .AddProject<Projects.Premise_Api>("worker", launchProfileName: null)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
     .WithEnvironment("ASPNETCORE_URLS", "http://127.0.0.1:0")
-    .WithReference(postgres)
+    .WithEnvironment("ConnectionStrings__premise", appConnection)
     .WaitForCompletion(migrate)
     .WithEnvironment("Database__AppUser", "app_user")
     .WithEnvironment("Database__AppPassword", "app_user")
     .WithEnvironment("ROLE", "worker");
-if (pgbouncer is not null && pooledConnection is not null)
-    workerBuilder
-        .WaitFor(pgbouncer)
-        .WithEnvironment("ConnectionStrings__premise", pooledConnection);
+if (pgbouncer is not null)
+    workerBuilder.WaitFor(pgbouncer);
 
 builder.Build().Run();

@@ -32,7 +32,6 @@ public static class SiteEndpoints
         IEntitlements entitlements,
         IPrincipalAccessor accessor,
         IScopeResolver scopes,
-        Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
         CancellationToken ct
     )
     {
@@ -48,7 +47,26 @@ public static class SiteEndpoints
             return Results.Forbid();
 
         // Gate 1 (ADR 8/9): a limit failure is 402-and-upsell, never an error.
-        var siteCount = await SiteCount.CurrentAsync(cache, db, node.OrgId, ct);
+        if (
+            !await CapacityReservations.TryLockAsync(
+                db,
+                node.OrgId,
+                EntitlementCatalog.MaxSites,
+                ct
+            )
+        )
+            return ApiErrors.Status(
+                "site capacity is busy; retry the request",
+                StatusCodes.Status503ServiceUnavailable
+            );
+        var siteCount =
+            await db.Sites.LongCountAsync(ct)
+            + await CapacityReservations.PendingAsync(
+                db,
+                node.OrgId,
+                EntitlementCatalog.MaxSites,
+                ct
+            );
         var decision = await entitlements.CheckLimitAsync(
             node.OrgId,
             EntitlementCatalog.MaxSites,
@@ -77,11 +95,13 @@ public static class SiteEndpoints
         };
         db.Sites.Add(site);
         await db.SaveChangesAsync(ct);
-        SiteCount.Created(cache, node.OrgId);
         return Results.Ok(ToResponse(site));
     }
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/{id}")]
     [ProducesResponseType(typeof(SiteResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(

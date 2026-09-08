@@ -68,7 +68,10 @@ public static class PublicSiteEndpoints
     /// brand.color org setting finally has a reader). A shell enhancer: 404
     /// when the host resolves to nothing, and the page renders unbranded.
     /// </summary>
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/public/org")]
     [ProducesResponseType(typeof(PublicOrgResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> OrgIdentity(
@@ -120,7 +123,10 @@ public static class PublicSiteEndpoints
     /// is only partly mapped still lists every location. Nearest pages carry
     /// no cursor: the point of "near" is the closest ones.
     /// </summary>
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/public/sites")]
     [ProducesResponseType(typeof(PublicSiteListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -309,7 +315,10 @@ public static class PublicSiteEndpoints
         return 2 * earthRadiusKm * Math.Asin(Math.Sqrt(a));
     }
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/public/sites/{id}")]
     [ProducesResponseType(typeof(PublicSiteDetailResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Get(

@@ -76,6 +76,9 @@ public static class MemberEndpoints
             );
 
         await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);
+        await db
+            .GrantExceptions.Where(e => e.OrgId == org && e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
         db.Memberships.Remove(membership);
         await db.SaveChangesAsync(ct);
 
@@ -101,7 +104,10 @@ public static class MemberEndpoints
         return Results.NoContent();
     }
 
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/members")]
     [ProducesResponseType(typeof(MemberListResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -223,7 +229,10 @@ public static class MemberEndpoints
         return Results.Ok(new InvitationCreatedResponse(invitationId));
     }
 
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/members/invitations")]
     [ProducesResponseType(typeof(List<InvitationResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> ListInvitations(
@@ -319,6 +328,9 @@ public static class MemberEndpoints
 
         // deletion tier 3 (ADR 25): the membership ends; audit is the record
         await db.MembershipRoles.Where(r => r.MembershipId == membership.Id).ExecuteDeleteAsync(ct);
+        await db
+            .GrantExceptions.Where(e => e.OrgId == org && e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
         db.Memberships.Remove(membership);
         await db.SaveChangesAsync(ct);
 

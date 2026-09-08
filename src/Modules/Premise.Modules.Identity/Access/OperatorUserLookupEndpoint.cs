@@ -28,7 +28,10 @@ public sealed record OperatorUserResponse(
 /// </summary>
 public static class OperatorUserLookupEndpoint
 {
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/operator/users")]
     [ProducesResponseType(typeof(List<OperatorUserResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> Search(

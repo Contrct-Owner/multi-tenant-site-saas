@@ -61,7 +61,10 @@ public sealed record ListingsFeedResponse(
 /// </summary>
 public static class ListingsFeedEndpoint
 {
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/listings/feed")]
     [ProducesResponseType(typeof(ListingsFeedResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Feed(

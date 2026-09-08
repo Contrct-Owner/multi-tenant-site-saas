@@ -6,7 +6,7 @@
   efficiency, test strategy, and production maturity
 - **Status:** Follow-up remediation active; prior verification is historical evidence
 - **Owner:** Project maintainers
-- **Last updated:** 2026-09-05
+- **Last updated:** 2026-09-07
 - **Reviewed state:** Hosted verification at `e1b1552`; subsequent local investigation is recorded separately
 
 This review evaluates Premise as a forkable foundation for location/site-based,
@@ -15,6 +15,62 @@ prototype or example application. Its purpose is to record what is strong today,
 what remains risky, and the acceptance criteria for the next stages of work.
 
 ## Executive assessment
+
+### Architecture follow-up (2026-09-07, current local work)
+
+This follow-up is separate from the historical hosted revision below. The
+maintainer prioritized business invariants, transaction conventions, deployment
+compatibility, and demonstrated maintenance hotspots.
+
+- **Business capacity:** [ADR 55](decisions/0055-business-capacity-reservations.md)
+  records strict site admission and the explicitly selected whole-batch import
+  reservation policy. The per-process site-count cache is removed. Platform-owned
+  reservations share the accepting Ingest transaction and are consumed with the
+  Tenancy write. Pending/failed work retains its capacity until completion or
+  explicit reconciliation. Contact-link metering retains its existing approximate
+  Grace contract; it is not qualified as an exact billing ledger.
+- **Execution conventions:** annotated GET endpoints use lightweight transactions,
+  checked by an architecture regression. Write/outbox transactions retain their
+  owning context. Migration startup retries only transient database errors.
+  [Production conventions](production.md#handler-and-transaction-conventions)
+  explain the ordering and ownership rules.
+- **Compatibility deployment:** local preparation remains available in
+  [the ordered checklist](../deploy/digitalocean/README.md). Actual provisioning
+  still depends on account/context, domain, registry and provider choices. No live
+  provider, managed-database privilege, NFS, or hosted gateway result is claimed.
+- **Frontend locality:** the settings route delegates to `features/settings`;
+  its typed API module owns requests, while site-attribute and basemap editors
+  are separate internal components. Existing validation, query keys, redirects
+  and mutation behavior are retained.
+
+Local verification before the final contention-retry tuning: **321 integration tests passed** across the existing
+shards (134 + 187), with one expected opt-in scale skip; **52 architecture** and
+**68 unit** tests passed. This includes imports, reservations, migration failure
+handling and all module migration round trips. Console typechecking, lint,
+49 tests, production build, and the settings Chromium accessibility check passed.
+The Linux production image passed migration, non-root API/worker readiness and
+durable worker cleanup smoke checks. The frontend build still reports a
+large-chunk warning; this change does not claim bundle optimization.
+
+The first two-replica run exposed a recovery regression: scheduling every capacity
+collision missed the existing five-minute import recovery limit. The final native
+Wolverine policy adds short, jittered retries before durable delayed retries.
+After that change, all **5 capacity integration tests** and **5 two-replica fleet
+tests passed**. The fleet completed the 400-row import after killing its accepting
+API in **3 minutes 10 seconds**, within the unchanged five-minute limit. The fleet
+also verified one remaining business slot under concurrent creates, shared
+sessions, idempotency and sweep uniqueness. The final rebuilt production image
+passed all three role smoke checks again. Test containers and processes were
+cleaned up. These are correctness/recovery checks, not throughput qualification.
+
+The first broad run exposed a replay test that did not handle intentional
+transient contention; the final run retries only that condition. An existing
+import test now waits for both queued rows before inspecting a subsequent
+preview, rather than assuming the first row's appearance means all work finished.
+Logs are local `/tmp/premise-hardening-*` files; final TRX results are under
+`tests/Premise.IntegrationTests/TestResults/shard-1-18195/` and
+`tests/Premise.IntegrationTests/TestResults/shard-2-18132/`. They are local evidence,
+not a hosted CI or live-provider result.
 
 The subsequent objective review reopened work in this priority order:
 

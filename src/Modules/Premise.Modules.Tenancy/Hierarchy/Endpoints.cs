@@ -49,6 +49,8 @@ public static class HierarchyEndpoints
     )
     {
         var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.HierarchyManage, ct);
+        if (gate is GateOutcome.Allowed { Scope: not NodeScope.EntireOrg })
+            return new GateOutcome.Forbidden(Capabilities.HierarchyManage).ToResult();
         if (gate is not GateOutcome.Allowed { Principal: Principal.User principal, Org: var org })
             return gate.ToResult();
         if (request.Levels.Length == 0)
@@ -95,6 +97,8 @@ public static class HierarchyEndpoints
     )
     {
         var gate = await Gate.RequireUserAsync(accessor, scopes, Capabilities.HierarchyManage, ct);
+        if (gate is GateOutcome.Allowed { Scope: not NodeScope.EntireOrg })
+            return new GateOutcome.Forbidden(Capabilities.HierarchyManage).ToResult();
         if (gate is not GateOutcome.Allowed { Org: var org })
             return gate.ToResult();
         var levels = request.Levels.Select(l => l.Trim()).ToArray();
@@ -125,15 +129,36 @@ public static class HierarchyEndpoints
         return Results.Ok(new HierarchyLevelsResponse(hierarchy.Levels));
     }
 
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/hierarchy")]
     [ProducesResponseType(typeof(HierarchyResponse), StatusCodes.Status200OK)]
-    public static async Task<IResult> Get(TenancyDbContext db, CancellationToken ct)
+    public static async Task<IResult> Get(
+        TenancyDbContext db,
+        IPrincipalAccessor accessor,
+        IScopeResolver scopes,
+        CancellationToken ct
+    )
     {
+        var gate = await Gate.RequireAsync(accessor, scopes, Capabilities.SitesRead, ct);
+        if (gate is not GateOutcome.Allowed { Scope: var scope })
+            return gate.ToResult();
         var hierarchy = await db.Hierarchies.FirstOrDefaultAsync(h => h.IsAuthoritative, ct);
         if (hierarchy is null)
             return Results.NotFound();
+        var entireOrg = scope is NodeScope.EntireOrg;
+        var paths = scope is NodeScope.Subtrees subtrees
+            ? subtrees.Paths.Select(p => new LTree(p)).ToArray()
+            : [];
         var nodes = await db
             .HierarchyNodes.Where(n => n.HierarchyId == hierarchy.Id)
+            .Where(n =>
+                entireOrg
+                || paths.Any(p => n.Path.IsDescendantOf(p))
+                || paths.Any(p => n.Path.IsAncestorOf(p))
+            )
             .OrderBy(n => n.Path)
             .Select(n => new NodeResponse(n.Id, n.ParentId, n.Name, n.Depth, n.Path.ToString()))
             .ToListAsync(ct);

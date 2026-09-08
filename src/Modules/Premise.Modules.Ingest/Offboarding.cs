@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Ingest.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
 
@@ -27,7 +28,7 @@ public sealed class IngestExporter(IngestDbContext db) : IOrgDataExporter
                 c.Url,
                 c.CreatedAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         var batches = await db
             .Batches.IgnoreQueryFilters()
             .Where(b => b.OrgId == org)
@@ -38,7 +39,7 @@ public sealed class IngestExporter(IngestDbContext db) : IOrgDataExporter
                 b.CreatedAt,
                 counts = b.Counts,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         return JsonSerializer.Serialize(
             new { connectors, batches },
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }
@@ -60,6 +61,10 @@ public static class PurgeOrgIngestHandler
         var org =
             tenant.OrgId
             ?? throw new InvalidOperationException("purge arrived with no tenant on the envelope");
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"DELETE FROM platform.capacity_reservations WHERE org_id = {org.Value} AND code = {ConnectorQueue.Code}",
+            ct
+        );
         await db.StagedSites.IgnoreQueryFilters().Where(s => s.OrgId == org).ExecuteDeleteAsync(ct);
         await db.Batches.IgnoreQueryFilters().Where(b => b.OrgId == org).ExecuteDeleteAsync(ct);
         await db.Connectors.IgnoreQueryFilters().Where(c => c.OrgId == org).ExecuteDeleteAsync(ct);

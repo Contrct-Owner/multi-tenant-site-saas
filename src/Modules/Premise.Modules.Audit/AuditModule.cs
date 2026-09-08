@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Premise.Modules.Audit.Data;
 using Premise.Platform.Audit;
 using Premise.Platform.Data;
+using Premise.Platform.Http;
 using Premise.Platform.Kernel;
 using Wolverine.EntityFrameworkCore;
 
@@ -24,6 +26,16 @@ public static class AuditModule
             services.AddHostedService<AuditRetentionService>();
             services.AddHostedService<AuditPartitionMaintenanceService>();
         }
+        services
+            .AddHttpClient("webhook-delivery", client => client.Timeout = TimeSpan.FromSeconds(15))
+            .RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(sp =>
+            {
+                var environment = sp.GetRequiredService<IHostEnvironment>();
+                return PublicHttp.CreateHandler(
+                    environment.IsDevelopment() || environment.IsEnvironment("Testing")
+                );
+            });
         return services;
     }
 }

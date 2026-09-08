@@ -34,6 +34,7 @@ public static class RolePresets
                 Grant(Capabilities.FilesRead),
                 Grant(Capabilities.FilesManage),
                 Grant(Capabilities.IngestManage),
+                Grant(Capabilities.ReportsGenerate),
                 Grant(Capabilities.ChecklistsManage),
                 Grant(Capabilities.ChecklistsComplete),
                 Grant(Capabilities.OverlaysRead),

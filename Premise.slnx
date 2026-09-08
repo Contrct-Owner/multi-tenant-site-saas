@@ -19,6 +19,7 @@
     <Project Path="src/Modules/Premise.Modules.Entitlements/Premise.Modules.Entitlements.csproj" />
     <Project Path="src/Modules/Premise.Modules.Identity/Premise.Modules.Identity.csproj" />
     <Project Path="src/Modules/Premise.Modules.Ingest/Premise.Modules.Ingest.csproj" />
+    <Project Path="src/Modules/Premise.Modules.Reporting/Premise.Modules.Reporting.csproj" />
     <Project Path="src/Modules/Premise.Modules.Spatial/Premise.Modules.Spatial.csproj" />
     <Project Path="src/Modules/Premise.Modules.Storage/Premise.Modules.Storage.csproj" />
     <Project Path="src/Modules/Premise.Modules.Tenancy/Premise.Modules.Tenancy.csproj" />
@@ -27,9 +28,11 @@
     <Project Path="tests/Premise.ArchitectureTests/Premise.ArchitectureTests.csproj" />
     <Project Path="tests/Premise.FleetTests/Premise.FleetTests.csproj" />
     <Project Path="tests/Premise.IntegrationTests/Premise.IntegrationTests.csproj" />
+    <Project Path="tests/Premise.Modules.Reporting.UnitTests/Premise.Modules.Reporting.UnitTests.csproj" />
     <Project Path="tests/Premise.Platform.UnitTests/Premise.Platform.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Premise.Tools.CodegenKeys/Premise.Tools.CodegenKeys.csproj" />
+    <Project Path="tools/Premise.Tools.ReportingProof/Premise.Tools.ReportingProof.csproj" />
   </Folder>
 </Solution>

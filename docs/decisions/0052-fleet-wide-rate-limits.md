@@ -1,10 +1,14 @@
 # 52. Rate limits are counted in Postgres, not in the process
 
 Date: 2026-09-06
-Status: accepted
+Status: superseded for request rate limiting by [ADR 54](0054-gateway-operational-fairness.md)
 Pinned: false
 
 ## Context
+
+The text below records the historical design. Request rates are now classified
+as operational fairness, not sold quotas. Idempotency and sweep leases still use
+Postgres; the request counter implementation is being retired under ADR 54.
 
 ADR 30 partitions rate limiting by principal: a per-org quota from the
 metered entitlement, then a per-user (or per-API-key) limit, then a guest or

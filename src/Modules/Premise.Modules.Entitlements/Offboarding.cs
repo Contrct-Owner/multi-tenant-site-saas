@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Premise.Contracts;
 using Premise.Modules.Entitlements.Data;
+using Premise.Platform.Data;
 using Premise.Platform.Kernel;
 using Wolverine.Attributes;
 
@@ -24,7 +25,7 @@ public sealed class EntitlementsExporter(EntitlementsDbContext db) : IOrgDataExp
                 e.Source,
                 e.UpdatedAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         var exceptions = await db
             .Exceptions.IgnoreQueryFilters()
             .Where(e => e.OrgId == org)
@@ -36,7 +37,7 @@ public sealed class EntitlementsExporter(EntitlementsDbContext db) : IOrgDataExp
                 e.ExpiresAt,
                 e.CreatedAt,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         var rollups = await db
             .Rollups.IgnoreQueryFilters()
             .Where(r => r.OrgId == org)
@@ -46,7 +47,7 @@ public sealed class EntitlementsExporter(EntitlementsDbContext db) : IOrgDataExp
                 r.PeriodMonth,
                 r.Amount,
             })
-            .ToListAsync(ct);
+            .ToBoundedExportListAsync(ct);
         return JsonSerializer.Serialize(
             new
             {

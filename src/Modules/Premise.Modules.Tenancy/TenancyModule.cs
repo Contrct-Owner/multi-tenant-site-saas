@@ -36,6 +36,7 @@ public static class TenancyModule
             sp.GetRequiredService<IOrganizationLookup>()
         );
         services.AddScoped<ISiteLookup, SiteLookup>();
+        services.AddScoped<ISiteSource, SiteSource>();
         services.AddScoped<ISiteDirectory, Sites.SiteDirectory>();
         services.AddScoped<IHierarchyDirectory, Hierarchy.HierarchyDirectory>();
         // data layers (ADR 50 §3): registered queries the composition root serves as tiles

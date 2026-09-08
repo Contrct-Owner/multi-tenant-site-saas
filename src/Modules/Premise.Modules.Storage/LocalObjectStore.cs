@@ -11,6 +11,8 @@ namespace Premise.Modules.Storage;
 /// </summary>
 public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStore
 {
+    public bool SupportsBoundedUpload => true;
+
     private readonly string _root =
         configuration["Storage:LocalRoot"] ?? Path.Combine(Path.GetTempPath(), "premise-objects");
 
@@ -35,7 +37,7 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
         var expires = DateTimeOffset.UtcNow.AddMinutes(15);
         return ValueTask.FromResult(
             new UploadTicket(
-                $"/objects/upload/{Sign(key, maxBytes, expires)}",
+                $"/objects/upload/{Sign("upload", key, maxBytes, expires)}",
                 "PUT",
                 new Dictionary<string, string> { ["Content-Type"] = contentType },
                 expires
@@ -50,13 +52,15 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
     ) =>
         ValueTask.FromResult(
             new Uri(
-                $"/objects/download/{Sign(key, 0, DateTimeOffset.UtcNow.Add(ttl))}",
+                $"/objects/download/{Sign("download", key, 0, DateTimeOffset.UtcNow.Add(ttl))}",
                 UriKind.Relative
             )
         );
 
-    public (string key, long maxBytes)? Redeem(string token)
+    public (string key, long maxBytes)? Redeem(string token, string operation)
     {
+        if (token.Length > 4096)
+            return null;
         var parts = token.Split('.', 2);
         if (parts.Length != 2)
             return null;
@@ -80,19 +84,22 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
             return null;
         var fields = System.Text.Encoding.UTF8.GetString(payload).Split('\n');
         if (
-            fields.Length != 3
-            || !long.TryParse(fields[1], out var maxBytes)
-            || !long.TryParse(fields[2], out var expiresUnix)
-            || DateTimeOffset.FromUnixTimeSeconds(expiresUnix) < DateTimeOffset.UtcNow
+            fields.Length != 4
+            || fields[0] != operation
+            || !long.TryParse(fields[2], out var maxBytes)
+            || maxBytes < 0
+            || operation == "upload" && maxBytes == 0
+            || !long.TryParse(fields[3], out var expiresUnix)
+            || expiresUnix < DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         )
             return null;
-        return (fields[0], maxBytes);
+        return (fields[1], maxBytes);
     }
 
-    private string Sign(string key, long maxBytes, DateTimeOffset expires)
+    private string Sign(string operation, string key, long maxBytes, DateTimeOffset expires)
     {
         var payload = System.Text.Encoding.UTF8.GetBytes(
-            $"{key}\n{maxBytes}\n{expires.ToUnixTimeSeconds()}"
+            $"{operation}\n{key}\n{maxBytes}\n{expires.ToUnixTimeSeconds()}"
         );
         return $"{ToUrl(payload)}.{ToUrl(HMACSHA256.HashData(_secret, payload))}";
     }
@@ -138,9 +145,61 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
         await content.CopyToAsync(file, ct);
     }
 
+    /// <summary>One ticket use, bounded bytes, atomic publication: scanning never sees a partial upload.</summary>
+    public async Task UploadAsync(string key, Stream content, long maxBytes, CancellationToken ct)
+    {
+        var path = PathFor(key);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        // The small claim survives object deletion so an unexpired ticket cannot recreate erased bytes.
+        // ponytail: claims remain until this dev store is reset; add expiry cleanup for long-lived local stores.
+        await using (
+            var claim = new FileStream(
+                path + ".upload-claimed",
+                FileMode.CreateNew,
+                System.IO.FileAccess.Write,
+                FileShare.None
+            )
+        ) { }
+        var temporary = path + ".upload-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            await using (
+                var file = new FileStream(
+                    temporary,
+                    FileMode.CreateNew,
+                    System.IO.FileAccess.Write,
+                    FileShare.None,
+                    65536,
+                    FileOptions.Asynchronous
+                )
+            )
+            {
+                var buffer = new byte[65536];
+                long length = 0;
+                int read;
+                while ((read = await content.ReadAsync(buffer, ct)) != 0)
+                {
+                    length += read;
+                    if (length > maxBytes)
+                        throw new InvalidDataException("Upload exceeds its byte budget.");
+                    await file.WriteAsync(buffer.AsMemory(0, read), ct);
+                }
+            }
+            File.Move(temporary, path, overwrite: false);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+    }
+
     public ValueTask DeleteAsync(string key, CancellationToken ct = default)
     {
-        File.Delete(PathFor(key));
+        try
+        {
+            File.Delete(PathFor(key));
+        }
+        catch (DirectoryNotFoundException) { } // Already absent, including an intent whose upload never started.
         return ValueTask.CompletedTask;
     }
 
@@ -150,7 +209,10 @@ public sealed class LocalObjectStore(IConfiguration configuration) : IObjectStor
         var path = Path.GetFullPath(
             Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar))
         );
-        return path.StartsWith(Path.GetFullPath(_root))
+        var root =
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(_root))
+            + Path.DirectorySeparatorChar;
+        return path.StartsWith(root, StringComparison.Ordinal)
             ? path
             : throw new InvalidOperationException("key escapes the storage root");
     }

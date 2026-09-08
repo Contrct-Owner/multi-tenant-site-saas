@@ -40,12 +40,13 @@ export const fmtBusinessDate = (value: string): string => {
 
 /** Friendly names for entitlement codes; the raw code stays available as detail. */
 export const ENTITLEMENT_LABELS: Record<string, string> = {
-  'api.requests_per_minute': 'API requests / minute',
   'audit.read_logging': 'Read-access logging',
   'audit.retention_days': 'Audit retention (days)',
   'contact_links.enabled': 'Contact links',
   'contact_links.monthly': 'Contact links / month',
   'hierarchy.depth': 'Hierarchy depth',
+  'reports.enabled': 'Report generation',
+  'reports.monthly': 'PDF reports / UTC month',
   'sites.max': 'Site limit',
   'sso.enabled': 'Single sign-on',
 };

@@ -27,7 +27,12 @@ export async function expectAccessible(page: Page) {
   for (const dark of [wasDark, !wasDark]) {
     await page.evaluate((on) => document.documentElement.classList.toggle('dark', on), dark);
     await page.waitForTimeout(50);
-    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    // Base UI intentionally exposes focus sentinels for Safari/VoiceOver;
+    // hiding them breaks focus trapping. Maintainer guidance:
+    // https://github.com/mui/base-ui/issues/5237
+    const results = await new AxeBuilder({ page })
+      .exclude('span[data-base-ui-focus-guard]')
+      .withTags(['wcag2a', 'wcag2aa']).analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     expect(
       blocking.map((v) => `[${dark ? 'dark' : 'light'}] ${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),

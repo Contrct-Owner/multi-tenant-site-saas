@@ -52,7 +52,10 @@ public sealed record RotatedApiKeyResponse(
 /// </summary>
 public static class ApiKeyEndpoints
 {
-    [Transactional(typeof(IdentityDbContext))]
+    [Transactional(
+        typeof(IdentityDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/api-keys")]
     [ProducesResponseType(typeof(List<ApiKeyResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(

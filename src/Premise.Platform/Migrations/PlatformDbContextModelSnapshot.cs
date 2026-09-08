@@ -23,6 +23,39 @@ namespace Premise.Platform.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Premise.Platform.Entitlements.CapacityReservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrgId", "BatchId");
+
+                    b.HasIndex("OrgId", "Code");
+
+                    b.ToTable("capacity_reservations", "platform");
+                });
+
             modelBuilder.Entity("Premise.Platform.Infra.IdempotencyRecord", b =>
                 {
                     b.Property<Guid>("OrgId")
@@ -68,28 +101,6 @@ namespace Premise.Platform.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.ToTable("idempotency_keys", "platform");
-                });
-
-            modelBuilder.Entity("Premise.Platform.Infra.RateWindow", b =>
-                {
-                    b.Property<string>("Partition")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("partition");
-
-                    b.Property<DateTimeOffset>("WindowStart")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("window_start");
-
-                    b.Property<int>("Count")
-                        .HasColumnType("integer")
-                        .HasColumnName("count");
-
-                    b.HasKey("Partition", "WindowStart");
-
-                    b.HasIndex("WindowStart");
-
-                    b.ToTable("rate_windows", "platform");
                 });
 
             modelBuilder.Entity("Premise.Platform.Infra.SweepRun", b =>

@@ -15,10 +15,16 @@ public static class StorageModule
     )
     {
         if (runBackgroundWork)
+        {
             services.AddHostedService<FileTrashService>();
+            services.AddHostedService<PendingUploadService>();
+        }
         services.AddModuleDbContext<StorageDbContext>("storage");
         services.AddScoped<Premise.Contracts.IStoredFileLookup, StoredFileLookup>();
         services.AddScoped<Premise.Contracts.IOrgDataExporter, StorageExporter>();
+        services.AddScoped<Premise.Contracts.IReportFileSource, ReportFileSource>();
+        services.AddScoped<FileAccess>();
+        services.AddScoped<Premise.Contracts.IReportPublishedFiles, ReportPublishedFiles>();
         return services;
     }
 }

@@ -75,7 +75,7 @@ public class PagingTests(ApiFixture fixture) : IClassFixture<ApiFixture>
 
         var files = await owner.GetFromJsonAsync<JsonElement>("/api/files?limit=5");
         Assert.Equal(JsonValueKind.Array, files.GetProperty("items").ValueKind);
-        Assert.True(files.GetProperty("total").GetInt32() >= 0);
+        Assert.Equal(JsonValueKind.Null, files.GetProperty("total").ValueKind);
     }
 
     [Fact]

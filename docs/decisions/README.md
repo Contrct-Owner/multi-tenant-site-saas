@@ -70,3 +70,6 @@ confirmation on edits under this directory.
 - [0051. Leakproof keys: how indexes work under row security](0051-leakproof-keys-under-rls.md)
 - [0052. Rate limits are counted in Postgres, not in the process](0052-fleet-wide-rate-limits.md)
 - [0053. The tenant variable is transaction state, and the message store has its own connection](0053-tenant-is-transaction-state.md)
+- [0054. Gateway enforcement of operational fairness](0054-gateway-operational-fairness.md) — supersedes request-rate policy in 30 and 52; implementation in progress
+- [0055. Business capacity is reserved with durable acceptance](0055-business-capacity-reservations.md)
+- [0056. Reporting: the template owns execution and delivery, forks own content](0056-reporting-execution-and-delivery.md)

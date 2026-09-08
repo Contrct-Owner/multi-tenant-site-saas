@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
  * phone opened last): read once, written on change, and never a reason to
  * fail - storage can be absent, full, or refused, and the fallback is the
  * answer then. Stored as JSON under one prefix so a key is greppable.
- * Session caches (the hierarchy) are `persisted()`; this is for choices.
+ * Private session data stays in React Query; this store is for choices.
  */
 const PREFIX = 'premise.';
 

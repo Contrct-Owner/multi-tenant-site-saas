@@ -29,6 +29,14 @@ public static class ApiErrors
     public static IResult Conflict(string message) =>
         Refuse(message, StatusCodes.Status409Conflict);
 
+    /// <summary>
+    /// Transient admission contention (ADR 55). Admission locks never wait on a
+    /// pooled connection, so the caller is the one that retries - and is told
+    /// when, rather than being left to guess from a bare 503.
+    /// </summary>
+    public static IResult Busy(string message, int retryAfterSeconds = 1) =>
+        new BusyResult(Body(message, "admission_busy"), retryAfterSeconds);
+
     /// <summary>Any other status (413, 422, 501): the same body under the status the caller names.</summary>
     public static IResult Status(
         string message,
@@ -40,6 +48,19 @@ public static class ApiErrors
     /// <summary>The body alone, for middleware that writes its own response; <paramref name="code"/> is the machine-readable reason.</summary>
     public static ApiError Body(string message, string? code = null, object? detail = null) =>
         new(message, Activity.Current?.TraceId.ToString(), code, detail);
+
+    private sealed class BusyResult(ApiError body, int retryAfter) : IResult
+    {
+        public Task ExecuteAsync(HttpContext httpContext)
+        {
+            httpContext.Response.Headers.RetryAfter = retryAfter.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            );
+            return Results
+                .Json(body, statusCode: StatusCodes.Status503ServiceUnavailable)
+                .ExecuteAsync(httpContext);
+        }
+    }
 
     private static IResult Refuse(
         string message,

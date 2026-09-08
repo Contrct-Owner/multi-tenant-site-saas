@@ -27,7 +27,10 @@ public static class OrgClosureEndpoints
     public static int GraceDays(IConfiguration configuration) =>
         configuration.GetValue<int?>("Organizations:CloseGraceDays") ?? 30;
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/org/closure")]
     [ProducesResponseType(typeof(ClosureStatusResponse), StatusCodes.Status200OK)]
     public static async Task<IResult> Status(

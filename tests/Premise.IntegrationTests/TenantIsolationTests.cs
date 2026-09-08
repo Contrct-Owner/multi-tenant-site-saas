@@ -60,10 +60,8 @@ public class TenantIsolationTests(ApiFixture fixture) : IClassFixture<ApiFixture
     [Fact]
     public async Task Guest_with_no_org_sees_no_rows_fail_closed()
     {
-        var settings = await fixture
-            .GuestClient()
-            .GetFromJsonAsync<List<SettingDto>>("/api/settings");
-        Assert.Empty(settings!);
+        var response = await fixture.GuestClient().GetAsync("/api/settings");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

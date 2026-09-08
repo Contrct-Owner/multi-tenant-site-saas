@@ -62,7 +62,10 @@ public static class ScheduleEndpoints
         return Results.Ok(new ScheduleCreatedResponse(schedule.Id));
     }
 
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/{id}/schedules")]
     [ProducesResponseType(typeof(List<ScheduleResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> List(
@@ -132,7 +135,10 @@ public static class ScheduleEndpoints
     }
 
     /// <summary>Upcoming open windows from the projection - "what these rules actually mean".</summary>
-    [Transactional(typeof(TenancyDbContext))]
+    [Transactional(
+        typeof(TenancyDbContext),
+        Mode = Wolverine.Persistence.TransactionMiddlewareMode.Lightweight
+    )]
     [WolverineGet("/api/sites/{id}/windows")]
     [ProducesResponseType(typeof(List<SiteWindowResponse>), StatusCodes.Status200OK)]
     public static async Task<IResult> Windows(
