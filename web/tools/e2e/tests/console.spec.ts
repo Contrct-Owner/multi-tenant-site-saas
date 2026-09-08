@@ -148,6 +148,11 @@ test.describe('critical workflows', () => {
     await page.getByRole('button', { name: 'New role' }).click();
     await page.getByLabel('Name', { exact: true }).fill(name);
     await page.getByRole('dialog').getByRole('checkbox', { name: 'See sites', exact: true }).check();
+    // Long grant lists must scroll inside the popup, keeping the dialog within the viewport.
+    await expect.poll(() => page.getByRole('dialog').evaluate((dialog) => {
+      const bounds = dialog.getBoundingClientRect();
+      return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+    })).toBe(true);
     await page.getByRole('button', { name: 'Create role' }).click();
     await expect(page.getByText('Role saved', { exact: true })).toBeVisible();
 

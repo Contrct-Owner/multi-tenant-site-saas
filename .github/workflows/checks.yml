@@ -235,6 +235,10 @@ jobs:
     # tools/e2e-stack.sh boots Postgres, the migrate and api roles and the
     # built console and public SSR servers, the same way locally.
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -252,20 +256,20 @@ jobs:
         working-directory: web
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter @premise/e2e exec playwright install --with-deps chromium firefox webkit
+          pnpm --filter @premise/e2e exec playwright install --with-deps ${{ matrix.engine }}
       - name: Browser argument forwarding regression
         working-directory: web
-        run: pnpm test:e2e --project=chromium --list
+        run: pnpm test:e2e --project=${{ matrix.engine }} --list
       - name: Browser and accessibility suite
         env:
           Logging__LogLevel__Microsoft.AspNetCore.Hosting.Diagnostics: Information
-        run: tools/e2e-stack.sh
+        run: tools/e2e-stack.sh --project=${{ matrix.engine }}
       - name: Failed-stack diagnostic preservation regression
         run: bash tests/e2e-stack-artifacts.test.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
-          name: browser-failure-diagnostics
+          name: browser-${{ matrix.engine }}-failure-diagnostics
           path: web/tools/e2e/test-results/
           if-no-files-found: ignore
 
